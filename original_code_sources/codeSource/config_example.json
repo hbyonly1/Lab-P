@@ -1,0 +1,58 @@
+{
+    "profiles": {
+        "Example_With_Index": {
+            "expName": "动力学法测杨氏模量",
+            "excludedNodesList": [
+                "example_id_to_exclude",
+                "another_id"
+            ],
+            "extract": [
+                "input_a",
+                "input_b",
+                "input_c",
+                "input_d"
+            ],
+            "uploadExpImage": {
+                "toFillNode": "#editor1",
+                "source": "1.jpg"
+            },
+            "prompts": [
+                {
+                    "type": "textRecognition",
+                    "value": "请识别图片中的实验数据，返回 JSON 对象格式，键为节点 id，值为对应的数据。例如：{\"DXYJ10-0\": \"4\", \"DXYJ10-1\": \"5\", \"DXYJ11-0\": \"98\"}",
+                    "recognitionSource": "data.jpg"
+                },
+                {
+                    "type": "generateAnswer",
+                    "value": "请根据实验数据生成实验报告总结，包括实验目的、过程和结论。",
+                    "toFillNode": "#answer_editor"
+                }
+            ],
+            "submit": {
+                "selector": "#save_button_id_or_selector"
+            },
+            "fill": [],
+            "crossSite": {
+                "targetUrl": "http://10.25.77.60:8001/default.aspx",
+                "extractIds": [
+                    "input_a",
+                    "input_b",
+                    "input_c",
+                    "input_d"
+                ],
+                "equationTypes": [
+                    "00",
+                    "00"
+                ],
+                "batchSize": 2,
+                "upload": {
+                    "editorSelector": ".wysiwyg-editor",
+                    "editorIndexes": [
+                        0,
+                        2
+                    ]
+                }
+            }
+        }
+    }
+}

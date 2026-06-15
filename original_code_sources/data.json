@@ -1,0 +1,594 @@
+{
+  "profiles": {
+    "磁滞回线与磁化曲线": {
+        "expName":"磁滞回线与磁化曲线",
+        "submit": {
+            "selector": "button[onclick='XMLSubmitReport_ZSTJ();']"
+        },
+        "automation":{
+            "autoFlowButtonList":[
+                "__tm_btn_switch_exp",
+                "#__tm_btn_upload_exp_image",
+                "__tm_btn_fill_from_pre_rec",
+
+                "__tm_btn_extract",
+                "__tm_btn_apply_const",
+                "__tm_btn_apply_var",
+
+                "__tm_btn_check_fill",
+                "__tm_btn_submit"
+            ],
+            "timeInterval":"4s",
+            "profileInterval":"4s"
+        },
+        "uploadExpImage": {
+            "toFillNode": ".wysiwyg-editor",
+            "source": [["6.jpg", "6.0.jpg"],["6.1.jpg","6.1.0.jpg"]]
+        },
+        "prompts": [
+            {
+                "type": "textRecognition",
+                "value": "下面是节点与实验数据的对应关系，用于从图片中识别并填充值。\\n\\n1. 测量磁滞回线的顶点坐标（共 10 组）\\n\\nX（UI）（cm）第 1~10 次：\\nC10-0  C10-1  C10-2  C10-3  C10-4  C10-5  C10-6  C10-7  C10-8  C10-9\\n\\nX 档位（V/cm）第 1~10 次：\\nC11-0  C11-1  C11-2  C11-3  C11-4  C11-5  C11-6  C11-7  C11-8  C11-9\\n\\nUI（V）（X 乘以档位）第 1~10 次：\\nC12-0  C12-1  C12-2  C12-3  C12-4  C12-5  C12-6  C12-7  C12-8  C12-9\\n\\nY（Uc）（cm）第 1~10 次：\\nC13-0  C13-1  C13-2  C13-3  C13-4  C13-5  C13-6  C13-7  C13-8  C13-9\\n\\nY 档位（V/cm）第 1~10 次：\\nC14-0  C14-1  C14-2  C14-3  C14-4  C14-5  C14-6  C14-7  C14-8  C14-9\\n\\nUc（V）（Y 乘以档位）第 1~10 次：\\nC15-0  C15-1  C15-2  C15-3  C15-4  C15-5  C15-6  C15-7  C15-8  C15-9\\n\\nμ* = Uc / UI 第 1~10 次：\\nC16-0  C16-1  C16-2  C16-3  C16-4  C16-5  C16-6  C16-7  C16-8  C16-9\\n\\n任务要求：\\n只输出一个 JSON object，包含所有节点 id 值和其对应的图片中的数据，例如：{ \\\"C10-0\\\":\\\"2.35\\\", \\\"C11-0\\\":\\\"0.5\\\", \\\"C12-0\\\":\\\"1.18\\\", ... }\\n- 不要输出空值\\n- 不要输出解释和注释",
+                "recognitionSource": "6.jpg"
+            },
+            {
+                "model":"doubao-seed-1-6-flash-250828",
+                "type": "generateAnswer",
+                "value": "请每次尽量生成不一样的答案，越随机越好，问题：1.请根据软磁材料和硬磁材料的特性分析一下它们可能有什么应用。要求：每个问题回答约 100 字，语言客观、符合大学物理实验报告风格，最终仅返回 JSON 格式，格式如下：{\"1\": \"内容\"}"
+            }
+        ],
+
+        "excludedNodesList": [
+            "input.file-caption-name","input#inpReportName","input#__tm_input_switch_id"
+        ],
+        "extract": ["C12-{0..9}","C15-{0..9}"],
+        "fill": [
+            {
+                "id": "C4",
+                "valueFromFn": "calculateMuRMax",
+                "args": ["page.C12-0", "page.C12-1", "page.C12-2", "page.C12-3", "page.C12-4",
+                        "page.C12-5", "page.C12-6", "page.C12-7", "page.C12-8", "page.C12-9",
+                        "page.C15-0", "page.C15-1", "page.C15-2", "page.C15-3", "page.C15-4",
+                        "page.C15-5", "page.C15-6", "page.C15-7", "page.C15-8", "page.C15-9"]
+            },
+            {"id": "SYYL_Fill_0", "value": "饱和磁感应强度"},
+            {"id": "SYYL_Fill_1", "value": "磁滞回线"},
+            {"id": "SYYL_Fill_2", "value": "矫顽力"},
+            {"id": "SYYL_Fill_3", "value": "剩余磁感应强度"},
+            {"id": "SYYL_Fill_4", "value": "X"},
+            {"id": "SYYL_Fill_5", "value": "Y"},
+            {
+                "id": "SYYL_Fill_6",
+                "value": "正比"
+            },
+            {
+                "id": "SYYL_Fill_7",
+                "value": "正比"
+            },
+            {
+                "id": "SYBZ_Fill_0",
+                "value": "铁氧体"
+            },
+            {
+                "id": "SYBZ_Fill_1",
+                "value": "5、幅度调节"
+            },
+            {
+                "id": "OP_Fill_0",
+                "value": "15.98"
+            },
+            {
+                "id":"OP_Fill_1",
+                "value":"T/V"
+            },
+            {
+                "id": "OP_Fill_2",
+                "value": "1044"
+            },
+            {
+                "id": "OP_Fill_3",
+                "value": "A/(m·V)"
+            }
+            
+        ]
+    },
+    "等厚干涉牛顿环劈尖": {
+        "expName": "等厚干涉牛顿环劈尖",
+        "submit": {
+            "selector": "button[onclick='XMLSubmitReport_ZSTJ();']"
+        },
+        "automation": {
+            "autoFlowButtonList": [
+                "__tm_btn_switch_exp",
+                "#__tm_btn_upload_exp_image",
+                "__tm_btn_fill_from_pre_rec",
+
+                "__tm_btn_extract",
+                "__tm_btn_apply_const",
+                "__tm_btn_apply_var",
+
+                "__tm_btn_check_fill",
+                "__tm_btn_submit"
+            ],
+            "timeInterval": "4s",
+            "profileInterval": "4s"
+        },
+
+        "uploadExpImage": {
+            "toFillNode": ".wysiwyg-editor",
+            "source": [["7.jpg", "7.0.jpg"]]
+        },
+        "prompts": [
+            {
+                "type": "textRecognition",
+                "value": "下面是数据节点与实验含义的对应关系，用于从图片中识别并填充值。\n\n1. 测量牛顿环曲率半径 R 相关数据（并用逐差法处理）\n\n环的级别 n = 6~10：\n环的位置左（mm）第 1~5 次（对应 n=6,7,8,9,10）：\nN10-0 N10-1 N10-2 N10-3 N10-4\n\n环的位置右（mm）第 1~5 次（对应 n=6,7,8,9,10）：\nN11-0 N11-1 N11-2 N11-3 N11-4\n\n直径 D_n（mm）第 1~5 次（对应 n=6,7,8,9,10）：\nN12-0 N12-1 N12-2 N12-3 N12-4\n\n环的级别 m = 16~20：\n环的位置左（mm）第 1~5 次（对应 m=16,17,18,19,20）：\nN14-0 N14-1 N14-2 N14-3 N14-4\n\n环的位置右（mm）第 1~5 次（对应 m=16,17,18,19,20）：\nN15-0 N15-1 N15-2 N15-3 N15-4\n\n直径 D_m（mm）第 1~5 次（对应 m=16,17,18,19,20）：\nN16-0 N16-1 N16-2 N16-3 N16-4\n\n逐差法用到的 D_m^2 - D_n^2（mm^2）第 1~5 次（对应 m-n=10 的 5 组配对）：\nN17-0 N17-1 N17-2 N17-3 N17-4\n\n由公式 R = (D_m^2 - D_n^2) / [4 (m-n) λ] 计算得到的 R（mm）第 1~5 次：\nN18-0 N18-1 N18-2 N18-3 N18-4\n\n2. 测量劈尖角度 θ 相关数据（相邻条纹间距 = (d_{n+k} - d_n) / k）\n\n条纹数差 k（对应三列）：5、7、10\n\nd_n（mm）（分别对应 k=5,7,10 的 d_n）：\nN50-0 N50-1 N50-2\n\nd_{n+k}（mm）（分别对应 k=5,7,10 的 d_{n+k}）：\nN51-0 N51-1 N51-2\n\n相邻条纹间距（mm）= (d_{n+k} - d_n) / k（分别对应 k=5,7,10）：\nN52-0 N52-1 N52-2\n\nθ（10^-3 rad）（分别对应 k=5,7,10）：\nN53-0 N53-1 N53-2\n\n任务要求：只输出一个 JSON object，包含所有节点 id 与其对应的图片中读取的数据，例如：{ \"N10-0\":\"12.34\", \"N50-0\":\"1.23\" }\n- 不要输出空值\n- 不要输出解释和注释",
+                "recognitionSource": "7.jpg"
+            },
+            {
+                "model": "doubao-seed-1-6-flash-250828",
+                "type": "generateAnswer",
+                "value": "请每次尽量生成不一样的答案，越随机越好，实验背景：等厚干涉实验（牛顿环与劈尖干涉）。实验通过观察单色光在空气薄膜中形成的等厚干涉条纹，测量牛顿环暗纹直径以计算平凸透镜的曲率半径，并利用劈尖干涉条纹间距测定劈尖角度。实验重点在于理解半波损失、等厚干涉条件及条纹分布规律，并掌握读数显微镜的正确使用与逐差法数据处理方法。实验仪器包括牛顿环仪、劈尖、钠光灯和读数显微镜。问题：1. 请分析实验中可能导致测量误差的原因，并提出改进实验精度或操作方法的建议。要求：回答约100字，语言客观、符合大学物理实验报告风格，最终仅返回 JSON 格式，格式示例：{\"1\":\"内容\"}"
+            }
+        ],
+
+        "excludedNodesList": [
+            "input.file-caption-name",
+            "input#inpReportName",
+            "input#__tm_input_switch_id"
+        ],
+        "extract": [
+            "N18-0", "N18-1", "N18-2", "N18-3", "N18-4",
+            "N53-0", "N53-1", "N53-2"
+        ],
+        "fill": [
+            {
+                "id": "N4",
+                "valueFromFn": "calculateRMean",
+                "args": ["extract.N18-0", "extract.N18-1", "extract.N18-2", "extract.N18-3", "extract.N18-4"]
+            },
+            {
+                "id": "N8",
+                "valueFromFn": "calculateThetaMean",
+                "args": ["extract.N53-0", "extract.N53-1", "extract.N53-2"]
+            },
+            
+            {
+                "id": "SYMD_Fill_0",
+                "value": "钠光灯"
+            },
+            {
+                "id": "SYMD_Fill_1",
+                "value": "读数显微镜"
+            },
+            {
+                "id": "SYYL_Fill_0",
+                "value": "半波损失"
+            },
+            {
+                "id": "SYYL_Fill_1",
+                "value": "B"
+            },
+            {
+                "id": "SYYL_Fill_2",
+                "value": "B"
+            },
+            {
+                "id": "SYYL_Fill_3",
+                "value": "A"
+            },
+            {
+                "id": "SYBZ_Fill_0",
+                "value": "B"
+            },
+            {
+                "id": "SYBZ_Fill_1",
+                "value": "焦距"
+            },
+            {
+                "id": "SYBZ_Fill_2",
+                "value": "B"
+            }
+            
+        ]
+    },
+    "弗兰克赫兹实验": {
+        "expName": "弗兰克赫兹实验",
+        "submit": {
+            "selector": "button[onclick='XMLSubmitReport_ZSTJ();']"
+        },
+        "automation": {
+            "autoFlowButtonList": [
+                "__tm_btn_switch_exp",
+                "#__tm_btn_upload_exp_image",
+                "__tm_btn_fill_from_pre_rec",
+
+                "__tm_btn_extract",
+                "__tm_btn_apply_const",
+                "__tm_btn_apply_var",
+
+                "__tm_btn_extract",
+                "__tm_btn_apply_var",
+
+                "__tm_btn_check_fill",
+                "__tm_btn_submit"
+            ],
+            "timeInterval": "4s",
+            "profileInterval": "4s"
+        },
+        "uploadExpImage": {
+            "toFillNode": ".wysiwyg-editor",
+            "source": ["8.jpg","8.1.jpg"]
+        },
+        "prompts": [
+            {
+                "type": "textRecognition",
+                "value": "下面是数据节点与实验含义的对应关系，用于从图片中识别并填充值。\n\n（一）实验数据：记录 I-UG2K 数据并生成曲线\n\n要求：UG2K 必须以 1V 为步进变化（1V, 2V, 3V, ... , 80V），共 80 组数据；每组包含 UG2K（V）与 I（10^-7 A）。\n\nUG2K（V）第 1~80 次（对应电压 1V~80V）：\nF10-0 F11-0 F12-0 F13-0 F14-0 F15-0 F16-0 F17-0 F18-0 F19-0\nF110-0 F111-0 F112-0 F113-0 F114-0 F115-0 F116-0 F117-0 F118-0 F119-0\nF120-0 F121-0 F122-0 F123-0 F124-0 F125-0 F126-0 F127-0 F128-0 F129-0\nF130-0 F131-0 F132-0 F133-0 F134-0 F135-0 F136-0 F137-0 F138-0 F139-0\nF140-0 F141-0 F142-0 F143-0 F144-0 F145-0 F146-0 F147-0 F148-0 F149-0\nF150-0 F151-0 F152-0 F153-0 F154-0 F155-0 F156-0 F157-0 F158-0 F159-0\nF160-0 F161-0 F162-0 F163-0 F164-0 F165-0 F166-0 F167-0 F168-0 F169-0\nF170-0 F171-0 F172-0 F173-0 F174-0 F175-0 F176-0 F177-0 F178-0 F179-0\n\nI（10^-7 A）第 1~80 次（对应 UG2K=1V~80V 的电流读数）：\nF10-1 F11-1 F12-1 F13-1 F14-1 F15-1 F16-1 F17-1 F18-1 F19-1\nF110-1 F111-1 F112-1 F113-1 F114-1 F115-1 F116-1 F117-1 F118-1 F119-1\nF120-1 F121-1 F122-1 F123-1 F124-1 F125-1 F126-1 F127-1 F128-1 F129-1\nF130-1 F131-1 F132-1 F133-1 F134-1 F135-1 F136-1 F137-1 F138-1 F139-1\nF140-1 F141-1 F142-1 F143-1 F144-1 F145-1 F146-1 F147-1 F148-1 F149-1\nF150-1 F151-1 F152-1 F153-1 F154-1 F155-1 F156-1 F157-1 F158-1 F159-1\nF160-1 F161-1 F162-1 F163-1 F164-1 F165-1 F166-1 F167-1 F168-1 F169-1\nF170-1 F171-1 F172-1 F173-1 F174-1 F175-1 F176-1 F177-1 F178-1 F179-1\n\n任务要求：只输出一个 JSON object，包含所有节点 id 与其对应的图片中读取的数据，例如：{ \"F10-0\":\"1\", \"F10-1\":\"0.15\" }\n- 不要输出空值\n- 不要输出解释和注释",
+                "recognitionSource": "8.jpg"
+            },
+            {
+                "model": "doubao-seed-1-6-flash-250828",
+                "type": "generateAnswer",
+                "value": "请每次尽量生成不一样的答案，表述具有一定随机性但内容必须符合实验原理。实验背景：弗兰克—赫兹实验。实验通过测量在不同加速电压UG2K下电子管中集电极电流IA的变化规律，获得IA–UG2K曲线，观察电流随电压呈现周期性起伏的现象，从而验证原子能级的不连续性，并测定原子的第一激发电位。实验基于电子与原子发生弹性与非弹性碰撞的物理过程，重点在于理解能量量子化、第一激发电位的物理意义以及实验曲线中波谷和波峰的成因。问题：1. 请基于本实验的实验原理，分析为什么在测试过程中如果漏测了某个加速电压对应的电流值后，不能再返回该电压重新测量其电流值。请结合电子运动及碰撞过程，解释为什么实验中测得的谷电流不为零。要求：回答约100字，语言客观严谨，符合大学物理实验报告风格，仅返回 JSON 格式，格式如下：{\"1\":\"内容\"}"
+            }
+        ],
+
+        "excludedNodesList": [
+            "input.file-caption-name",
+            "input#inpReportName",
+            "input#__tm_input_switch_id"
+        ],
+        "extract": [
+            "F10-0","F10-1","F11-0","F11-1","F12-0","F12-1","F13-0","F13-1","F14-0","F14-1",
+            "F15-0","F15-1","F16-0","F16-1","F17-0","F17-1","F18-0","F18-1","F19-0","F19-1",
+
+            "F110-0","F110-1","F111-0","F111-1","F112-0","F112-1","F113-0","F113-1","F114-0","F114-1",
+            "F115-0","F115-1","F116-0","F116-1","F117-0","F117-1","F118-0","F118-1","F119-0","F119-1",
+
+            "F120-0","F120-1","F121-0","F121-1","F122-0","F122-1","F123-0","F123-1","F124-0","F124-1",
+            "F125-0","F125-1","F126-0","F126-1","F127-0","F127-1","F128-0","F128-1","F129-0","F129-1",
+
+            "F130-0","F130-1","F131-0","F131-1","F132-0","F132-1","F133-0","F133-1","F134-0","F134-1",
+            "F135-0","F135-1","F136-0","F136-1","F137-0","F137-1","F138-0","F138-1","F139-0","F139-1",
+
+            "F140-0","F140-1","F141-0","F141-1","F142-0","F142-1","F143-0","F143-1","F144-0","F144-1",
+            "F145-0","F145-1","F146-0","F146-1","F147-0","F147-1","F148-0","F148-1","F149-0","F149-1",
+
+            "F150-0","F150-1","F151-0","F151-1","F152-0","F152-1","F153-0","F153-1","F154-0","F154-1",
+            "F155-0","F155-1","F156-0","F156-1","F157-0","F157-1","F158-0","F158-1","F159-0","F159-1",
+
+            "F160-0","F160-1","F161-0","F161-1","F162-0","F162-1","F163-0","F163-1","F164-0","F164-1",
+            "F165-0","F165-1","F166-0","F166-1","F167-0","F167-1","F168-0","F168-1","F169-0","F169-1",
+
+            "F170-0","F170-1","F171-0","F171-1","F172-0","F172-1","F173-0","F173-1","F174-0","F174-1",
+            "F175-0","F175-1","F176-0","F176-1","F177-0","F177-1","F178-0","F178-1","F179-0","F179-1"
+                
+        ],
+        "fill": [
+            {
+                "id": "F7",
+                "valueFromFn": "calculateU0",
+                "args": ["page.F3", "page.F4", "page.F5", "page.F6"]
+            },
+            {
+                "id": "F3",
+                "valueFromFn": "findValleyUk",
+                "args": ["1",
+                "page.F10-0","page.F10-1","page.F11-0","page.F11-1","page.F12-0","page.F12-1","page.F13-0","page.F13-1","page.F14-0","page.F14-1",
+                "page.F15-0","page.F15-1","page.F16-0","page.F16-1","page.F17-0","page.F17-1","page.F18-0","page.F18-1","page.F19-0","page.F19-1",
+
+                "page.F110-0","page.F110-1","page.F111-0","page.F111-1","page.F112-0","page.F112-1","page.F113-0","page.F113-1","page.F114-0","page.F114-1",
+                "page.F115-0","page.F115-1","page.F116-0","page.F116-1","page.F117-0","page.F117-1","page.F118-0","page.F118-1","page.F119-0","page.F119-1",
+
+                "page.F120-0","page.F120-1","page.F121-0","page.F121-1","page.F122-0","page.F122-1","page.F123-0","page.F123-1","page.F124-0","page.F124-1",
+                "page.F125-0","page.F125-1","page.F126-0","page.F126-1","page.F127-0","page.F127-1","page.F128-0","page.F128-1","page.F129-0","page.F129-1",
+
+                "page.F130-0","page.F130-1","page.F131-0","page.F131-1","page.F132-0","page.F132-1","page.F133-0","page.F133-1","page.F134-0","page.F134-1",
+                "page.F135-0","page.F135-1","page.F136-0","page.F136-1","page.F137-0","page.F137-1","page.F138-0","page.F138-1","page.F139-0","page.F139-1",
+
+                "page.F140-0","page.F140-1","page.F141-0","page.F141-1","page.F142-0","page.F142-1","page.F143-0","page.F143-1","page.F144-0","page.F144-1",
+                "page.F145-0","page.F145-1","page.F146-0","page.F146-1","page.F147-0","page.F147-1","page.F148-0","page.F148-1","page.F149-0","page.F149-1",
+
+                "page.F150-0","page.F150-1","page.F151-0","page.F151-1","page.F152-0","page.F152-1","page.F153-0","page.F153-1","page.F154-0","page.F154-1",
+                "page.F155-0","page.F155-1","page.F156-0","page.F156-1","page.F157-0","page.F157-1","page.F158-0","page.F158-1","page.F159-0","page.F159-1",
+
+                "page.F160-0","page.F160-1","page.F161-0","page.F161-1","page.F162-0","page.F162-1","page.F163-0","page.F163-1","page.F164-0","page.F164-1",
+                "page.F165-0","page.F165-1","page.F166-0","page.F166-1","page.F167-0","page.F167-1","page.F168-0","page.F168-1","page.F169-0","page.F169-1",
+
+                "page.F170-0","page.F170-1","page.F171-0","page.F171-1","page.F172-0","page.F172-1","page.F173-0","page.F173-1","page.F174-0","page.F174-1",
+                "page.F175-0","page.F175-1","page.F176-0","page.F176-1","page.F177-0","page.F177-1","page.F178-0","page.F178-1","page.F179-0","page.F179-1"
+                ]
+            },
+            {
+                "id": "F4",
+                "valueFromFn": "findValleyUk",
+                "args": ["2",
+                "page.F10-0","page.F10-1","page.F11-0","page.F11-1","page.F12-0","page.F12-1","page.F13-0","page.F13-1","page.F14-0","page.F14-1",
+                "page.F15-0","page.F15-1","page.F16-0","page.F16-1","page.F17-0","page.F17-1","page.F18-0","page.F18-1","page.F19-0","page.F19-1",
+
+                "page.F110-0","page.F110-1","page.F111-0","page.F111-1","page.F112-0","page.F112-1","page.F113-0","page.F113-1","page.F114-0","page.F114-1",
+                "page.F115-0","page.F115-1","page.F116-0","page.F116-1","page.F117-0","page.F117-1","page.F118-0","page.F118-1","page.F119-0","page.F119-1",
+
+                "page.F120-0","page.F120-1","page.F121-0","page.F121-1","page.F122-0","page.F122-1","page.F123-0","page.F123-1","page.F124-0","page.F124-1",
+                "page.F125-0","page.F125-1","page.F126-0","page.F126-1","page.F127-0","page.F127-1","page.F128-0","page.F128-1","page.F129-0","page.F129-1",
+
+                "page.F130-0","page.F130-1","page.F131-0","page.F131-1","page.F132-0","page.F132-1","page.F133-0","page.F133-1","page.F134-0","page.F134-1",
+                "page.F135-0","page.F135-1","page.F136-0","page.F136-1","page.F137-0","page.F137-1","page.F138-0","page.F138-1","page.F139-0","page.F139-1",
+
+                "page.F140-0","page.F140-1","page.F141-0","page.F141-1","page.F142-0","page.F142-1","page.F143-0","page.F143-1","page.F144-0","page.F144-1",
+                "page.F145-0","page.F145-1","page.F146-0","page.F146-1","page.F147-0","page.F147-1","page.F148-0","page.F148-1","page.F149-0","page.F149-1",
+
+                "page.F150-0","page.F150-1","page.F151-0","page.F151-1","page.F152-0","page.F152-1","page.F153-0","page.F153-1","page.F154-0","page.F154-1",
+                "page.F155-0","page.F155-1","page.F156-0","page.F156-1","page.F157-0","page.F157-1","page.F158-0","page.F158-1","page.F159-0","page.F159-1",
+
+                "page.F160-0","page.F160-1","page.F161-0","page.F161-1","page.F162-0","page.F162-1","page.F163-0","page.F163-1","page.F164-0","page.F164-1",
+                "page.F165-0","page.F165-1","page.F166-0","page.F166-1","page.F167-0","page.F167-1","page.F168-0","page.F168-1","page.F169-0","page.F169-1",
+
+                "page.F170-0","page.F170-1","page.F171-0","page.F171-1","page.F172-0","page.F172-1","page.F173-0","page.F173-1","page.F174-0","page.F174-1",
+                "page.F175-0","page.F175-1","page.F176-0","page.F176-1","page.F177-0","page.F177-1","page.F178-0","page.F178-1","page.F179-0","page.F179-1"
+                ]
+            },
+            {
+                "id": "F5",
+                "valueFromFn": "findValleyUk",
+                "args": ["3",
+                "page.F10-0","page.F10-1","page.F11-0","page.F11-1","page.F12-0","page.F12-1","page.F13-0","page.F13-1","page.F14-0","page.F14-1",
+                "page.F15-0","page.F15-1","page.F16-0","page.F16-1","page.F17-0","page.F17-1","page.F18-0","page.F18-1","page.F19-0","page.F19-1",
+
+                "page.F110-0","page.F110-1","page.F111-0","page.F111-1","page.F112-0","page.F112-1","page.F113-0","page.F113-1","page.F114-0","page.F114-1",
+                "page.F115-0","page.F115-1","page.F116-0","page.F116-1","page.F117-0","page.F117-1","page.F118-0","page.F118-1","page.F119-0","page.F119-1",
+
+                "page.F120-0","page.F120-1","page.F121-0","page.F121-1","page.F122-0","page.F122-1","page.F123-0","page.F123-1","page.F124-0","page.F124-1",
+                "page.F125-0","page.F125-1","page.F126-0","page.F126-1","page.F127-0","page.F127-1","page.F128-0","page.F128-1","page.F129-0","page.F129-1",
+
+                "page.F130-0","page.F130-1","page.F131-0","page.F131-1","page.F132-0","page.F132-1","page.F133-0","page.F133-1","page.F134-0","page.F134-1",
+                "page.F135-0","page.F135-1","page.F136-0","page.F136-1","page.F137-0","page.F137-1","page.F138-0","page.F138-1","page.F139-0","page.F139-1",
+
+                "page.F140-0","page.F140-1","page.F141-0","page.F141-1","page.F142-0","page.F142-1","page.F143-0","page.F143-1","page.F144-0","page.F144-1",
+                "page.F145-0","page.F145-1","page.F146-0","page.F146-1","page.F147-0","page.F147-1","page.F148-0","page.F148-1","page.F149-0","page.F149-1",
+
+                "page.F150-0","page.F150-1","page.F151-0","page.F151-1","page.F152-0","page.F152-1","page.F153-0","page.F153-1","page.F154-0","page.F154-1",
+                "page.F155-0","page.F155-1","page.F156-0","page.F156-1","page.F157-0","page.F157-1","page.F158-0","page.F158-1","page.F159-0","page.F159-1",
+
+                "page.F160-0","page.F160-1","page.F161-0","page.F161-1","page.F162-0","page.F162-1","page.F163-0","page.F163-1","page.F164-0","page.F164-1",
+                "page.F165-0","page.F165-1","page.F166-0","page.F166-1","page.F167-0","page.F167-1","page.F168-0","page.F168-1","page.F169-0","page.F169-1",
+
+                "page.F170-0","page.F170-1","page.F171-0","page.F171-1","page.F172-0","page.F172-1","page.F173-0","page.F173-1","page.F174-0","page.F174-1",
+                "page.F175-0","page.F175-1","page.F176-0","page.F176-1","page.F177-0","page.F177-1","page.F178-0","page.F178-1","page.F179-0","page.F179-1"
+                ]
+            },
+            {
+                "id": "F6",
+                "valueFromFn": "findValleyUk",
+                "args": ["4",
+                "page.F10-0","page.F10-1","page.F11-0","page.F11-1","page.F12-0","page.F12-1","page.F13-0","page.F13-1","page.F14-0","page.F14-1",
+                "page.F15-0","page.F15-1","page.F16-0","page.F16-1","page.F17-0","page.F17-1","page.F18-0","page.F18-1","page.F19-0","page.F19-1",
+
+                "page.F110-0","page.F110-1","page.F111-0","page.F111-1","page.F112-0","page.F112-1","page.F113-0","page.F113-1","page.F114-0","page.F114-1",
+                "page.F115-0","page.F115-1","page.F116-0","page.F116-1","page.F117-0","page.F117-1","page.F118-0","page.F118-1","page.F119-0","page.F119-1",
+
+                "page.F120-0","page.F120-1","page.F121-0","page.F121-1","page.F122-0","page.F122-1","page.F123-0","page.F123-1","page.F124-0","page.F124-1",
+                "page.F125-0","page.F125-1","page.F126-0","page.F126-1","page.F127-0","page.F127-1","page.F128-0","page.F128-1","page.F129-0","page.F129-1",
+
+                "page.F130-0","page.F130-1","page.F131-0","page.F131-1","page.F132-0","page.F132-1","page.F133-0","page.F133-1","page.F134-0","page.F134-1",
+                "page.F135-0","page.F135-1","page.F136-0","page.F136-1","page.F137-0","page.F137-1","page.F138-0","page.F138-1","page.F139-0","page.F139-1",
+
+                "page.F140-0","page.F140-1","page.F141-0","page.F141-1","page.F142-0","page.F142-1","page.F143-0","page.F143-1","page.F144-0","page.F144-1",
+                "page.F145-0","page.F145-1","page.F146-0","page.F146-1","page.F147-0","page.F147-1","page.F148-0","page.F148-1","page.F149-0","page.F149-1",
+
+                "page.F150-0","page.F150-1","page.F151-0","page.F151-1","page.F152-0","page.F152-1","page.F153-0","page.F153-1","page.F154-0","page.F154-1",
+                "page.F155-0","page.F155-1","page.F156-0","page.F156-1","page.F157-0","page.F157-1","page.F158-0","page.F158-1","page.F159-0","page.F159-1",
+
+                "page.F160-0","page.F160-1","page.F161-0","page.F161-1","page.F162-0","page.F162-1","page.F163-0","page.F163-1","page.F164-0","page.F164-1",
+                "page.F165-0","page.F165-1","page.F166-0","page.F166-1","page.F167-0","page.F167-1","page.F168-0","page.F168-1","page.F169-0","page.F169-1",
+
+                "page.F170-0","page.F170-1","page.F171-0","page.F171-1","page.F172-0","page.F172-1","page.F173-0","page.F173-1","page.F174-0","page.F174-1",
+                "page.F175-0","page.F175-1","page.F176-0","page.F176-1","page.F177-0","page.F177-1","page.F178-0","page.F178-1","page.F179-0","page.F179-1"
+                ]
+            },
+
+            {
+                "id": "SYMD_Fill_0",
+                "value": "第一激发电位U0"
+            },
+            {
+                "id": "SYMD_Fill_1",
+                "value": "玻尔原子能级"
+            },
+            {
+                "id": "SYMD_Fill_2",
+                "value": "弗兰克-赫兹实验仪"
+            },
+            {
+                "id": "SYYL_Fill_0",
+                "value": "慢电子"
+            },
+            {
+                "id": "SYYL_Fill_1",
+                "value": "稀薄气体原子"
+            },
+            {
+                "id": "SYYL_Fill_2",
+                "value": "基态"
+            },
+            {
+                "id": "SYYL_Fill_3",
+                "value": "激发态"
+            },
+            {
+                "id": "SYYL_Fill_4",
+                "value": "定态假设"
+            },
+            {
+                "id": "SYYL_Fill_5",
+                "value": "跃迁假设"
+            },
+            {
+                "id": "SYYL_Fill_6",
+                "value": "E2−E1"
+            }
+        ]
+    },
+    "亥姆霍兹线圈磁场的测量": {
+        "expName": "亥姆霍兹线圈磁场的测量",
+        "submit": {
+            "selector": "button[onclick='XMLSubmitReport_ZSTJ();']"
+        },
+        "automation": {
+            "autoFlowButtonList": [
+                "__tm_btn_switch_exp",
+                "#__tm_btn_upload_exp_image",
+                "__tm_btn_fill_from_pre_rec",
+                "__tm_btn_apply_const",
+                "__tm_btn_check_fill",
+                "__tm_btn_submit"
+            ],
+            "timeInterval": "2s",
+            "profileInterval": "4s"
+        },
+
+        "extract": [
+
+        ],
+        "uploadExpImage": {
+            "toFillNode": ".wysiwyg-editor",
+            "source": [["9.jpg", "9.0.jpg","9.1.jpg"],["9.1.jpg", "9.1.0.jpg"]]
+        },
+        "prompts": [
+            {
+                "type": "textRecognition",
+                "value": "下面是数据节点与实验含义的对应关系，用于从图片中识别并填充值。\\n\\n实验内容：霍尔法测量圆线圈与亥姆霍兹线圈磁场分布。\\n\\n表 1：载流线圈中心轴线上不同位置的磁感应强度 B（mT），分别在两线圈间距为 8 cm、10 cm、12 cm 条件下测量。\\n\\n8 cm 间距：第 1~9 次磁感应强度 B（mT）：\\nH10-0  H10-1  H10-2  H10-3  H10-4  H10-5  H10-6  H10-7  H10-8 \\n\\n10 cm 间距：第 1~13 次磁感应强度 B（mT）：\\nH11-0  H11-1  H11-2  H11-3  H11-4  H11-5  H11-6  H11-7  H11-8  H11-9  H11-10  H11-11  H11-12\\n\\n12 cm 间距：第 1~13 次磁感应强度 B（mT）：\\nH12-0  H12-1  H12-2  H12-3  H12-4  H12-5  H12-6  H12-7  H12-8  H12-9  H12-10  H12-11  H12-12\\n\\n表 2：载流线圈中心轴线垂直方向上不同位置的磁感应强度 B（mT），线圈间距固定为 11 cm。\\n\\n11 cm 间距：第 1~13 次磁感应强度 B（mT）：\\nH20-0  H20-1  H20-2  H20-3  H20-4  H20-5  H20-6  H20-7  H20-8  H20-9  H20-10  H20-11  H20-12\\n\\n任务要求：只输出一个 JSON object，包含所有节点 id 与其对应的图片中读取的数据，例如：{ \\\"H10-0\\\":\\\"0.85\\\", \\\"H20-3\\\":\\\"0.92\\\" }\\n- 不要输出空值\\n- 不要输出解释和注释",
+                "recognitionSource": "9.jpg"
+            },
+            {
+                "model": "doubao-seed-1-6-flash-250828",
+                "type": "generateAnswer",
+                "value": "请每次尽量生成不一样的答案，表述具有一定随机性但内容必须符合实验原理。实验背景：霍尔法测量圆线圈与亥姆霍兹线圈磁场分布实验。实验通过调节线圈中通入的电流，利用霍尔元件测量载流圆线圈及亥姆霍兹线圈在不同空间位置产生的磁感应强度，研究磁场沿轴线及垂直方向的分布规律，并验证亥姆霍兹线圈在中心区域产生近似均匀磁场的特性。实验重点在于理解霍尔效应的测磁原理、磁场叠加规律以及实验装置调零与位置对准的重要性。问题：1. 请结合霍尔效应测量原理，说明实验过程中为什么需要进行调零操作。请分析实验过程中可能引入测量误差的主要原因。要求：回答约100字，语言客观严谨，符合大学物理实验报告风格，仅返回 JSON 格式，格式如下：{\"1\":\"内容\"}"
+            }
+        ],
+
+        "excludedNodesList": [
+            "H10-9","H10-10","H10-11","H10-12","H11-11","H11-12",
+            "input.file-caption-name",
+            "input#inpReportName",
+            "input#__tm_input_switch_id"
+        ],
+        "fill": [
+            {
+                "id": "SYMD_Fill_0",
+                "value": "ABDF"
+            },
+            {
+                "id": "SYYL_Fill_0",
+                "value": "B"
+            },
+            {
+                "id": "SYYL_Fill_1",
+                "value": "D"
+            },
+            {
+                "id": "SYYL_Fill_2",
+                "value": "A"
+            },
+            {
+                "id": "SYYL_Fill_3",
+                "value": "B"
+            },
+            {
+                "id": "SYYL_Fill_4",
+                "value": "C"
+            }
+        ]
+    },
+    
+    "分光计光栅实验": {
+        "expName": "分光计光栅实验",
+        "submit": {
+            "selector": "button[onclick='XMLSubmitReport_ZSTJ();']"
+        },
+        "automation": {
+            "autoFlowButtonList": [
+                "__tm_btn_switch_exp",
+                "#__tm_btn_upload_exp_image",
+                "__tm_btn_fill_from_pre_rec",
+
+                "__tm_btn_apply_const",
+
+                "__tm_btn_check_fill",
+                "__tm_btn_submit"
+            ],
+            "timeInterval": "4s",
+            "profileInterval": "4s"
+        },
+
+        "uploadExpImage": {
+            "toFillNode": ".wysiwyg-editor",
+            "source": [["10.jpg","10.0.jpg"]]
+        },
+        "prompts": [
+            {
+                "type": "textRecognition",
+                "value": "下面是数据节点与实验含义的对应关系，用于从图片中识别并填充值。\\n\\n通用格式要求：填写角度数据时，请将小数部分直接填在小数点后，例如 133 度 13 分写为 133.13。不要进行任何转换！！！\\n\\n数据节点与含义：\\n\\n正入射光栅衍射角度数据（单位：十进制度数，保留两位小数）\\n0级（A/B 两测量值）：\\nG10-0  G10-1\\nθ（-1级，A/B 两测量值）：\\nG11-0  G11-1\\nθ′（+1级，A/B 两测量值）：\\nG12-0  G12-1\\nθ（-2级，A/B 两测量值）：\\nG13-0  G13-1\\nθ′（+2级，A/B 两测量值）：\\nG14-0  G14-1\\n\\n斜入射最小偏向角法角度数据（单位：十进制度数，保留两位小数）\\n0级（A/B 两测量值）：\\nG40-0  G40-1\\nφ_m（1级最小偏向角方位角，A/B 两测量值）：\\nG41-0  G41-1\\nφ_m（2级最小偏向角方位角，A/B 两测量值）：\\nG42-0  G42-1\\n\\n计算结果节点：\\n光栅常数 d（单位：μm，保留四位有效数字）：\\nG3\\n入射光波长 λ（单位：nm，保留四位有效数字）：\\nG5\\n\\n任务要求：只输出一个 JSON object，包含所有节点 id 与其对应的图片中读取（并已单位换算/格式统一后）的数据，例如：{ \\\"G11-0\\\":\\\"50.50\\\", \\\"G3\\\":\\\"1.667\\\" }\\n- 不要输出空值\\n- 不要输出解释和注释\\n- 所有角度一律输出为十进制度数字符串，保留两位小数",
+                "recognitionSource": "10.jpg"
+            },
+            {
+                "model": "doubao-seed-1-6-flash-250828",
+                "type": "generateAnswer",
+                "value": "请每次尽量生成不一样的答案，越随机越好，但内容必须符合分光计与光栅衍射实验的原理与操作逻辑。实验背景：分光计光栅衍射实验。实验利用分光计读数系统（A/B 两游标）测量零级与±1、±2级谱线方位角，通过正入射条件下的光栅方程 d\\sin\\varphi_m= m\\lambda（钠黄光\\lambda=589.3nm）求光栅常数 d，并采用斜入射最小偏向角法，通过最小偏向角数据计算入射光波长\\lambda；实验强调校准、正入射判据（\\Delta\\varphi<5'）、以及A/B读数平均以降低系统误差。问题：1. 请基于分光计或光栅衍射原理，提出一种新的实验方案或一种新的实际应用场景（可以是教学实验改造、测量方法创新、工程应用或日常产品应用）。要求：回答约100字，语言客观、符合大学物理实验报告风格，仅返回 JSON 格式，格式如下（示例）：{\"1\":\"内容\"}"
+            }
+        ],
+        "excludedNodesList": [
+            "input.file-caption-name",
+            "input#inpReportName",
+            "input#__tm_input_switch_id"
+        ],
+
+        "extract": [
+            "G10-0","G10-1",
+            "G11-0","G11-1","G12-0","G12-1",
+            "G13-0","G13-1","G14-0","G14-1",
+            
+            "G40-0","G40-1",
+            "G41-0","G41-1",
+            "G42-0","G42-1"
+        ],
+        "fill": [
+            {
+                "id":"G3",
+                "valueFromFn":"calculateD_G3_FromNormalIncidence",
+                "args":[
+                    "extract.G10-0","extract.G10-1",
+                    "extract.G11-0","extract.G11-1","extract.G12-0","extract.G12-1",
+                    "extract.G13-0","extract.G13-1","extract.G14-0","extract.G14-1"
+                ]
+            },
+            {
+                "id":"G5",
+                "valueFromFn":"calculateLambda_G5_FromMinDeviation",
+                "args":[
+                    "extract.G40-0","extract.G40-1",
+                    "extract.G41-0","extract.G41-1",
+                    "extract.G42-0","extract.G42-1",
+                    "G3"
+                ]
+            },
+            {
+                "id": "SYYL_Fill_0",
+                "value": "光栅常数"
+            },
+            {
+                "id": "SYBZ_Fill_0",
+                "value": "光栅"
+            },
+            {
+                "id": "SYBZ_Fill_1",
+                "value": "零"
+            },
+            {
+                "id": "SYBZ_Fill_2",
+                "value": "B"
+            }
+        ]
+    }
+    
+    }
+}

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据核对 - 批量识别工具</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <header>
+        <h1>批量识别数据核对</h1>
+        <div class="header-controls">
+            <button onclick="refreshData()">刷新数据</button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Sidebar: Student List -->
+        <div class="sidebar">
+            <div class="sidebar-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>处理历史</span>
+                <button class="secondary" onclick="manualAddStudent()"
+                    style="padding: 1px 6px; font-size: 12px; height: 20px; line-height: 1;">➕</button>
+            </div>
+            <ul class="student-list" id="studentList">
+                <!-- Items populated by JS -->
+            </ul>
+        </div>
+
+        <!-- Editor Area -->
+        <div class="editor-area" id="editorArea">
+            <div id="welcomeMessage" style="text-align:center; margin-top:50px; color:#8b949e;">
+                请从左侧选择一个学号开始核对
+            </div>
+
+            <div id="editorContent" style="display:none;">
+                <div class="toolbar">
+                    <span id="currentStudentLabel" style="margin-right:auto; font-weight:bold; color:#58a6ff;"></span>
+
+                    <div class="toolbar-controls">
+                        <button class="secondary" onclick="runAutomation()" title="运行 python parallel_automation.py"
+                            style="white-space: nowrap;">⚡ 自动填写</button>
+
+                        <button class="secondary" onclick="openDictionaryFill()" title="从JSON填充数据"
+                            style="margin-left:5px; white-space: nowrap;">📥 导入JSON</button>
+
+                        <button class="secondary" onclick="restartServer()" title="重启后台服务 (应用代码更新)"
+                            style="margin-left:5px; color: #d73a49; white-space: nowrap;">🔄 重启</button>
+
+                        <div class="control-group">
+                            <label class="verify-toggle" style="white-space: nowrap;">
+                                <input type="checkbox" id="verifyCheckbox"> 已核对
+                            </label>
+
+                            <label class="verify-toggle completion-toggle" style="white-space: nowrap;">
+                                <input type="checkbox" id="completeCheckbox"> 全完成
+                            </label>
+                        </div>
+
+                        <div class="suffix-input">
+                            <label for="filenameSuffix">文件名后缀:</label>
+                            <input type="text" id="filenameSuffix" value="_2" placeholder="例如: _2">
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button onclick="resetChanges()" style="white-space: nowrap;">撤销</button>
+                        <button class="primary" onclick="saveChanges()" style="white-space: nowrap;">保存</button>
+                    </div>
+                </div>
+
+                <div id="formContainer">
+                    <!-- Config Groups populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Draggable Image Viewer (Floating) -->
+        <div class="image-viewer" id="imageViewer">
+            <div class="viewer-header" id="viewerHandle">
+                <span class="viewer-title">图片查看器 (可拖拽)</span>
+                <div class="viewer-controls">
+                    <button onclick="toggleViewerHeight()" id="toggleBtn">_</button>
+                </div>
+            </div>
+
+            <div class="viewer-body">
+                <div class="image-list" id="imageList">
+                    <!-- Thumbnails populated by JS -->
+                </div>
+
+                <div class="image-preview-container" id="previewContainer">
+                    <img src="" alt="" class="image-preview" id="imagePreview" style="display:none;">
+                    <div id="noImageMsg" style="color:#8b949e; text-align:center; margin-top:100px;">暂无图片</div>
+                </div>
+            </div>
+
+            <div class="resize-handle" id="resizeHandle"></div>
+        </div>
+    </div>
+
+    <!-- Smart Fill Modal -->
+    <div id="smartFillModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>智能填充 - 弗兰克赫兹</h3>
+                <button class="modal-close" onclick="closeSmartFillModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="smartFillStartNode">起始节点:</label>
+                    <select id="smartFillStartNode">
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="smartFillReverse"> 倒序填充
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="smartFillStep">间隔 (每N个取1个):</label>
+                    <input type="number" id="smartFillStep" value="2" min="1" max="10">
+                </div>
+                <div class="form-group">
+                    <label for="smartFillNumbers">数据 (逗号或空格分隔):</label>
+                    <textarea id="smartFillNumbers" rows="3" placeholder="例如: 1, 2, 3, 4, 5, 6"></textarea>
+                </div>
+                <button class="secondary" onclick="applySmartFill()" style="width: 100%; margin-top: 5px;">间隔填充</button>
+
+                <hr style="border: none; border-top: 1px solid var(--border-color); margin: 20px 0;">
+
+                <div class="form-group">
+                    <label style="font-weight: bold; color: var(--accent-color);">范围填充0:</label>
+                </div>
+                <div class="form-group">
+                    <label for="smartFillRangeStart">起始节点:</label>
+                    <select id="smartFillRangeStart">
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="smartFillRangeEnd">结束节点:</label>
+                    <select id="smartFillRangeEnd">
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+                <button class="secondary" onclick="fillRangeWithZero()"
+                    style="width: 100%; margin-top: 5px;">填充0到范围</button>
+
+                <hr style="border: none; border-top: 1px solid var(--border-color); margin: 20px 0;">
+
+                <div class="form-group">
+                    <label style="font-weight: bold; color: var(--accent-color);">顺序递增填充:</label>
+                </div>
+                <div class="form-group">
+                    <label for="smartFillSeqStart">起始节点:</label>
+                    <select id="smartFillSeqStart">
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="smartFillSeqEnd">结束节点:</label>
+                    <select id="smartFillSeqEnd">
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="smartFillSeqStartValue">起始值:</label>
+                    <input type="number" id="smartFillSeqStartValue" value="1" step="1">
+                </div>
+                <div class="form-group">
+                    <label for="smartFillSeqIncrement">递增步长:</label>
+                    <input type="number" id="smartFillSeqIncrement" value="1" step="1">
+                </div>
+                <button class="secondary" onclick="fillRangeSequential()"
+                    style="width: 100%; margin-top: 5px;">顺序填充</button>
+            </div>
+            <div class="modal-footer">
+                <button class="secondary" onclick="closeSmartFillModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dictionary Fill Modal -->
+    <div id="dictionaryFillModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>从JSON导入数据</h3>
+                <button class="modal-close" onclick="closeDictionaryFillModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 10px; color: #8b949e;">粘贴JSON数组 (格式: [{"id": "key", "value": "val"}, ...])</p>
+                <textarea id="dictionaryFillInput" rows="10"
+                    placeholder='[{"id": "A1", "value": "123"}, {"id": "A2", "value": "456"}]'></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="secondary" onclick="closeDictionaryFillModal()">取消</button>
+                <button class="primary" onclick="applyDictionaryFill()">导入</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast"></div>
+
+    <!-- Chart Modal -->
+    <div id="chartModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>弗兰克赫兹实验曲线</h2>
+                <span class="close-modal" onclick="closeChartModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <canvas id="chartCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

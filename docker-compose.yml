@@ -1,0 +1,56 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./backend/uploads:/app/backend/uploads
+      - ./backend/logs:/app/backend/logs
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+  redis:
+    image: redis:7-alpine
+    container_name: ignitenow-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+  worker:
+    build: .
+    container_name: ignitenow-worker
+    command: python -m backend.app.worker
+    env_file:
+      - .env
+    volumes:
+      - ./backend/uploads:/app/backend/uploads
+      - ./backend/logs:/app/backend/logs
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: ignitenow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-ignitenow}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - ignitenow_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-ignitenow}"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+volumes:

@@ -1,0 +1,900 @@
+{
+  "profiles": {
+    "电学元件伏安特性的测量(updated)": {
+        "expName":"电学元件伏安特性的测量",
+        "submit": {
+            "selector": "button[onclick='XMLSubmitReport_ZSTJ();']"
+        },
+        "automation":{
+            "autoFlowButtonList":[
+                "__tm_btn_switch_exp",
+                "#__tm_btn_upload_exp_image",
+                "__tm_btn_fill_from_pre_rec",
+                "__tm_btn_extract",
+                "__tm_btn_cross_site",
+                "__tm_btn_apply_const",
+                "__tm_btn_apply_var",
+                "__tm_btn_check_fill",
+                "__tm_btn_submit"
+            ],
+            "timeInterval":"10s",
+            "profileInterval":"10s"
+        },
+        "uploadExpImage": {
+            "toFillNode": ".wysiwyg-editor",
+            "source": "1.jpg"
+        },
+        "prompts": [
+            {
+                "type": "textRecognition",
+                "value": "下面是节点与实验数据的对应关系，用于从图片中识别并填充值。\n1. 测定小灯泡的伏安特性\nU(V) 第 1~11 次：\nDXYJ10-0  DXYJ10-1  DXYJ10-2  DXYJ10-3  DXYJ10-4\nDXYJ10-5  DXYJ10-6  DXYJ10-7  DXYJ10-8  DXYJ10-9  DXYJ10-10\n\nI(mA) 第 1~11 次：\nDXYJ11-0  DXYJ11-1  DXYJ11-2  DXYJ11-3  DXYJ11-4\nDXYJ11-5  DXYJ11-6  DXYJ11-7  DXYJ11-8  DXYJ11-9  DXYJ11-10\n\n5. 测定二极管正向伏安特性\nU(V) 第 1~10 次：\nDXYJ50-0  DXYJ50-1  DXYJ50-2  DXYJ50-3  DXYJ50-4\nDXYJ50-5  DXYJ50-6  DXYJ50-7  DXYJ50-8  DXYJ50-9\n\nI(mA) 第 1~10 次：\nDXYJ51-0  DXYJ51-1  DXYJ51-2  DXYJ51-3  DXYJ51-4\nDXYJ51-5  DXYJ51-6  DXYJ51-7  DXYJ51-8  DXYJ51-9\n\n6. 测定二极管反向伏安特性\nU(V) 第 1~5 次：\nDXYJ60-0  DXYJ60-1  DXYJ60-2  DXYJ60-3  DXYJ60-4\n\nI(mA) 第 1~5 次：\nDXYJ61-0  DXYJ61-1  DXYJ61-2  DXYJ61-3  DXYJ61-4\n\n任务要求：只输出一个 JSON object，包含所有节点id值和其对应的图片的数据，例如：{ \"DXYJ61-3\":\"4.55\",\"DXYJ61-4\":\"4.85\", ... }\n- 不要输出空值、不要输出解释和注释",
+                "recognitionSource": "1.jpg"
+            },
+            {
+                "model":"doubao-seed-1-6-flash-250828",
+                "type": "generateAnswer",
+                "value": "请每次尽量生成不一样的答案，越随机越好，实验背景：电学元件伏安特性的测量。实验采用伏安法测量小灯泡和二极管的伏安特性曲线。小灯泡实验中通过改变电压测量电流，发现其伏安特性明显偏离线性关系；二极管实验中分别测量其正向和反向伏安特性，体现出单向导电性。实验目的是理解线性与非线性元件的本质差异，并分析其实际应用价值。问题：1.分析小灯泡伏安特性曲线偏离线性关系的可能原因。2.根据实验测得的二极管伏安特性，说明二极管可能的实际应用。要求：每个问题回答约 100 字，语言客观、符合大学物理实验报告风格，最终仅返回 JSON 格式，格式如下（示例）：{\"1\": \"内容\",\"2\": \"内容\"}"
+            }
+        ],
+        "crossSite": {
+            "targetUrl": "https://www.qinms.com/webapp/curvefit/cf.aspx",
+            "extractIds": [
+                "DXYJ10-{0..10}",
+                "DXYJ11-{0..10}",
+                "DXYJ10-{0..10}",
+                "DXYJ11-{0..10}",
+                "DXYJ10-{0..10}",
+                "DXYJ11-{0..10}",
+                "DXYJ10-{0..10}",
+                "DXYJ11-{0..10}",
+                "DXYJ50-{0..9}",
+                "DXYJ51-{0..9}"
+            ],
+            "equationTypes": [
+                "01",
+                "01",
+                "10",
+                "11",
+                "10"
+            ],
+            "batchSize": 2,
+            "delays": {
+                "afterFill": 500,
+                "afterClick": 2000,
+                "imageLoad": 3000
+            },
+            "upload": {
+                "url": "http://10.25.77.60:8001/upload",
+                "editorSelector": ".wysiwyg-editor",
+                "editorIndexes": [
+                    1,
+                    2,
+                    2,
+                    2,
+                    3
+                ]
+            }
+        },
+
+        "excludedNodesList": [
+            "input.file-caption-name","input#inpReportName","input#__tm_input_switch_id"
+        ],
+        "extract": ["DXYJ10-{0..10}",
+                    "DXYJ11-{0..10}",
+                    "DXYJ50-{0..9}",
+                    "DXYJ51-{0..9}",
+                    "DXYJ60-{0..4}",
+                    "DXYJ61-{0..4}"
+        ],
+        "fill": [
+            {"id": "DXYJ4", "valueFrom": "crossSite.rSquared"},
+            {"id": "SYMD_Fill_0", "value": "电压表"},
+            {"id": "SYMD_Fill_1", "value": "电流表"},
+            {"id": "SYMD_Fill_2", "value": "电源、电压表、电流表、小灯泡、二极管"},
+            {"id": "SYYL_Fill_0", "value": "电压U"},
+            {"id": "SYYL_Fill_1", "value": "电流I"},
+            {"id": "SYYL_Fill_2", "value": "大于"},
+            {"id": "SYYL_Fill_3", "value": "小于"},
+            {"id": "SYYL_Fill_4", "value": "低阻态"},
+            {"id": "SYYL_Fill_5", "value": "外接法"},
+            {
+                "id": "SYYL_Fill_6",
+                "value": "高阻态"
+            },
+            {
+                "id": "SYYL_Fill_7",
+                "value": "内接法"
+            },
+            {
+                "id": "SYBZ_Fill_0",
+                "value": "20"
+            },
+            {
+                "id": "SYBZ_Fill_1",
+                "value": "200"
+            },
+            {
+                "id": "SYBZ_Fill_2",
+                "value": "2"
+            },
+            {
+                "id": "SYBZ_Fill_3",
+                "value": "200"
+            },
+            {
+                "id": "SYBZ_Fill_4",
+                "value": "20"
+            },
+            {
+                "id": "SYBZ_Fill_5",
+                "value": "20"
+            }
+        ]
+    },
+    "动力学法测杨氏模量": {
+        "expName": "动力学法测杨氏模量",
+        "submit": {
+            "selector": "button[onclick='XMLSubmitReport_ZSTJ();']"
+        },
+        "automation": {
+            "autoFlowButtonList": [
+                "#__tm_btn_upload_exp_image",
+                "__tm_btn_fill_from_pre_rec",
+                "__tm_btn_extract",
+                "__tm_btn_apply_const",
+                "__tm_btn_apply_var",
+                "__tm_btn_check_fill",
+                "__tm_btn_submit"
+            ],
+            "timeInterval": "2s",
+            "profileInterval": "10s"
+        },
+
+        "uploadExpImage": {
+            "toFillNode": ".wysiwyg-editor",
+            "source": "2.jpg"
+        },
+        "prompts": [
+            {
+                "type": "textRecognition",
+                "value": "下面是数据节点与实验含义的对应关系，用于从图片中识别并填充值。\n\n测量 fx 数据\n\nCu 时，对应的 x 为第 1~7 次：\nY10-0  Y10-1  Y10-2  Y10-3  Y10-4  Y10-5  Y10-6\n\nAl 时，对应的 x 为第 1~7 次：\nY11-0  Y11-1  Y11-2  Y11-3  Y11-4  Y11-5  Y11-6\n\n共振频率：\nf_0Cu  f_0Al\n对应节点：\nY4  Y5\n\n杨氏模量（仅提取并输出e前面的数字部分，例如输入3.14e10，输出3.14）：\nE_Cu  E_Al\n对应节点：\nY6  Y7\n\n相对误差（输出百分号前的部分，例如10%输出10）：\nCu 误差 Al 误差\n对应节点：\nY8  Y9\n\n任务要求：只输出一个 JSON object，包含所有节点 id 与其对应的图片中读取的数据，例如：{ \"Y10-0\":\"1.23\", \"Y4\":\"5.67\" }\n- 不要输出空值\n- 不要输出解释和注释",
+                "recognitionSource": "2.jpg"
+            },
+            {
+                "model": "doubao-seed-1-6-flash-250828",
+                "type": "generateAnswer",
+                "value": "请每次尽量生成不一样的答案，越随机越好，实验背景：动力学法测量杨氏模量。实验利用细长金属棒在微小横向振动条件下的共振现象，通过测量其基振频率并结合理论公式计算材料的杨氏模量。实验重点在于理解共振、基频固有频率及其与材料弹性性质之间的关系，并掌握通过外推法确定节点处固有频率的方法。实验中采用支撑法测量不同支撑点位置下的共振频率，绘制频率与位置关系曲线，从而确定金属棒的固有频率并计算杨氏模量。实验对象包括铜棒和铝棒，实验仪器主要为信号发生器和示波器。问题：1.分析实验中可能导致测量误差的主要原因，并提出改进实验精度或操作方法的建议。要求：回答约100字，语言客观、符合大学物理实验报告风格，最终仅返回 JSON 格式，格式如下（示例）：{\"1\":\"内容\"}"
+            }
+        ],
+
+        "excludedNodesList": [
+            "input.file-caption-name",
+            "input#inpReportName",
+            "input#__tm_input_switch_id"
+        ],
+        "fill": [
+            {
+                "id": "Y6",
+                "valueFromFn": "calculateEForCu",
+                "args": [
+                    "page.Y4"
+                ]
+            },
+            {
+                "id": "Y7",
+                "valueFromFn": "calculateEForAl",
+                "args": [
+                    "page.Y5"
+                ]
+            },
+            {
+                "id": "Y8",
+                "valueFromFn": "calculateErrorForCu",
+                "args": [
+                    "page.Y6"
+                ]
+            },
+            {
+                "id": "Y9",
+                "valueFromFn": "calculateErrorForAl",
+                "args": [
+                    "page.Y7"
+                ]
+            },
+            
+            {
+                "id": "SYMD_Fill_0",
+                "value": "示波器"
+            },
+            {
+                "id": "SYMD_Fill_1",
+                "value": "信号发生器"
+            },
+            {
+                "id": "SYYL_Fill_0",
+                "value": "分离变量"
+            },
+            {
+                "id": "SYYL_Fill_1",
+                "value": "数值"
+            },
+            {
+                "id": "SYYL_Fill_2",
+                "value": "A"
+            },
+            {
+                "id": "SYYL_Fill_3",
+                "value": "B"
+            },
+            {
+                "id": "SYBZ_Fill_0",
+                "value": "B"
+            },
+            {
+                "id": "SYBZ_Fill_1",
+                "value": "A"
+            },
+            {
+                "id": "SYBZ_Fill_2",
+                "value": "振幅"
+            }
+        ]
+    },
+    "用波尔共振仪研究受迫振动(updated)": {
+        "expName": "用波尔共振仪研究受迫振动",
+        "submit": {
+            "selector": "button[onclick='XMLSubmitReport_ZSTJ();']"
+        },
+        "automation": {
+            "autoFlowButtonList": [
+                "#__tm_btn_upload_exp_image",
+                "__tm_btn_fill_from_pre_rec",
+                "__tm_btn_extract",
+                "__tm_btn_apply_const",
+                "__tm_btn_apply_var",
+                "__tm_btn_check_fill",
+                "__tm_btn_submit"
+            ],
+            "timeInterval": "2s",
+            "profileInterval": "10s"
+        },
+
+        "extract": [
+            "B51-{0..2}",
+            "B3"
+        ],
+        "uploadExpImage": {
+            "toFillNode": ".wysiwyg-editor",
+            "source": "3.jpg"
+        },
+        "prompts": [
+            {
+                "type": "textRecognition",
+                "value": "下面是阻尼系数测量实验中节点与数据含义的对应关系，用于从图片中识别并填充值。\n\n阻尼系数测量\n\ntheta 数据，对应第 1~6 次：\nB10-0  B10-1  B10-2  B10-3  B10-4  B10-5\n\n周期相关数据：\n3T  T\n对应节点：\nB3  B4\n\n阻尼系数 beta，对应第 1~3 次：\nB51-0  B51-1  B51-2\n\n不同振幅下的数据（振幅为 0 圈、2 圈、4 圈、6 圈、8 圈）：\n振幅对应节点：\nB100-0  B100-1  B100-2  B100-3  B100-4\n\n周期 T 在不同振幅下的数据（0 圈、2 圈、4 圈、6 圈、8 圈）：\nB101-0  B101-1  B101-2  B101-3  B101-4\n\n角频率 omega 在不同振幅下的数据（0 圈、2 圈、4 圈、6 圈、8 圈）：\nB102-0  B102-1  B102-2  B102-3  B102-4\n\n任务要求：只输出一个 JSON object，包含所有节点 id 与其对应的图片中读取的数据，例如：{ \"B10-0\":\"12.3\", \"B3\":\"4.56\" }\n- 不要输出空值\n- 不要输出解释和注释",
+                "recognitionSource": "3.jpg"
+            },
+            {
+                "model": "doubao-seed-1-6-flash-250828",
+                "type": "generateAnswer",
+                "value": "请每次尽量生成不一样的答案，越随机越好，实验背景：用波尔共振仪研究受迫振动。实验利用摆轮—蜗卷弹簧系统在周期性强迫力矩作用下产生受迫振动，通过调节电机转速改变强迫频率，观察振幅随频率变化的幅频特性，并在共振附近测量特性曲线。实验同时通过自由阻尼振动记录连续振幅与周期，采用逐差法计算阻尼系数，理解阻尼对共振峰与相位差的影响。测量系统包括光电门用于周期测量、闪光灯与角度盘用于相位差观察，仪器含电磁阻尼模块以调控阻尼大小。问题：基于本实验所用仪器或原理方法，提出一种新的实验方案或新的实际应用。要求：回答约100字，语言客观、符合大学物理实验报告风格，最终仅返回 JSON 格式，格式如下（示例）：{\"1\":\"内容\"}"
+            }
+        ],
+
+        "excludedNodesList": [
+            "input.file-caption-name",
+            "input#inpReportName",
+            "input#__tm_input_switch_id"
+        ],
+        "fill": [
+            {
+                "id": "SYMD_Fill_0",
+                "value": "力学"
+            },
+            {
+                "id": "SYMD_Fill_1",
+                "value": "测量"
+            },
+            {
+                "id": "SYMD_Fill_2",
+                "value": "阻尼"
+            },
+            {
+                "id": "SYMD_Fill_3",
+                "value": "受迫"
+            },
+            {
+                "id": "SYMD_Fill_4",
+                "value": "无电磁阻尼时的"
+            },
+            {
+                "id": "SYMD_Fill_5",
+                "value": "阻尼系数"
+            },
+            {
+                "id": "SYMD_Fill_6",
+                "value": "受迫"
+            },
+            {
+                "id": "SYMD_Fill_7",
+                "value": "幅频"
+            },
+            {
+                "id": "SYMD_Fill_8",
+                "value": "共振"
+            },
+            {
+                "id": "SYMD_Fill_9",
+                "value": "波尔共振仪"
+            },
+            {
+                "id": "B50-0",
+                "valueFromFn": "multiply3T",
+                "args": [
+                    "extract.B51-0",
+                    "page.B4"
+                ]
+            },
+            {
+                "id": "B50-1",
+                "valueFromFn": "multiply3T",
+                "args": [
+                    "extract.B51-1",
+                    "page.B4"
+                ]
+            },
+            {
+                "id": "B50-2",
+                "valueFromFn": "multiply3T",
+                "args": [
+                    "extract.B51-2",
+                    "page.B4"
+                ]
+            },
+            {
+                "id": "B6",
+                "valueFromFn": "dividedby3",
+                "args": [
+                    "extract.B51-0",
+                    "extract.B51-1",
+                    "extract.B51-2"
+                ]
+            }
+
+        ]
+    },
+    "分光计三棱镜实验（数据初始化和角度转换）": {
+        "expName": "分光计三棱镜实验",
+        "submit": {
+            "selector": "button[onclick='XMLSubmitReport_ZSTJ();']"
+        },
+        "automation": {
+            "autoFlowButtonList": [
+                "#__tm_btn_upload_exp_image",
+                "__tm_btn_fill_from_pre_rec",
+                "__tm_btn_extract",
+                "__tm_btn_apply_var"
+            ],
+            "timeInterval": "2s",
+            "profileInterval": "2s"
+        },
+
+        "uploadExpImage": {
+            "toFillNode": ".wysiwyg-editor",
+            "source": "4.jpg"
+        },
+        "prompts": [
+            {
+                "type": "textRecognition",
+                "value": "下面是三棱镜实验中节点与测量数据的对应关系，用于从图片中识别并填充值。\n\n填写角度数据时，请将“分”直接填在小数点后，例如 133 度 13 分写为 133.13。\n\n三棱镜的顶角测量数据\n\n左 1 读数，对应第 1~5 次：\nFGJ10-0  FGJ10-1  FGJ10-2  FGJ10-3  FGJ10-4\n\n右 1 读数，对应第 1~5 次：\nFGJ11-0  FGJ11-1  FGJ11-2  FGJ11-3  FGJ11-4\n\n左 2 读数，对应第 1~5 次：\nFGJ12-0  FGJ12-1  FGJ12-2  FGJ12-3  FGJ12-4\n\n右 2 读数，对应第 1~5 次：\nFGJ13-0  FGJ13-1  FGJ13-2  FGJ13-3  FGJ13-4\n\n最小偏向角测量数据（分别对应 左1、右1、左2、右2）：\nFGJ20-0  FGJ20-1  FGJ20-2  FGJ20-3\n\n任务要求：只输出一个 JSON object，包含所有节点 id 与其对应的图片中读取的数据，例如：{ \"FGJ10-0\":\"318.80\", \"FGJ11-0\":\"196.75\" }\n- 不要输出空值\n- 不要输出解释和注释",
+                "recognitionSource": "4.jpg"
+            }
+        ],
+        "extract": [
+            "FGJ10-{0..4}",
+            "FGJ11-{0..4}",
+            "FGJ12-{0..4}",
+            "FGJ13-{0..4}",
+            "FGJ20-{0..3}"
+        ],
+
+        "fill":[
+            {
+                "id": "FGJ10-0",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ10-0"
+                ]
+            },
+            {
+                "id": "FGJ10-1",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ10-1"
+                ]
+            },
+            {
+                "id": "FGJ10-2",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ10-2"
+                ]
+            },
+            {
+                "id": "FGJ10-3",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ10-3"
+                ]
+            },
+            {
+                "id": "FGJ10-4",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ10-4"
+                ]
+            },
+            {
+                "id": "FGJ11-0",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ11-0"
+                ]
+            },
+            {
+                "id": "FGJ11-1",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ11-1"
+                ]
+            },
+            {
+                "id": "FGJ11-2",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ11-2"
+                ]
+            },
+            {
+                "id": "FGJ11-3",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ11-3"
+                ]
+            },
+            {
+                "id": "FGJ11-4",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ11-4"
+                ]
+            },
+            {
+                "id": "FGJ12-0",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ12-0"
+                ]
+            },
+            {
+                "id": "FGJ12-1",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ12-1"
+                ]
+            },
+            {
+                "id": "FGJ12-2",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ12-2"
+                ]
+            },
+            {
+                "id": "FGJ12-3",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ12-3"
+                ]
+            },
+            {
+                "id": "FGJ12-4",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ12-4"
+                ]
+            },
+            {
+                "id": "FGJ13-0",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ13-0"
+                ]
+            },
+            {
+                "id": "FGJ13-1",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ13-1"
+                ]
+            },
+            {
+                "id": "FGJ13-2",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ13-2"
+                ]
+            },
+            {
+                "id": "FGJ13-3",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ13-3"
+                ]
+            },
+            {
+                "id": "FGJ13-4",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ13-4"
+                ]
+            },
+            {
+                "id": "FGJ20-0",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ20-0"
+                ]
+            },
+            {
+                "id": "FGJ20-1",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ20-1"
+                ]
+            },
+            {
+                "id": "FGJ20-2",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ20-2"
+                ]
+            },
+            {
+                "id": "FGJ20-3",
+                "valueFromFn": "degMinToDecimal",
+                "args": [
+                    "extract.FGJ20-3"
+                ]
+            }
+        ]
+    },
+    "分光计三棱镜实验": {
+        "expName": "分光计三棱镜实验",
+        "submit": {
+            "selector": "button[onclick='XMLSubmitReport_ZSTJ();']"
+        },
+        "automation": {
+            "autoFlowButtonList": [
+                "__tm_btn_fill_from_pre_rec",
+                "__tm_btn_extract",
+                "__tm_btn_apply_const",
+                "__tm_btn_apply_var",
+                "__tm_btn_extract",
+                "__tm_btn_apply_var",
+                "__tm_btn_check_fill",
+                "__tm_btn_submit"
+            ],
+            "timeInterval": "2s",
+            "profileInterval": "10s"
+        },
+
+        "uploadExpImage": {
+            "toFillNode": ".wysiwyg-editor",
+            "source": "4.jpg"
+        },
+        "prompts": [
+            {
+                "model": "doubao-seed-1-6-flash-250828",
+                "type": "generateAnswer",
+                "value": "请每次尽量生成不一样的答案，越随机越好，实验背景：分光计三棱镜实验。实验利用分光计测量玻璃三棱镜的顶角和最小偏向角，通过最小偏向角法计算棱镜材料的折射率。实验过程中重点学习分光计的结构、调节方法及角度读数原理，理解平行光、偏心差及其消除方法，并掌握最小偏向角形成的物理条件。实验仪器包括分光计、钠光灯和玻璃三棱镜。通过精确测量顶角和最小偏向角，加深对光在棱镜中折射规律的理解。问题：基于本实验所用仪器或原理方法，提出一种新的实验方案或新的实际应用。要求：回答约100字，语言客观、符合大学物理实验报告风格，最终仅返回 JSON 格式，格式如下（示例）：{\"1\":\"内容\"}"
+            }
+        ],
+        "excludedNodesList": [
+            "input.file-caption-name",
+            "input#inpReportName",
+            "input#__tm_input_switch_id"
+        ],
+
+        "extract": [
+            "FGJ10-{0..4}",
+            "FGJ11-{0..4}",
+            "FGJ12-{0..4}",
+            "FGJ13-{0..4}",
+            "FGJ20-{0..3}"
+        ],
+        "fill": [
+            {
+                "id": "FGJ30-0",
+                "valueFromFn": "getPrismVertexAngle",
+                "args": [
+                    "extract.FGJ10-0",
+                    "extract.FGJ12-0",
+                    "extract.FGJ11-0",
+                    "extract.FGJ13-0"
+                ]
+            },
+            {
+                "id": "FGJ30-1",
+                "valueFromFn": "getPrismVertexAngle",
+                "args": [
+                    "extract.FGJ10-1",
+                    "extract.FGJ12-1",
+                    "extract.FGJ11-1",
+                    "extract.FGJ13-1"
+                ]
+            },
+            {
+                "id": "FGJ30-2",
+                "valueFromFn": "getPrismVertexAngle",
+                "args": [
+                    "extract.FGJ10-2",
+                    "extract.FGJ12-2",
+                    "extract.FGJ11-2",
+                    "extract.FGJ13-2"
+                ]
+            },
+            {
+                "id": "FGJ30-3",
+                "valueFromFn": "getPrismVertexAngle",
+                "args": [
+                    "extract.FGJ10-3",
+                    "extract.FGJ12-3",
+                    "extract.FGJ11-3",
+                    "extract.FGJ13-3"
+                ]
+            },
+            {
+                "id": "FGJ30-4",
+                "valueFromFn": "getPrismVertexAngle",
+                "args": [
+                    "extract.FGJ10-4",
+                    "extract.FGJ12-4",
+                    "extract.FGJ11-4",
+                    "extract.FGJ13-4"
+                ]
+            },
+            {
+                "id": "FGJ4",
+                "valueFromFn": "calculateA",
+                "args": [
+                    "FGJ30-0",
+                    "FGJ30-1",
+                    "FGJ30-2",
+                    "FGJ30-3",
+                    "FGJ30-4"
+                ]
+            },
+            {
+                "id": "FGJ5",
+                "valueFromFn": "calculateUa",
+                "args": [
+                    "FGJ30-0",
+                    "FGJ30-1",
+                    "FGJ30-2",
+                    "FGJ30-3",
+                    "FGJ30-4"
+                ]
+            },
+            {
+                "id": "FGJ6",
+                "valueFrom": "FGJ4"
+            },
+            {
+                "id": "FGJ6.1",
+                "valueFrom": "FGJ5"
+            },
+            {
+                "id": "FGJ7",
+                "valueFromFn": "calculateSigmaMin",
+                "args": [
+                    "extract.FGJ20-0",
+                    "extract.FGJ20-2",
+                    "extract.FGJ20-1",
+                    "extract.FGJ20-3"
+                ]
+            },
+            {
+                "id": "FGJ8",
+                "valueFromFn": "calculateN",
+                "args": [
+                    "FGJ4",
+                    "FGJ7"
+                ]
+            },
+
+            {
+                "id": "SYMD_Fill_0",
+                "value": "分光计"
+            },
+            {
+                "id": "SYMD_Fill_1",
+                "value": "分光计"
+            },
+            {
+                "id": "SYMD_Fill_2",
+                "value": "最小偏向角"
+            },
+            {
+                "id": "SYMD_Fill_3",
+                "value": "折射率"
+            },
+            {
+                "id": "SYMD_Fill_4",
+                "value": "分光计、钠光灯、玻璃三棱镜"
+            },
+            {
+                "id": "SYYL_Fill_0",
+                "value": "30"
+            },
+            {
+                "id": "SYYL_Fill_1",
+                "value": "1"
+            },
+            {
+                "id": "SYYL_Fill_2",
+                "value": "偏心差"
+            },
+            {
+                "id": "SYYL_Fill_3",
+                "value": "平均值"
+            },
+            {
+                "id": "SYBZ_Fill_0",
+                "value": "用平行光法测量三棱镜顶角"
+            },
+            {
+                "id": "SYBZ_Fill_1",
+                "value": "重合"
+            },
+            {
+                "id": "SYBZ_Fill_2",
+                "value": "反向移动"
+            }
+        ]
+    },
+    "霍尔效应实验(updated)": {
+        "expName": "霍尔效应实验",
+        "submit": {
+            "selector": "button[onclick='XMLSubmitReport_ZSTJ();']"
+        },
+        "automation": {
+            "autoFlowButtonList": [
+                "#__tm_btn_upload_exp_image",
+                "__tm_btn_fill_from_pre_rec",
+                "__tm_btn_extract",
+                "__tm_btn_cross_site",
+
+                "__tm_btn_apply_const",
+                "__tm_btn_apply_var",
+
+                "__tm_btn_extract",
+                "__tm_btn_apply_var",
+
+                "__tm_btn_check_fill",
+                "__tm_btn_submit"
+            ],
+            "timeInterval": "10s",
+            "profileInterval": "10s"
+        },
+
+        "uploadExpImage": {
+            "toFillNode": ".wysiwyg-editor",
+            "source": "5.jpg"
+        },
+        "prompts": [
+            {
+                "type": "textRecognition",
+                "value": "下面是 UH 曲线实验中节点与实验数据的对应关系，用于从图片中识别并填充值。\n\n测量 UH—IS 曲线\n\n当 UH 为 U1 时，IS 分别取 0.5、1.0、1.5、2.0、2.5、3.0、3.5、4.0：\nH10-0  H10-1  H10-2  H10-3  H10-4  H10-5  H10-6  H10-7\n\n当 UH 为 U2 时，IS 分别取 0.5、1.0、1.5、2.0、2.5、3.0、3.5、4.0：\nH11-0  H11-1  H11-2  H11-3  H11-4  H11-5  H11-6  H11-7\n\n当 UH 为 U3 时，IS 分别取 0.5、1.0、1.5、2.0、2.5、3.0、3.5、4.0：\nH12-0  H12-1  H12-2  H12-3  H12-4  H12-5  H12-6  H12-7\n\n当 UH 为 U4 时，IS 分别取 0.5、1.0、1.5、2.0、2.5、3.0、3.5、4.0：\nH13-0  H13-1  H13-2  H13-3  H13-4  H13-5  H13-6  H13-7\n\nUH 时，IS 分别取 0.5、1.0、1.5、2.0、2.5、3.0、3.5、4.0：\nH14-0  H14-1  H14-2  H14-3  H14-4  H14-5  H14-6  H14-7\n\n测量 UH—IM 曲线\n\n当 UH 为 U1 时，IM 分别取 100、200、300、400、500：\nH20-0  H20-1  H20-2  H20-3  H20-4\n\n当 UH 为 U2 时，IM 分别取 100、200、300、400、500：\nH21-0  H21-1  H21-2  H21-3  H21-4\n\n当 UH 为 U3 时，IM 分别取 100、200、300、400、500：\nH22-0  H22-1  H22-2  H22-3  H22-4\n\n当 UH 为 U4 时，IM 分别取 100、200、300、400、500：\nH23-0  H23-1  H23-2  H23-3  H23-4\n\n UH 时，IM 分别取 100、200、300、400、500：\nH24-0  H24-1  H24-2  H24-3  H24-4\n\n任务要求：只输出一个 JSON object，包含所有节点 id 与其对应的图片中读取的数据，例如：{ \"H10-0\":\"0.52\", \"H20-3\":\"400\" }\n- 不要输出空值\n- 不要输出解释和注释",
+                "recognitionSource": "5.jpg"
+            },
+            {
+                "model": "doubao-seed-1-6-flash-250828",
+                "type": "generateAnswer",
+                "value": "请每次尽量生成不一样的答案，越随机越好，实验背景：霍尔效应实验。实验以半导体霍尔器件为研究对象，在恒定磁场条件下，通过测量霍尔电压与工作电流、励磁电流之间的关系，研究霍尔效应的基本规律。实验利用对称测量法减小系统误差，并通过作图法求取霍尔系数，根据霍尔系数的符号判断样品的导电类型，进一步计算载流子浓度。实验仪器包括霍尔效应实验仪、测试仪、电压表、电流表、示波器和信号发生器。实验目的在于加深对载流子在磁场中受力运动机理的理解，并掌握霍尔效应的实验测量方法。问题：1.分析实验中可能导致测量误差的主要原因，并提出改进实验方法或精度的建议。2.结合实验原理，说明霍尔效应在实际工程或科学研究中的可能应用。要求：每个问题回答约100字，语言客观、符合大学物理实验报告风格，最终仅返回 JSON 格式，格式如下（示例）：{\"1\":\"内容\",\"2\":\"内容\"}"
+            }
+        ],
+        "crossSite": {
+            "targetUrl": "https://www.qinms.com/webapp/curvefit/cf.aspx",
+            "extractIds": [
+                ["0.50", "1.00", "1.50", "2.00", "2.50", "3.00", "3.50", "4.00"],
+                "H14-{0..7}",
+                ["100", "200", "300", "400", "500"],
+                "H24-{0..4}"
+            ],
+            "equationTypes": ["00", "00"],
+            "batchSize": 2,
+            "delays": {
+                "afterFill": 500,
+                "afterClick": 2000,
+                "imageLoad": 3000
+            },
+            "upload": {
+                "url": "http://10.25.77.60:8001/upload",
+                "editorSelector": ".wysiwyg-editor",
+                "editorIndexes": [1, 2]
+            }
+        },
+
+        "excludedNodesList": [
+            "input.file-caption-name",
+            "input#inpReportName",
+            "input#__tm_input_switch_id"
+        ],
+        "extract": ["H14-{0..7}", "H24-{0..4}"],
+        "fill": [
+            {
+                "id": "SYMD_Fill_0",
+                "value": "ACE"
+            },
+            {
+                "id": "SYYL_Fill_0",
+                "value": "B"
+            },
+            {
+                "id": "SYYL_Fill_1",
+                "value": "D"
+            },
+            {
+                "id": "SYYL_Fill_2",
+                "value": "B"
+            },
+            {
+                "id": "SYYL_Fill_3",
+                "value": "C"
+            },
+            {
+                "id": "SYBZ_Fill_0",
+                "value": "A"
+            },
+            {
+                "id": "SYBZ_Fill_1",
+                "value": "B"
+            },
+            {
+                "id": "SYBZ_Fill_2",
+                "value": "B"
+            },
+            {
+                "id": "OP_Fill_0",
+                "valueFromFn": "calculateNHallCoefficient",
+                "args": [
+                    "page.H4"
+                ]
+            },
+            {
+                "id": "OP_Fill_1",
+                "valueFromFn": "calculateNHallExponent",
+                "args": [
+                    "page.H4"
+                ]
+            },
+            {
+                "id": "H4",
+                "valueFromFn": "computeRhFromIS",
+                "args": [
+                    "crossSite.b0",
+                    "custom.c"
+                ]
+            },
+            {
+                "id": "H6",
+                "valueFromFn": "computeRhFromIM",
+                "args": [
+                    "crossSite.b1",
+                    "custom.c"
+                ]
+            }
+        ]
+    }
+    }
+}

@@ -1,0 +1,11 @@
+[
+  {
+    "student_id": "2410150207",
+    "browser_index": 0,
+    "status": "failed",
+    "start_time": "2026-01-10T01:46:18.375711",
+    "end_time": "2026-01-10T01:48:15.525303",
+    "screenshot": null,
+    "error": "Page.wait_for_timeout: Target page, context or browser has been closed"
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "last_directory": "C:/Users/hbyan/Documents/code/物理实验",
+  "api_key": "acde1fec-ff08-43c6-b16c-2b38b601423f",
+  "concurrent_workers": 3,
+  "max_retries": 1,
+  "log_level": 1,
+  "enable_notification": true,
+  "enable_sound": true,
+  "window_geometry": {
+    "x": 1167,
+    "y": 427,
+    "width": 1384,
+    "height": 1025
+  },
+  "recent_directories": [
+    "C:/Users/hbyan/Documents/code/物理实验"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+    "userscript_path": "script_edit.user.js",
+    "data_directory": "C:/Users/hbyan/Documents/code/物理实验",
+    "use_secondary_data": true,
+    "file_server_port": 8888,
+    "api_key": "acde1fec-ff08-43c6-b16c-2b38b601423f",
+    "target_url": "http://10.25.77.60:8001",
+    "student_ids": [
+        "2410150207"
+    ],
+    "max_parallel_browsers": 5,
+    "headless": false,
+    "slow_mo": 500,
+    "timeout": {
+        "page_load": 30000,
+        "plugin_init": 5000,
+        "automation_complete": 120000
+    },
+    "screenshot": {
+        "enabled": true,
+        "directory": "screenshots"
+    }
+}

@@ -1,0 +1,11 @@
+[
+  {
+    "student_id": "2410150207",
+    "browser_index": 0,
+    "status": "failed",
+    "start_time": "2026-01-10T01:22:12.234332",
+    "end_time": "2026-01-10T01:22:12.241144",
+    "screenshot": null,
+    "error": "BrowserType.launch_persistent_context: Executable doesn't exist at C:\\Users\\hbyan\\AppData\\Local\\ms-playwright\\chromium-1187\\chrome-win\\chrome.exe\n╔════════════════════════════════════════════════════════════╗\n║ Looks like Playwright was just installed or updated.       ║\n║ Please run the following command to download new browsers: ║\n║                                                            ║\n║     playwright install                                     ║\n║                                                            ║\n║ <3 Playwright Team                                         ║\n╚════════════════════════════════════════════════════════════╝"
+  }
+]
