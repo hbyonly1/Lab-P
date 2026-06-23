@@ -75,7 +75,7 @@
   color: #141413;
   background: #fff;
   border: 1px solid rgba(20, 20, 19, 0.22);
-  border-radius: 50%;
+  border-radius: var(--lf-radius-control);
 }
 
 .mobile-only {
@@ -94,7 +94,7 @@
   font-size: 16px;
   font-weight: 500;
   letter-spacing: -0.32px;
-  border-radius: 20px;
+  border-radius: var(--lf-radius-control);
 }
 
 .nav-admin-button,
@@ -255,7 +255,7 @@
   font-size: 13px;
   background: #fff;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--lf-radius-control);
 }
 
 .engine-timeline {

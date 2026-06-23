@@ -17,6 +17,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { getAdminUserName } from '../../auth.js';
+import { GoldButton, OutlineButton, TablePanel } from '../../components/ui/index.js';
 
 const dashboardData = {
   plan: {
@@ -152,7 +153,7 @@ export default function StudentDashboardPage() {
   const progress = total > 0 ? completed / total : 0;
 
   return (
-    <section className="student-dashboard-page">
+    <section className="workspace-standard-page student-dashboard-page">
       <DashboardTopbar firstName={firstName} />
 
       <QuickSubmitCard onSubmit={() => navigate('/workspace/student/experiments')} />
@@ -174,10 +175,10 @@ function DashboardTopbar({ firstName }) {
     <header className="student-dashboard-topbar">
       <div>
         <h1>你好，{firstName} 同学</h1>
-        <p>欢迎使用CUMTB实验+</p>
+        <p>Have a nice day!</p>
       </div>
       <div className="student-dashboard-userbar">
-        <Button className="dashboard-icon-button" icon={<BellOutlined />} aria-label="通知" />
+        <Button className="ui-icon-button" icon={<BellOutlined />} aria-label="通知" />
       </div>
     </header>
   );
@@ -194,9 +195,9 @@ function QuickSubmitCard({ onSubmit }) {
         <p>无需打开实验网站，一站式操作。</p>
       </div>
       <div className="quick-submit-actions">
-        <Button className="quick-submit-pro-button" onClick={onSubmit}>
-          一键提交全部（Pro）&gt;
-        </Button>
+        <GoldButton onClick={onSubmit}>
+          一键提交全部 (Pro) &gt;
+        </GoldButton>
         <Button type="primary" onClick={onSubmit}>
           去手动提交 &gt;
         </Button>
@@ -218,9 +219,9 @@ function ServicePlanCard({ plan, plans }) {
             当前服务计划：<span>{currentPlan.name}</span>
           </h2>
         </div>
-        <Button className="dashboard-plan-manage-button" icon={<SettingOutlined />}>
+        <GoldButton icon={<SettingOutlined />}>
           升级套餐
-        </Button>
+        </GoldButton>
         <p>
           <b>{previewPlan.name}</b>：{previewPlan.description}
         </p>
@@ -340,10 +341,12 @@ function MetricStack({ completed, metrics, total }) {
           <article className={cardClass} key={metric.key}>
             <span className="metric-icon">{metric.icon}</span>
             <div>
-              <span>{metric.label}</span>
+              <span className="metric-label-row">
+                <span>{metric.label}</span>
+                {metric.trend && <p>{metric.trend}</p>}
+              </span>
               <strong>{value}</strong>
             </div>
-            {metric.trend && <p>{metric.trend}</p>}
           </article>
         );
       })}
@@ -392,11 +395,7 @@ function RecentTasksTable({ tasks, onViewAll }) {
   ];
 
   return (
-    <section className="dashboard-recent-panel">
-      <div className="dashboard-recent-head">
-        <h2>最近任务</h2>
-        <Button onClick={onViewAll}>查看全部</Button>
-      </div>
+    <TablePanel title="最近任务" actions={<OutlineButton onClick={onViewAll}>查看全部</OutlineButton>}>
       <Table
         columns={columns}
         dataSource={tasks}
@@ -404,14 +403,14 @@ function RecentTasksTable({ tasks, onViewAll }) {
         rowKey="submission_id"
         scroll={{ x: 620 }}
       />
-    </section>
+    </TablePanel>
   );
 }
 
 function TooltipButton({ icon, label }) {
   return (
     <Tooltip title={label}>
-      <Button icon={icon} aria-label={label} />
+      <OutlineButton icon={icon} aria-label={label} />
     </Tooltip>
   );
 }

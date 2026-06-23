@@ -167,12 +167,7 @@ export default function LandingPage() {
           <a className="nav-admin-button" href="/login">
             进入工作台
           </a>
-          <Button
-            shape="circle"
-            className="icon-button mobile-only"
-            icon={<MenuOutlined />}
-            aria-label="打开菜单"
-          />
+          <Button className="icon-button mobile-only" icon={<MenuOutlined />} aria-label="打开菜单" />
         </div>
       </header>
 

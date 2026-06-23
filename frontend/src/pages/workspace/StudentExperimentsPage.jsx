@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { Button } from 'antd';
 import {
   AppstoreOutlined,
   CheckCircleOutlined,
@@ -8,6 +7,7 @@ import {
   LineChartOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { GoldButton, OutlineButton, PageHeading, StatCard, StatusBadge } from '../../components/ui/index.js';
 
 export const experimentConfigs = [
   {
@@ -87,17 +87,14 @@ export default function StudentExperimentsPage() {
   );
 
   return (
-    <section className="student-experiments-page">
-      <header className="student-page-heading">
-        <h1>实验提交</h1>
-        <p>查看并提交你的全部实验任务</p>
-      </header>
+    <section className="workspace-standard-page student-experiments-page">
+      <PageHeading title="实验提交" description="查看并提交你的全部实验任务" />
 
-      <div className="student-status-overview">
-        <StatusTile icon={<AppstoreOutlined />} label="全部实验" value={metrics.total} tone="blue" />
-        <StatusTile icon={<CloudUploadOutlined />} label="待提交" value={metrics.pending} tone="amber" />
-        <StatusTile icon={<LineChartOutlined />} label="人工审核中" value={metrics.reviewing} tone="green" />
-        <StatusTile icon={<CheckCircleOutlined />} label="已完成" value={metrics.completed} tone="violet" />
+      <div className="ui-stat-grid">
+        <StatCard icon={<AppstoreOutlined />} label="全部实验" value={metrics.total} tone="blue" />
+        <StatCard icon={<CloudUploadOutlined />} label="待提交" value={metrics.pending} tone="amber" />
+        <StatCard icon={<LineChartOutlined />} label="人工审核中" value={metrics.reviewing} tone="green" />
+        <StatCard icon={<CheckCircleOutlined />} label="已完成" value={metrics.completed} tone="violet" />
       </div>
 
       <div className="experiment-list-panel">
@@ -112,27 +109,20 @@ export default function StudentExperimentsPage() {
             return (
               <article className="experiment-row" key={experiment.id}>
                 <h3>{experiment.name}</h3>
-                <span className={`experiment-status-tag is-${meta.tone}`}>
-                  <i aria-hidden="true" />
-                  {meta.label}
-                </span>
+                <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
                 <div className="experiment-row-actions">
-                  <Button
-                    className="experiment-action-button"
-                    type="link"
-                    onClick={() => navigate(`/workspace/student/experiments/${experiment.id}`)}
-                  >
+                  <OutlineButton onClick={() => navigate(`/workspace/student/experiments/${experiment.id}`)}>
                     编辑
-                  </Button>
-                  <Button className="experiment-action-button" type="link">
+                  </OutlineButton>
+                  <OutlineButton>
                     提交
-                  </Button>
-                  <Button className="experiment-action-button" type="link">
+                  </OutlineButton>
+                  <OutlineButton>
                     在系统里查看
-                  </Button>
-                  <Button className="experiment-action-button is-recognize" type="link" icon={<CrownOutlined />}>
+                  </OutlineButton>
+                  <GoldButton className="experiment-pro-button" icon={<CrownOutlined />}>
                     一键提交 (Pro)
-                  </Button>
+                  </GoldButton>
                 </div>
               </article>
             );
@@ -140,17 +130,5 @@ export default function StudentExperimentsPage() {
         </div>
       </div>
     </section>
-  );
-}
-
-function StatusTile({ icon, label, value, tone }) {
-  return (
-    <div className={`student-status-tile is-${tone}`}>
-      <span className="student-status-icon">{icon}</span>
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </div>
-    </div>
   );
 }

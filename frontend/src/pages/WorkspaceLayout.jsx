@@ -17,7 +17,13 @@ export default function WorkspaceLayout() {
   const userRole = getAdminUserRole();
   const accessibleModules = getWorkspaceModulesForRole(userRole);
   const currentModule = getWorkspaceModuleByPath(location.pathname);
-  const isStudentContent = ['student-dashboard', 'student-experiments'].includes(currentModule.id);
+  const standardContentModules = [
+    'student-dashboard',
+    'student-experiments',
+    'admin-experiments',
+    'design-system',
+  ];
+  const isStandardContent = standardContentModules.includes(currentModule.id);
   const userName = getAdminUserName();
   const userInitial = userName.trim().charAt(0).toUpperCase() || 'A';
 
@@ -42,7 +48,7 @@ export default function WorkspaceLayout() {
       >
         <div className="workspace-brand">
           <div className="workspace-brand-copy">
-            <strong>实验报告</strong>
+            <strong>CUMTB Lab+</strong>
             <span>v0.1</span>
           </div>
           <Button
@@ -77,7 +83,7 @@ export default function WorkspaceLayout() {
         </div>
       </Sider>
       <Layout className="workspace-main">
-        <Content className={`workspace-content${isStudentContent ? ' is-dashboard-content' : ''}`}>
+        <Content className={`workspace-content${isStandardContent ? ' is-standard-content' : ''}`}>
           <Outlet />
         </Content>
       </Layout>

@@ -70,3 +70,29 @@
 
 - 服务计划描述改为独立横跨整张卡片的一行，避免被“管理计划”按钮挤窄后提前换行或截断。
 - 验证：在 `frontend/` 执行 `npm run build` 通过。
+
+## 2026-06-22
+
+### 前端 UI 规范层起步
+
+- 新增 `frontend/src/styles/theme.css` 和 `frontend/src/styles/ui.css`，沉淀 LabFlow 前端通用 token、黄金强调按钮、图标按钮、四项指标卡、状态标签、表格容器和规范页布局。
+- 新增 `frontend/src/components/ui/` 下的 `GoldButton`、`PageHeading`、`StatCard`、`StatusBadge`、`TablePanel`、`UiPanel`，用于后续页面复用。
+- 新增 admin 内部规范页 `/workspace/admin/design-system`，展示按钮、状态、四项指标卡和表格容器示例。
+- 将 student 实验列表、实验详情和仪表盘中的部分按钮、状态标签、指标卡、最近任务表格切换到公共 UI 组件。
+- 验证：在 `frontend/` 执行 `npm run build` 通过；启动 Vite dev server 后访问 `http://127.0.0.1:5173/workspace/admin/design-system` 返回 200。
+- 遗留风险：旧 `workspace.css` 中仍有未清理的旧业务样式和重复样式；Vite 仍提示主 JS chunk 超过 500 kB，后续可按路由做 lazy loading。
+
+### Workspace 旧样式清理
+
+- 删除未挂载路由且仍使用 IgniteNow 短剧/剧集/高光语义的 `AnalyzePage.jsx`、`JobsPage.jsx`、`DashboardPage.jsx`。
+- 清理 `workspace.css` 中已由 `ui.css` 接管的旧按钮、状态标签、指标卡、最近任务表格样式，以及旧内容管理、AI 生产、审核高光相关样式残留。
+- `workspace.css` 从约 2955 行降至约 1946 行，前端 CSS 构建产物从约 70.63KB 降至约 56.24KB。
+- 验证：在 `frontend/` 执行 `npm run build` 通过。
+- 遗留风险：`LandingPage.jsx`、`landing.css` 和 `SettingsPage.jsx` 仍有旧 IgniteNow 文案或配置语义，后续需要单独替换为 LabFlow 语义。
+
+### 控件规范补充
+
+- 将 AntD 全局 `borderRadius` 调整为 8，并在 `ui.css` 中统一按钮、图标按钮、输入框、密码框、数字输入、Select、Picker、Upload Dragger 等控件的圆角、边框、hover 和 focus 样式。
+- 将登录页、工作台侧栏、实验详情返回按钮、landing 页可点击按钮等处的圆形/胶囊按钮改为 8px 圆角矩形。
+- 在 `/workspace/admin/design-system` 增加输入控件规范示例：文本输入、密码输入、数字输入、Select 和文本域。
+- 验证：在 `frontend/` 执行 `npm run build` 通过。

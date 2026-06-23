@@ -15,10 +15,18 @@ html {
 }
 
 body {
-  color: #141413;
-  background: #f3f0ee;
-  font-family: "Sofia Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Arial, sans-serif;
+  color: var(--lf-color-text, #141413);
+  background: var(--lf-color-app, #f3f0ee);
+  font-family: var(
+    --lf-font-sans,
+    "Sofia Sans",
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Arial,
+    sans-serif
+  );
 }
 
 a {

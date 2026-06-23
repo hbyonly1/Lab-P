@@ -5,8 +5,11 @@ import LoginPage from './pages/LoginPage.jsx';
 import StudentExperimentsPage from './pages/workspace/StudentExperimentsPage.jsx';
 import StudentExperimentDetailPage from './pages/workspace/StudentExperimentDetailPage.jsx';
 import StudentDashboardPage from './pages/workspace/StudentDashboardPage.jsx';
-import WorkspacePlaceholderPage from './pages/workspace/WorkspacePlaceholderPage.jsx';
+import WorkspaceBlankPage from './pages/workspace/WorkspaceBlankPage.jsx';
 import SettingsPage from './pages/workspace/SettingsPage.jsx';
+import DesignSystemPage from './pages/workspace/DesignSystemPage.jsx';
+import ExperimentConfigPage from './pages/workspace/ExperimentConfigPage.jsx';
+import AdminExperimentPreviewPage from './pages/workspace/AdminExperimentPreviewPage.jsx';
 import { getAdminUserRole, hasAdminAccessToken } from './auth.js';
 import {
   canAccessWorkspaceModule,
@@ -81,7 +84,7 @@ function App() {
           path="reviewer/tasks"
           element={
             <RequireWorkspaceRole moduleId="reviewer-tasks">
-              <WorkspacePlaceholderPage moduleId="reviewer-tasks" />
+              <WorkspaceBlankPage />
             </RequireWorkspaceRole>
           }
         />
@@ -89,7 +92,7 @@ function App() {
           path="reviewer/tasks/:taskId"
           element={
             <RequireWorkspaceRole moduleId="reviewer-tasks">
-              <WorkspacePlaceholderPage moduleId="reviewer-tasks" />
+              <WorkspaceBlankPage />
             </RequireWorkspaceRole>
           }
         />
@@ -97,7 +100,7 @@ function App() {
           path="admin/orders"
           element={
             <RequireWorkspaceRole moduleId="admin-orders">
-              <WorkspacePlaceholderPage moduleId="admin-orders" />
+              <WorkspaceBlankPage />
             </RequireWorkspaceRole>
           }
         />
@@ -105,7 +108,7 @@ function App() {
           path="admin/submissions"
           element={
             <RequireWorkspaceRole moduleId="admin-submissions">
-              <WorkspacePlaceholderPage moduleId="admin-submissions" />
+              <WorkspaceBlankPage />
             </RequireWorkspaceRole>
           }
         />
@@ -113,7 +116,7 @@ function App() {
           path="admin/review-tasks"
           element={
             <RequireWorkspaceRole moduleId="admin-review-tasks">
-              <WorkspacePlaceholderPage moduleId="admin-review-tasks" />
+              <WorkspaceBlankPage />
             </RequireWorkspaceRole>
           }
         />
@@ -122,6 +125,30 @@ function App() {
           element={
             <RequireWorkspaceRole moduleId="settings">
               <SettingsPage />
+            </RequireWorkspaceRole>
+          }
+        />
+        <Route
+          path="admin/experiments"
+          element={
+            <RequireWorkspaceRole moduleId="admin-experiments">
+              <ExperimentConfigPage />
+            </RequireWorkspaceRole>
+          }
+        />
+        <Route
+          path="admin/experiments/:experimentId/preview"
+          element={
+            <RequireWorkspaceRole moduleId="admin-experiments">
+              <AdminExperimentPreviewPage />
+            </RequireWorkspaceRole>
+          }
+        />
+        <Route
+          path="admin/design-system"
+          element={
+            <RequireWorkspaceRole moduleId="design-system">
+              <DesignSystemPage />
             </RequireWorkspaceRole>
           }
         />

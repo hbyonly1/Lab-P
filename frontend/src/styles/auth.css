@@ -87,7 +87,7 @@
   padding-inline: 16px;
   background: #fff;
   border-color: rgba(20, 20, 19, 0.16);
-  border-radius: 20px;
+  border-radius: var(--lf-radius-control);
 }
 
 .login-panel .ant-input-affix-wrapper-focused {
@@ -107,7 +107,7 @@
   font-weight: 500;
   background: #141413;
   border-color: #141413;
-  border-radius: 20px;
+  border-radius: var(--lf-radius-control);
 }
 
 .demo-login-panel {
@@ -134,7 +134,7 @@
 .demo-login-actions .ant-btn {
   height: 38px;
   padding-inline: 10px;
-  border-radius: 999px;
+  border-radius: var(--lf-radius-control);
 }
 
 @media (max-width: 920px) {

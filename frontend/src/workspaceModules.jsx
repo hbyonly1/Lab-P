@@ -2,6 +2,7 @@ import {
   AuditOutlined,
   BarChartOutlined,
   CheckCircleOutlined,
+  BgColorsOutlined,
   ExperimentOutlined,
   FileDoneOutlined,
   SettingOutlined,
@@ -17,6 +18,7 @@ export const workspaceModules = [
     description: '查看当前服务计划、实验完成状态和待处理事项。',
     icon: <BarChartOutlined />,
     roles: ['student'],
+    debugRoles: ['admin'],
     status: '总览',
   },
   {
@@ -27,6 +29,7 @@ export const workspaceModules = [
     description: '查看需要提交的实验，上传实验数据图片并跟进处理状态。',
     icon: <ExperimentOutlined />,
     roles: ['student'],
+    debugRoles: ['admin'],
     status: '实验列表',
   },
   {
@@ -74,23 +77,51 @@ export const workspaceModules = [
     path: '/workspace/admin/settings',
     title: '平台配置',
     eyebrow: 'SETTINGS',
-    description: '维护实验配置、DOM 节点表、Prompt 和安全策略。',
+    description: '维护 AI 配置和前端调试角色。',
     icon: <SettingOutlined />,
     roles: ['admin'],
-    status: '待接 API',
+    status: '调试',
+  },
+  {
+    id: 'admin-experiments',
+    path: '/workspace/admin/experiments',
+    title: '实验配置',
+    eyebrow: 'EXPERIMENTS',
+    description: '上传 JSON 并预览实验页面配置效果。',
+    icon: <ExperimentOutlined />,
+    roles: ['admin'],
+    status: 'JSON',
+  },
+  {
+    id: 'design-system',
+    path: '/workspace/admin/design-system',
+    title: '界面规范',
+    eyebrow: 'UI',
+    description: '沉淀按钮、卡片、表格和状态标签等后台页面通用规范。',
+    icon: <BgColorsOutlined />,
+    roles: ['admin'],
+    status: '规范',
   }
 ];
 
 export function canAccessWorkspaceModule(module, role) {
-  return module.roles.includes(role);
+  return module.roles.includes(role) || module.debugRoles?.includes(role);
 }
 
 export function getWorkspaceModulesForRole(role) {
-  return workspaceModules.filter((module) => canAccessWorkspaceModule(module, role));
+  const directModules = workspaceModules.filter((module) => module.roles.includes(role));
+  const debugModules = workspaceModules.filter(
+    (module) => !module.roles.includes(role) && module.debugRoles?.includes(role),
+  );
+  return [...directModules, ...debugModules];
 }
 
 export function getDefaultWorkspacePath(role) {
-  return getWorkspaceModulesForRole(role)[0]?.path ?? '/login';
+  return (
+    workspaceModules.find((module) => module.roles.includes(role))?.path ??
+    getWorkspaceModulesForRole(role)[0]?.path ??
+    '/login'
+  );
 }
 
 export function getWorkspaceModuleById(id) {
