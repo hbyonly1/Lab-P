@@ -10,7 +10,8 @@ import {
   ZoomInOutlined,
   ZoomOutOutlined,
   ReloadOutlined,
-  CameraOutlined
+  CameraOutlined,
+  FormOutlined
 } from '@ant-design/icons';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { getExperimentConfig, initFixedValues } from '../../services/experimentConfigStore.js';
@@ -61,6 +62,7 @@ export function ExperimentDetailView({ experiment, onBack }) {
   // 核心状态：所有的节点值都在这个 formValues 里
   const [formValues, setFormValues] = useState(() => initFixedValues(experiment.inputs.fields));
   const [isComputing, setIsComputing] = useState(false);
+  const [isFilling, setIsFilling] = useState(false);
   const [isRecognizing, setIsRecognizing] = useState(false);
 
   // 图片槽位状态映射：{ "IMG_RAW": [file1, file2], "IMG_WAVE": [file3] }
@@ -93,8 +95,13 @@ export function ExperimentDetailView({ experiment, onBack }) {
 
   // --- 后端计算通用接口 (Mock) ---
   const handleCompute = () => {
+    if (!capabilities.canUseAssistedFill) {
+      message.warning('权限拒绝：该功能需要 Plus/Pro 订阅。');
+      return;
+    }
     setIsComputing(true);
-    // 模拟调用后端 POST /api/experiments/{exp_id}/compute
+    message.loading({ content: '正在请求计算，请耐心等待...', key: 'compute' });
+    // 模拟调用后端 POST /api/experiments/{exp_id}/compute (带鉴权签名)
     setTimeout(() => {
       setFormValues(prev => {
         const next = { ...prev };
@@ -110,45 +117,84 @@ export function ExperimentDetailView({ experiment, onBack }) {
         return next;
       });
       setIsComputing(false);
-      message.success('已调用后端引擎，计算及跨域获取完成');
+      message.success({ content: `尊贵的 ${debugRole === 'pro' ? 'Pro' : 'Plus'} 用户，待计算的填空已经过公式计算并填入！`, key: 'compute' });
     }, 1500);
+  };
+
+  // --- 后端自动填空接口 (Mock) ---
+  const handleAssistedFill = () => {
+    if (!capabilities.canUseAssistedFill) {
+      message.warning('权限拒绝：该功能需要 Plus/Pro 订阅。');
+      return;
+    }
+    setIsFilling(true);
+    // 模拟调用后端 GET /api/experiments/{exp_id}/fixed-params (带鉴权签名)
+    setTimeout(() => {
+      setFormValues(prev => {
+        const next = { ...prev };
+        // 因为当前的 JSON 中没有固定的 seg.value，这里使用 Hardcode Mock
+        // 实际上后端会从数据库中读取这个实验的标准常量配置并返回
+        const mockFixedParams = {
+          "SYMD_Fill_0": "电压表和欧姆表",
+          "SYMD_Fill_1": "1500",
+          "SYMD_Fill_2": "电阻 Rx",
+          "SYYL_Fill_0": "1500"
+        };
+        Object.assign(next, mockFixedParams);
+        return next;
+      });
+      setIsFilling(false);
+      message.success(`尊贵的 ${debugRole === 'pro' ? 'Pro' : 'Plus'} 用户，已填入，请核对！`);
+    }, 1000);
   };
 
   // --- AI 图像识别 (Mock) ---
   const handleRecognize = () => {
-    if (!capabilities.canUseRecognition) {
-      message.info('Plus/Pro 角色可使用一键识别。');
-      return;
-    }
     const targetSlot = experiment.ai?.recognition?.imageRef;
     if (!targetSlot || !imageSlots[targetSlot] || imageSlots[targetSlot].length === 0) {
       message.warning('请先在相应的区域上传图片');
       return;
     }
+    if (!capabilities.canUseRecognition) {
+      message.warning('权限拒绝：该功能需要 Pro 订阅。');
+      return;
+    }
 
     setIsRecognizing(true);
+    message.loading({ content: '正在请求大模型，请耐心等待...', key: 'recognize' });
     // 模拟向后端发送图片和 prompt
     setTimeout(() => {
-      setFormValues(prev => {
-        const next = { ...prev, "Ig": "100", "Rg": "1500", "E": "1.5", "V_std_1": "2.0", "V_mod_1": "1.98" };
-        message.success('AI 识别完成！已自动填写数据到表格，请核对');
-        setIsRecognizing(false);
-        return next;
-      });
+      setFormValues(prev => ({
+        ...prev, "Ig": "100", "Rg": "1500", "E": "1.5", "V_std_1": "2.0", "V_mod_1": "1.98"
+      }));
+      setIsRecognizing(false);
+      message.success({ content: `尊贵的 ${debugRole === 'pro' ? 'Pro' : 'Plus'} 用户，识别完成！已自动填写数据到表格，请核对！`, key: 'recognize' });
     }, 2000);
   };
 
   // --- AI 自动生成解答 (Mock) ---
   const handleGenerateAnswer = (nodeId) => {
-    if (!capabilities.canUseOneClickSubmit) {
-      message.info('Pro 角色可使用 AI 解答功能。');
+    if (!capabilities.canUseAssistedFill) {
+      message.warning('权限拒绝：该功能需要 Plus/Pro 订阅。');
       return;
     }
-    setFormValues(prev => ({
-      ...prev,
-      [nodeId]: "这涉及到光在光疏介质和光密介质表面的反射特性。根据电磁波理论，当光从光疏介质射向光密介质并在交界面发生反射时，反射光会发生半个波长的相位突变，即半波损失。"
-    }));
-    message.success('大模型已生成解答，请核对');
+    // 模拟调用后端 POST /api/experiments/{exp_id}/generate (带鉴权签名与频控)
+    message.loading({ content: '正在请求大模型，请耐心等待...', key: 'gen-answer' });
+    setTimeout(() => {
+      setFormValues(prev => ({
+        ...prev,
+        [nodeId]: "这涉及到光在光疏介质和光密介质表面的反射特性。根据电磁波理论，当光从光疏介质射向光密介质并在交界面发生反射时，反射光会发生半个波长的相位突变，即半波损失。"
+      }));
+      message.success({ content: `尊贵的 ${debugRole === 'pro' ? 'Pro' : 'Plus'} 用户，已生成解答，请核对！`, key: 'gen-answer' });
+    }, 1500);
+  };
+
+  const handleOneClickSubmit = () => {
+    if (!capabilities.canUseOneClickSubmit) {
+      message.warning('权限拒绝：该功能需要 Pro 订阅。');
+      return;
+    }
+    message.success('尊贵的 Pro 用户，您的请求已提交，请耐心等待后台人工审核！');
   };
 
   return (
@@ -162,12 +208,9 @@ export function ExperimentDetailView({ experiment, onBack }) {
           </div>
         </div>
         <div className="experiment-detail-actions">
-          <Button className="recognize-primary-button" type="primary" icon={<CalculatorOutlined />} onClick={handleCompute} loading={isComputing}>
-            计算所有数据 (Plus/Pro)
-          </Button>
           <Button icon={<SaveOutlined />} style={{ background: '#fff' }}>临时提交</Button>
           <Button type="primary" icon={<SendOutlined />}>正式提交</Button>
-          <GoldButton disabled={!capabilities.canUseOneClickSubmit} icon={<CrownOutlined />}>
+          <GoldButton onClick={handleOneClickSubmit} icon={<CrownOutlined />}>
             一键提交<span className="pro-fill-badge">(Pro)</span>
           </GoldButton>
         </div>
@@ -175,59 +218,63 @@ export function ExperimentDetailView({ experiment, onBack }) {
 
       <div className="workspace-content">
         {/* 区域 1：基础填空（混排） */}
-        <SectionShell index="1." title="实验目的与实验原理" locked={!capabilities.canUseAssistedFill}>
-          {capabilities.canUseAssistedFill ? (
-            <div className="fixed-sections-grid">
-              {experiment.ui.fixedSections?.map((section, idx) => (
-                <div key={idx}>
-                  {section.title && <h3 className="fixed-section-title">{section.title}</h3>}
-                  <p className="fixed-section-content">
-                    {section.segments.map((seg, sIdx) => {
-                      if (typeof seg === 'string') return <span key={sIdx} style={{ whiteSpace: 'pre-wrap' }}>{seg}</span>;
-                      if (seg.type === 'image') {
-                        if (seg.inline) {
-                          return (
-                            <img
-                              key={sIdx}
-                              src={seg.src}
-                              alt=""
-                              style={{ width: seg.width, height: seg.height, verticalAlign: 'middle', margin: '0 4px' }}
-                              draggable={false}
-                            />
-                          );
-                        }
+        <SectionShell
+          index="1."
+          title="实验目的与实验原理"
+          extra={
+            <Button className="recognize-primary-button" type="primary" icon={<FormOutlined />} onClick={handleAssistedFill} loading={isFilling}>
+              一键填空 (Plus/Pro)
+            </Button>
+          }
+        >
+          <div className="fixed-sections-grid">
+            {experiment.ui.fixedSections?.map((section, idx) => (
+              <div key={idx}>
+                {section.title && <h3 className="fixed-section-title">{section.title}</h3>}
+                <p className="fixed-section-content">
+                  {section.segments.map((seg, sIdx) => {
+                    if (typeof seg === 'string') return <span key={sIdx} style={{ whiteSpace: 'pre-wrap' }}>{seg}</span>;
+                    if (seg.type === 'image') {
+                      if (seg.inline) {
                         return (
-                          <div key={sIdx} style={{ margin: '16px 0', width: '100%', textAlign: 'center' }}>
-                            <img src={seg.src} alt="" style={{ maxWidth: '100%', maxHeight: '200px', objectFit: 'contain' }} draggable={false} />
-                          </div>
+                          <img
+                            key={sIdx}
+                            src={seg.src}
+                            alt=""
+                            style={{ width: seg.width, height: seg.height, verticalAlign: 'middle', margin: '0 4px' }}
+                            draggable={false}
+                          />
                         );
                       }
-
-                      const nodeId = seg.nodeId;
-                      const isComputed = experiment.metaInfo?.computedIds?.has(nodeId);
-                      const isAsync = experiment.metaInfo?.asyncIds?.has(nodeId);
-                      const isFixed = experiment.metaInfo?.fixedIds?.has(nodeId);
-
                       return (
-                        <input
-                          key={sIdx}
-                          className={`fixed-inline-input ${isComputed ? 'is-computed' : ''} ${isAsync ? 'is-async' : ''} ${isFixed ? 'is-fixed' : ''}`}
-                          style={{ width: seg.width || '60px', margin: '0 8px' }}
-                          readOnly={isFixed}
-                          placeholder={isComputed ? '待计算' : ''}
-                          value={formValues[nodeId] ?? ''}
-                          onChange={e => handleFieldChange(nodeId, e.target.value)}
-                          title={`节点: ${nodeId}`}
-                        />
+                        <div key={sIdx} style={{ margin: '16px 0', width: '100%', textAlign: 'center' }}>
+                          <img src={seg.src} alt="" style={{ maxWidth: '100%', maxHeight: '200px', objectFit: 'contain' }} draggable={false} />
+                        </div>
                       );
-                    })}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <LockedNotice />
-          )}
+                    }
+
+                    const nodeId = seg.nodeId;
+                    const isComputed = experiment.metaInfo?.computedIds?.has(nodeId);
+                    const isAsync = experiment.metaInfo?.asyncIds?.has(nodeId);
+                    const isFixed = experiment.metaInfo?.fixedIds?.has(nodeId);
+
+                    return (
+                      <input
+                        key={sIdx}
+                        className={`fixed-inline-input ${isComputed ? 'is-computed' : ''} ${isAsync ? 'is-async' : ''} ${isFixed ? 'is-fixed' : ''}`}
+                        style={{ width: seg.width || '60px', margin: '0 8px' }}
+                        readOnly={isFixed}
+                        placeholder={isComputed ? '待计算' : ''}
+                        value={formValues[nodeId] ?? ''}
+                        onChange={e => handleFieldChange(nodeId, e.target.value)}
+                        title={`节点: ${nodeId}`}
+                      />
+                    );
+                  })}
+                </p>
+              </div>
+            ))}
+          </div>
         </SectionShell>
 
         {/* 区域 2：数据表格与图片 */}
@@ -243,7 +290,7 @@ export function ExperimentDetailView({ experiment, onBack }) {
                   metaInfo={experiment.metaInfo}
                 />
               ) : (
-                <div style={{ color: '#696969' }}>此实验无需表格</div>
+                <div style={{ color: '#696969' }}>此实验无需填写实验处理。</div>
               )}
             </div>
 
@@ -277,7 +324,7 @@ export function ExperimentDetailView({ experiment, onBack }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                         <h3 style={{ margin: 0, fontSize: '15px', color: '#141413' }}>{section.title}</h3>
                         <Button className="recognize-primary-button" type="primary" icon={<CalculatorOutlined />} onClick={handleCompute} loading={isComputing}>
-                          计算数据 (Plus/Pro)
+                          一键计算数据 (Plus/Pro)
                         </Button>
                       </div>
                     )}
@@ -340,14 +387,14 @@ export function ExperimentDetailView({ experiment, onBack }) {
                   style={{ marginBottom: '12px', backgroundColor: '#fff' }}
                 />
                 <div className="question-actions">
-                  <GoldButton icon={<CrownOutlined />} onClick={() => handleGenerateAnswer(q.nodeId)} disabled={!capabilities.canUseOneClickSubmit}>
-                    一键填入生成式回答 (Pro)
-                  </GoldButton>
+                  <Button className="recognize-primary-button" type="primary" icon={<CrownOutlined />} onClick={() => handleGenerateAnswer(q.nodeId)}>
+                    一键填入生成式回答 (Plus/Pro)
+                  </Button>
                 </div>
               </div>
             ))}
             {(!experiment.ui.questions || experiment.ui.questions.length === 0) && (
-              <span style={{ color: '#696969' }}>此实验无需填写思考题。</span>
+              <span style={{ color: '#696969' }}>此实验无需填写实验分析与拓展。</span>
             )}
           </div>
         </SectionShell>

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   AppstoreOutlined,
   CheckCircleOutlined,
@@ -7,9 +7,15 @@ import {
   LineChartOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { message } from 'antd';
 import { GoldButton, OutlineButton, PageHeading, StatCard, StatusBadge } from '../../components/ui/index.js';
 
 import { getAllExperiments } from '../../services/experimentConfigStore.js';
+import {
+  getDebugServiceCapabilities,
+  getDebugServiceRole,
+  subscribeDebugServiceRole,
+} from './debugRoleStore.js';
 
 export const experimentConfigs = getAllExperiments();
 
@@ -23,6 +29,19 @@ export const statusMeta = {
 
 export default function StudentExperimentsPage() {
   const navigate = useNavigate();
+  const [debugRole, setDebugRole] = useState(() => getDebugServiceRole());
+
+  useEffect(() => subscribeDebugServiceRole(setDebugRole), []);
+
+  const capabilities = getDebugServiceCapabilities(debugRole);
+
+  const handleOneClickSubmit = () => {
+    if (!capabilities.canUseOneClickSubmit) {
+      message.warning('权限拒绝：该功能需要 Pro 订阅。');
+      return;
+    }
+    message.success(`尊贵的 ${debugRole === 'pro' ? 'Pro' : 'Plus'} 用户，您的请求已提交，请耐心等待后台人工审核！`);
+  };
 
   const metrics = useMemo(
     () => ({
@@ -70,7 +89,7 @@ export default function StudentExperimentsPage() {
                   <OutlineButton>
                     在系统里查看
                   </OutlineButton>
-                  <GoldButton className="experiment-pro-button" icon={<CrownOutlined />}>
+                  <GoldButton onClick={handleOneClickSubmit} icon={<CrownOutlined />}>
                     一键提交 (Pro)
                   </GoldButton>
                 </div>

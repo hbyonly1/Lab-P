@@ -154,7 +154,6 @@ export function ExperimentImageUploader({ images, imageSlots, onImageUpload, onR
             className="recognize-primary-button"
             type="primary"
             icon={<RecognizeIcon />}
-            disabled={!canUseRecognition}
             loading={isRecognizing}
             onClick={onRecognize}
           >
