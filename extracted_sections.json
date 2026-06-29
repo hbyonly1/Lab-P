@@ -1,0 +1,103 @@
+[
+  {
+    "title": "实验目的",
+    "segments": [
+      "1. 掌握表头改装为",
+      {
+        "nodeId": "SYMD_Fill_0",
+        "width": "100px"
+      },
+      "的原理；",
+      "2. 将表头改装为中值电阻=",
+      {
+        "nodeId": "SYMD_Fill_1",
+        "width": "100px"
+      },
+      "Ω的欧姆表；",
+      "3. 拟合被测",
+      {
+        "nodeId": "SYMD_Fill_2",
+        "width": "100px"
+      },
+      "与电流示数的函数曲线。"
+    ]
+  },
+  {
+    "title": "实验仪器",
+    "segments": [
+      "DH4508A型 电表改装与校准实验仪；电阻箱",
+      {
+        "type": "image",
+        "src": "/assets/configs_images/meter_mod_img_1.png",
+        "inline": false,
+        "width": "439.449952157569px",
+        "height": "302.296782375907px"
+      }
+    ]
+  },
+  {
+    "title": "实验原理",
+    "segments": [
+      "将电流表（或微安表）改装成欧姆表，是基于闭合电路欧姆定律实现的。其核心思想是：通过接入电源和调零电阻，使表头电流与待测电阻之间形成一一对应关系，从而利用原电流刻度标注对应的电阻值。",
+      "将电流表改装为欧姆表的电路原理图如下图所示，其中Rx为",
+      {
+        "nodeId": "SYYL_Fill_0",
+        "width": "100px"
+      },
+      "，其余元件均由电表改装与校准实验仪提供。",
+      {
+        "type": "image",
+        "src": "/assets/configs_images/meter_mod_img_2.png",
+        "inline": false,
+        "width": "359.569893444256px",
+        "height": "306.509344019201px"
+      },
+      "根据欧姆定律做出电路原理图的等效电路图，将电路中电表改装与校准实验仪的电阻等效为电阻Rs，总电流记为kIx，其中Ix为流经电流表表头的电流，如下图所示。",
+      {
+        "type": "image",
+        "src": "/assets/configs_images/meter_mod_img_3.png",
+        "inline": false,
+        "width": "329.652775151406px",
+        "height": "311.025135459631px"
+      },
+      "于是根据欧姆定律可得",
+      {
+        "type": "image",
+        "src": "/assets/configs_images/meter_mod_img_4.png",
+        "inline": true,
+        "width": "113.007680796766px",
+        "height": "39.7389646757859px"
+      },
+      "其中E为电路中总电动势。上式可改写为",
+      {
+        "type": "image",
+        "src": "/assets/configs_images/meter_mod_img_5.png",
+        "inline": true,
+        "width": "117.35413005818px",
+        "height": "41.6017286449634px"
+      },
+      "即Rs与",
+      {
+        "type": "image",
+        "src": "/assets/configs_images/meter_mod_img_6.png",
+        "inline": true,
+        "width": "22.9740889531887px",
+        "height": "46.5690992294366px"
+      },
+      "是线性关系。"
+    ]
+  },
+  {
+    "title": "实验步骤",
+    "segments": [
+      "1、校准电流表0点，指针在断电情况下是否和0刻度线重合。",
+      "2、按照电流表改装欧姆表电路原理图连接线路。",
+      "3、将R₀置0（即对电流表做短路保护），将R置为2000Ω，将R'置为10kΩ，将变阻箱Rₓ置为10kΩ。",
+      "4、检查线路，没有问题后打开电源，调节电压为10V。若电流表示数不为0，则连线错误，断开电源，重新连接线路。",
+      "5、若电流表示数为0，则将变阻箱Rₓ置为0，调节R₀，使得电流表满偏。",
+      "6、将变阻箱Rₓ置为1kΩ，调节R使得电流表半偏。",
+      "7、改变Rₓ阻值，记录对应的电流刻度（需估读一位）",
+      "数据处理"
+    ]
+  }
+]

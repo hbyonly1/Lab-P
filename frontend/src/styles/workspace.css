@@ -1215,7 +1215,7 @@
 .experiment-section-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 18px;
   padding: 12px 16px;
   color: #ffffff;
@@ -1997,4 +1997,80 @@
     gap: 8px;
   }
 
+}
+
+/* =========================================
+   Experiment V2 Architecture Styles
+   ========================================= */
+.fixed-sections-grid { display: grid; gap: 14px; padding: 16px; }
+.fixed-section-title { margin: 0 0 6px; color: #31425f; font-size: 13px; font-weight: 700; }
+.fixed-section-content { margin: 0; line-height: 2.4; color: #11182a; font-size: 14px; }
+
+/* Inline Input for Fill-in-the-blanks */
+.fixed-inline-input {
+  display: inline-block;
+  min-width: 60px; height: 28px;
+  margin: 0 2px; padding: 0 6px;
+  vertical-align: middle;
+  font-size: 14px; font-family: inherit;
+  background: #fff;
+  border: 1px solid #c6d6ed; border-radius: 4px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+.fixed-inline-input:focus {
+  border-color: #1f77ff;
+  box-shadow: 0 0 0 2px rgba(31,119,255,0.12);
+}
+.fixed-inline-input[readonly] { color: #1f77ff; background: #eef5ff; border-color: #b3d0ff; cursor: default; }
+.fixed-inline-input.is-computed:not(:focus),
+.experiment-data-row .ant-input.is-computed:not(:focus) {
+  background: #fff;
+  border-color: #1677ff;
+  color: #1677ff;
+}
+.fixed-inline-input.is-async:not(:focus) { background: #f5f3ff; border-color: #c4b5fd; color: #4c1d95; }
+.fixed-inline-input.is-fixed:not(:focus) { background: #f8f9fb; border-color: #dce3ec; color: #5a6370; }
+
+/* Questions Section */
+.experiment-questions-section {
+  display: flex; flex-direction: column; gap: 16px;
+  padding: 16px 20px;
+}
+.question-item {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.question-item h4 {
+  margin: 0; color: #11182a; font-size: 14px; font-weight: 600;
+}
+.question-textarea {
+  width: 100%; padding: 10px;
+  border: 1px solid #c6d6ed; border-radius: 6px;
+  resize: vertical; font-family: inherit; font-size: 14px; outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.question-textarea:focus { border-color: #1f77ff; box-shadow: 0 0 0 2px rgba(31,119,255,0.12); }
+.question-actions {
+  display: flex; justify-content: flex-end;
+}
+
+/* Image Slots */
+.image-slots-container {
+  display: flex; flex-direction: column; gap: 16px;
+}
+.image-slot-item {
+  border: 1px solid #e1e7f0;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fafafc;
+}
+.image-slot-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
+}
+.image-slot-title {
+  font-size: 13px; font-weight: 600; color: #31425f; margin: 0;
+}
+.image-slot-count {
+  font-size: 12px; color: #6f7380;
 }

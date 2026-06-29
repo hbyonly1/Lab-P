@@ -1,0 +1,1198 @@
+﻿body
+{
+    background-color: #fff;
+    font-family: Microsoft YaHei,'微软雅黑';
+    font-size: 14px;
+    min-width: 1280px;
+    width: expression_r(document.body.clientWidth < 1280 ? "1280px": "auto" );
+    overflow: auto;
+}
+
+header, footer, nav, section
+{
+    display: block;
+}
+
+button, input, select, textarea, h1, h2, h3, h4, h5, h6
+{
+    font-family: Microsoft YaHei,'微软雅黑';
+}
+
+h4, H4
+{
+    font-size: 16px;
+    font-weight: 600;
+}
+/* Styles for basic forms
+-----------------------------------------------------------*/
+fieldset
+{
+    border: 1px solid #ddd;
+    padding: 0 1.4em 1.4em 1.4em;
+    margin: 0 0 1.5em 0;
+}
+
+legend
+{
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+textarea
+{
+    min-height: 75px;
+}
+
+.editor-label
+{
+    margin: 1em 0 0 0;
+}
+
+.editor-field
+{
+    margin: 0.5em 0 0 0;
+}
+
+
+/* Styles for validation helpers
+-----------------------------------------------------------*/
+.field-validation-error
+{
+    color: #f00;
+}
+
+.field-validation-valid
+{
+    display: none;
+}
+
+.input-validation-error
+{
+    border: 1px solid #f00;
+    background-color: #fee;
+}
+
+.validation-summary-errors
+{
+    font-weight: bold;
+    color: #f00;
+}
+
+.validation-summary-valid
+{
+    display: none;
+}
+
+.align-left
+{
+    text-align: left;
+}
+
+.align-right
+{
+    text-align: right;
+}
+
+.align-center
+{
+    text-align: center;
+}
+
+.center
+{
+    justify-content: center;
+    align-items: center;
+    display: -webkit-flex;
+}
+
+.loadingLayout
+{
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: rgba(0, 0, 0, 0.3);
+    z-index: 99998;
+}
+
+.loading
+{
+    width: 300px;
+    height: 56px;
+    position: absolute;
+    top: 50%;
+    left: 45%;
+    line-height: 56px;
+    color: #fff;
+    padding-left: 60px;
+    font-size: 15px;
+    background: #000 url(../Images/loader.gif) no-repeat 10px 50%;
+    z-index: 99999;
+    -moz-border-radius: 20px;
+    -webkit-border-radius: 20px;
+    border-radius: 20px;
+    background-color: rgba(0, 0, 0, 1);
+}
+
+.titleSpace
+{
+    font-size: 22px;
+    padding-left: 30px;
+    border-bottom: 1px solid #b6c4d1;
+    height: 38px;
+}
+
+    .titleSpace b
+    {
+        background: #53d0c2;
+        width: 6px;
+        height: 25px;
+        display: inline-table;
+        float: left;
+        margin-right: 10px;
+    }
+
+.padding10
+{
+    padding-bottom: 20px;
+}
+
+.marginTop15
+{
+    margin-top: 15px;
+}
+
+.padding20
+{
+    padding: 20px;
+    margin-top: -10px;
+}
+
+/***************富文本*****************/
+.wysiwyg-plugin-list
+{
+    max-height: 16em;
+    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: scroll;
+}
+
+    .wysiwyg-plugin-list a,
+    .wysiwyg-plugin-list a:link,
+    .wysiwyg-plugin-list a:visited
+    {
+        display: block;
+        color: black;
+        padding: 5px 10px;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+        .wysiwyg-plugin-list a:hover
+        {
+            color: HighlightText;
+            background-color: Highlight;
+        }
+
+.wysiwyg-plugin-smilies
+{
+    padding: 10px;
+    text-align: center;
+    white-space: normal;
+}
+
+    .wysiwyg-plugin-smilies img
+    {
+        display: -moz-inline-stack;
+        display: inline-block;
+        *display: inline;
+    }
+
+.fake-bootstrap.wysiwyg-container.wysiwyg-active
+{
+    border-color: #66afe9;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset, 0 0 8px rgba(102, 175, 233, 0.6);
+}
+
+.fake-uikit.wysiwyg-container.wysiwyg-active
+{
+    border-color: #99baca !important;
+    background: #f5fbfe !important;
+}
+/***************富文本*****************/
+
+/***************布局页*****************/
+.datatable
+{
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+}
+
+.siteNav
+{
+    list-style: none;
+    border: none;
+}
+
+.bs-docs-sidenav.affix
+{
+}
+
+.bs-docs-sidenav > li
+{
+    border-bottom: 1px solid #E3E3E3;
+    border-top: 1px solid #E3E3E3;
+}
+
+    .bs-docs-sidenav > li > a
+    {
+        font-size: 17px;
+        display: block;
+        width: 100%;
+        margin: 0 0 0 10%;
+        padding: 20px 14px;
+        text-decoration: none;
+        border: none;
+        color: #33383c;
+        font-family: Microsoft YaHei,'微软雅黑';
+    }
+
+.bs-docs-sidenav
+{
+    width: 100%;
+    /*margin: 50px 0 0;*/
+    padding: 0;
+    background-color: #fff;
+}
+
+.siteNavActive
+{
+    color: White;
+    background-color: #51D0C0;
+}
+    /*
+	.siteNavActive:before
+	{
+	    content: "";
+        position: fixed;
+        border-style: solid;
+        border-color: transparent white transparent transparent;
+        border-width: 10px;
+        z-index:9999;
+	    }*/
+
+    .siteNavActive > a:link,
+    .siteNavActive > a:visited,
+    .siteNavActive > a:hover,
+    .siteNavActive > a:active
+    {
+        color: White;
+    }
+
+
+.bs-docs-sidenav > li:active,
+.bs-docs-sidenav > li:hover
+{
+    color: White;
+    background-color: #53D0C2;
+    border-right-style: solid;
+    border-right-width: 1px;
+    border-right-color: #D4D4D4;
+}
+
+.bs-docs-sidenav .icon-chevron-right
+{
+    float: right;
+    margin-top: 2px;
+    margin-right: -6px;
+    opacity: .25;
+}
+
+.siteNav > li > a:hover,
+.siteNav > li > a:focus
+{
+    text-decoration: none;
+    background-color: #53D0C2;
+    color: White;
+}
+
+
+.topNav
+{
+    list-style: none;
+    border: none;
+}
+
+    .topNav > li
+    {
+        float: left;
+        margin-bottom: -1px;
+        padding-right: 2px;
+    }
+
+.bs-docs-topnav.affix-top
+{
+    top: 40px;
+}
+
+.bs-docs-topnav > li > a
+{
+    font-size: 15px;
+    display: block;
+    width: 100%;
+    margin: 0 0 -1px;
+    padding: 11px 18px;
+    text-decoration: none;
+    border: none;
+    color: #fff;
+    background-color: #35b8da;
+}
+
+.bs-docs-topnav
+{
+    width: 100%;
+    padding: 0;
+}
+
+.topNavActive > a
+{
+    color: #373737 !important;
+    background-color: #f8f8f8 !important;
+}
+
+.topNav > li > a:active,
+.topNav > li > a:hover,
+.topNav > li > a:focus
+{
+    text-decoration: none;
+    color: #373737;
+    background-color: #f8f8f8;
+}
+
+.top_right
+{
+    color: #fff;
+    font-size: 12px;
+    padding-right: 3%;
+    margin-top: 13px;
+}
+
+    .top_right ul li
+    {
+        line-height: 27px;
+    }
+
+.quit
+{
+    cursor: pointer;
+}
+
+.top_right ul li a.quit, .top_right ul li a.quit:link, .top_right ul li a.quit:visited
+{
+    color: #fff;
+    text-decoration: none;
+}
+
+    .top_right ul li a.quit:hover
+    {
+        color: #f9f50a;
+    }
+
+.loginUser
+{
+    color: White;
+    font-size: 12px;
+}
+
+.welcome
+{
+    color: White;
+    font-size: 14px;
+}
+
+.topBanner
+{
+    padding-top: 1%;
+    padding-bottom: 1%;
+    background-color: #4493D6;
+    min-width: 1280px;
+}
+
+.topNavUl
+{
+    padding-top: 1%;
+    float: left;
+    width: 15%;
+    min-height: 500px;
+}
+
+.renderbodyBasic
+{
+   
+    float: right;
+    width: 85%;
+    min-height: 830px;
+    background-color: White;
+    border: none;
+    padding-left: 0px;
+    padding-top: 15px;
+    padding-right: 1%;
+    -webkit-box-shadow: -1px 0px 10px 0px #666;
+    -moz-box-shadow: -1px 0px 10px 0px #666;
+    box-shadow: -1px 0px 10px 0px #666;
+}
+/*
+ .renderbodyBasic:before
+ {
+       content: "";
+       position: absolute;
+       border-style: solid;
+       border-color: transparent black transparent transparent;
+       border-width: 10px;
+       z-index:9999;
+     }*/
+
+.renderbodyTeach
+{
+    float: left;
+    width: 79%;
+    min-height: 800px;
+    background-color: White;
+    border: none;
+    padding-left: 1%;
+    padding-right: 1%;
+    -webkit-box-shadow: -1px 0px 10px 0px #666;
+    -moz-box-shadow: -1px 0px 10px 0px #666;
+    box-shadow: -1px 0px 10px 0px #666;
+}
+/*
+ .renderbodyTeach:before
+ {
+       content: "";
+       position: absolute;
+       border-style: solid;
+       border-color: transparent white transparent transparent;
+       border-width: 10px;
+       z-index:9999;
+       left:19%;
+       top:27.5%;
+     }*/
+.padding10
+{
+    padding: 10px;
+}
+
+.contentBody
+{
+    /*margin:1%;*/
+    background-color: #f8f8f8;
+    padding-left: 10px;
+    padding-bottom: 20px;
+}
+
+.closeer
+{
+    border: none;
+    width: 46px;
+    height: 46px;
+    background-color: transparent;
+    background-image: url(../Images/LogOut.png);
+    background-size: 46px 46px;
+    background-repeat: no-repeat;
+    /*
+    background: red;
+    color: red;
+    border-radius: 12px;
+    line-height: 20px;
+    text-align: center;
+    height: 20px;
+    width: 20px;
+    font-size: 18px;
+    padding: 1px;*/
+}
+/* use cross as close button */
+/*
+.closeer::before {
+    content: "\2716";
+}
+*/
+
+.align-center
+{
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    margin-left: width/2;
+    margin-top: height/2;
+}
+
+.dataPickLabel
+{
+    height: 34px;
+    line-height: 34px;
+}
+
+.pagefooter
+{
+    text-align: center;
+    bottom: 0;
+    height: 35px;
+    width: 100%;
+    line-height: 35px;
+    position: fixed;
+    color: White;
+    font-size: 13px;
+    background: url(../Images/foot_nr_bg.jpg);
+    border-top: 1px solid #87dcff;
+}
+/***************布局页*****************/
+
+/***************重写*****************/
+.row
+{
+    margin-right: 0px;
+    margin-left: 0px;
+}
+
+.col-md-1,
+.col-md-2,
+.col-md-3,
+.col-md-4,
+.col-md-5,
+.col-md-6,
+.col-md-7,
+.col-md-8,
+.col-md-9,
+.col-md-10,
+.col-md-11,
+.col-md-12
+{
+    padding: 1px;
+}
+
+.table
+{
+    text-align: center;
+    font-size: 14px;
+}
+
+    .table > thead
+    {
+        background-color: #e4e4e4;
+    }
+
+        .table > thead > tr
+        {
+            height: 48px;
+        }
+
+            .table > thead > tr > th
+            {
+                font-weight: normal !important;
+            }
+
+    .table > tbody > tr
+    {
+        border-bottom: 1px solid #e4e4e4;
+    }
+
+        .table > tbody > tr > td
+        {
+            display: table-cell;
+            vertical-align: middle;
+        }
+
+.control-label
+{
+    font-size: 15px;
+    font-weight: normal;
+}
+
+.container
+{
+    width: 88%;
+}
+
+.btn.disabled,
+.btn[disabled],
+fieldset[disabled] .btn
+{
+    border: 1px solid #D0D0D0;
+    color: #D0D0D0;
+}
+
+.wysiwyg-toolbar
+{
+    background-color: #EFEFEF;
+}
+/***************重写*****************/
+
+/***************全局*****************/
+.colorLightGreen
+{
+    background-color: #53D0C2;
+}
+
+.marginTop14
+{
+    margin-top: 14px;
+}
+
+.marginTop35
+{
+    margin-top: 35px;
+}
+
+.marginLeft35
+{
+    margin-left: 35px;
+}
+
+.marginTop15
+{
+    margin-top: 1%;
+}
+
+.marginBottom10
+{
+    margin-bottom: 10px;
+}
+
+.btn
+{
+    border-radius: 0px;
+    margin-right: 2px;
+}
+
+.btn-LightGreen
+{
+    font-size: 15px;
+    background-color: White;
+    color: #35b8da;
+    border-color: #35b8da;
+    border-style: solid;
+    border-width: 1px;
+    outline: 0;
+}
+
+    .btn-LightGreen:focus,
+    .btn-LightGreen:active,
+    .btn-LightGreen:hover
+    {
+        background-color: #51D0C0;
+        border-color: #51D0C0;
+        color: White;
+        outline: 0;
+    }
+
+.btn-Active
+{
+    font-size: 15px;
+    background-color: #51D0C0;
+    color: White;
+    border-color: #51D0C0;
+    border-style: solid;
+    border-width: 1px;
+    outline: 0;
+}
+
+    .btn-Active:focus,
+    .btn-Active:active,
+    .btn-Active:hover
+    {
+        background-color: #51D0C0;
+        border-color: #51D0C0;
+        color: White;
+        outline: 0;
+    }
+
+.alignCenter
+{
+    text-align: center;
+}
+
+.alignLeft
+{
+    text-align: left;
+}
+
+.alignRight
+{
+    text-align: right;
+}
+
+.control-label
+{
+    display: inline;
+}
+
+.form-control
+{
+    height: 40px;
+    display: inline !important;
+    width: 70%;
+}
+
+.input-group
+{
+    display: inline !important;
+}
+
+.input-group-addon
+{
+    height: 40px;
+    display: inline !important;
+    padding-top: 9px;
+    padding-bottom: 9px;
+    padding-left: -1px !important;
+}
+
+.input-group .form-control
+{
+    height: 40px;
+    display: inline !important;
+    width: 70%;
+}
+
+.width75
+{
+    width: 75px;
+}
+
+.red
+{
+    color: Red;
+}
+
+.green
+{
+    color: Green;
+}
+
+.tablePadding
+{
+    border-collapse: separate;
+    border-spacing: 5px;
+}
+
+    .tablePadding > tbody > tr > td:first-child
+    {
+        text-align: right;
+    }
+
+.tableSpace
+{
+}
+
+    .tableSpace > tbody > tr > td
+    {
+        padding-top: 10px;
+    }
+
+.hide
+{
+    display: none !important;
+}
+
+.width150
+{
+    width: 150px;
+}
+
+.input-daterange
+{
+    width: auto;
+}
+
+.width80
+{
+    width: 80%;
+    min-width: 1024px !important;
+}
+
+.width70
+{
+    width: 70%;
+    min-width: 896px !important;
+}
+
+.dropdown-menu
+{
+    z-index: 10000;
+}
+
+.datepicker
+{
+    z-index: 10000;
+}
+
+body .modal-open .datepicker
+{
+    z-index: 10000 !important;
+}
+
+.divBorder
+{
+    border: 1px solid #B6C4D1;
+    border-radius: 20px;
+}
+
+.Tips
+{
+    margin-top: -10px;
+}
+
+    .Tips > div > span
+    {
+        background-color: #f8f8f8;
+    }
+
+.width100px
+{
+    width: 100px;
+}
+
+.tableArr
+{
+    display: inline-table;
+    font-family: @微软雅黑;
+    font-size: 14px;
+    margin: 10px 5px 10px 5px;
+}
+
+    .tableArr > tbody > tr > td
+    {
+        border: 1px solid black;
+        width: 150px !important;
+    }
+
+.span-thead
+{
+    width: 180px;
+    border-top: 50px #E3E3E3 solid;
+    border-left: 180px #BDBABD solid;
+    position: relative;
+}
+
+.span-right
+{
+    font-style: normal;
+    display: block;
+    position: absolute;
+    top: -50px;
+    left: -70px;
+}
+
+.span-left
+{
+    font-style: normal;
+    display: block;
+    position: absolute;
+    top: -20px;
+    left: -180px;
+}
+
+.divTableBatch
+{
+    max-height: 500px;
+    overflow: auto;
+}
+
+.docDiv
+{
+    height: 600px;
+    OVERFLOW-Y: auto;
+    OVERFLOW-X: hidden;
+    border: 1px solid #B6C4D1;
+    border-radius: 5px;
+}
+
+.tableNBorder
+{
+    width: 100%;
+    text-align: center;
+    font-size: 14px;
+}
+
+    .tableNBorder > thead
+    {
+        background-color: #E3E3E3;
+    }
+
+    .tableNBorder > tbody > tr
+    {
+    }
+
+        .tableNBorder > tbody > tr > td
+        {
+            display: table-cell;
+            vertical-align: middle;
+        }
+
+.Search
+{
+    border: none;
+    width: 70px;
+    height: 40px;
+    background-color: transparent;
+    background-image: url(../Images/Search.png);
+    background-size: 56px 35px;
+    background-repeat: no-repeat;
+}
+/***************全局*****************/
+
+/***************组织架构列表*****************/
+.myOrgDiv
+{
+    float: left;
+    border: 1px solid #d3d3d3;
+    border-left-width: 2px;
+    border-top-width: 2px;
+    background-color: #f9f9f9;
+    color: inherit;
+    margin: 0px;
+    padding: 0px;
+    padding-left: 10px;
+    padding-bottom: 20px;
+    overflow-y: scroll;
+    max-width: 100%;
+    max-height: 600px;
+}
+/***************组织架构列表*****************/
+
+/***************报告页面*****************/
+.panel-heading
+{
+    padding: 0;
+    height: 60px;
+}
+
+    .panel-heading > span
+    {
+        font-family: Microsoft YaHei,'微软雅黑';
+        font-size: 20px;
+        margin-top: 10px;
+        padding-left: 10px;
+    }
+
+    .panel-heading > div > span
+    {
+        font-family: Microsoft YaHei,'微软雅黑';
+        font-size: 20px;
+        margin-top: 12px;
+    }
+
+    .panel-heading > div > button
+    {
+        font-family: Microsoft YaHei,'微软雅黑';
+        font-size: 20px;
+        margin-top: 12px;
+    }
+
+.MatrixList
+{
+    border: 1px solid #D6D6D6;
+    -moz-border-radius: 20px;
+    -webkit-border-radius: 20px;
+    border-radius: 20px;
+}
+
+    .MatrixList > tbody > tr > td
+    {
+        min-width: 60px;
+        height: 45px;
+    }
+
+        .MatrixList > tbody > tr > td:first-child
+        {
+            background-color: #F0F0F0;
+        }
+
+.TList
+{
+    border: 1px solid #D6D6D6;
+    -moz-border-radius: 20px;
+    -webkit-border-radius: 20px;
+    border-radius: 20px;
+}
+
+    .TList > tbody > tr > td
+    {
+        min-width: 60px;
+        height: 45px;
+    }
+
+        .TList > tbody > tr > td:first-child
+        {
+            background-color: #F0F0F0;
+        }
+
+.panel
+{
+    border: 0px solid transparent;
+    border-radius: 0;
+    -webkit-box-shadow: 0 0 0 rgba(0,0,0,0);
+    box-shadow: 0 0 0 rgba(0,0,0,0);
+}
+
+.panel-default > .panel-heading
+{
+    color: #333;
+    background-color: #efefef;
+    border-color: transparent;
+}
+
+.btnUp {
+    font-size: 20px;
+    margin: 15px;
+    border: none;
+    width: 19px;
+    height: 15px;
+    background-image: url(../Images/Icon/收起.png);
+    background-repeat: no-repeat;
+}
+
+.btnDown
+{
+    font-size: 20px;
+    margin: 15px;
+    border: none;
+    width: 19px;
+    height: 15px;
+    background-image: url(../Images/Icon/展开.png);
+    background-repeat: no-repeat;
+}
+
+.btnRuleUp {
+    font-size: 20px;
+    margin-left: 15px;
+    border: none;
+    width: 19px;
+    height: 15px;
+    background-image: url(../Images/Icon/收起.png);
+    background-repeat: no-repeat;
+    background-position: -9px -8px;
+    /*display: none;*/
+}
+
+.btnRuleDown
+{
+    font-size: 20px;
+    margin-left: 15px;
+    border: none;
+    width: 19px;
+    height: 15px;
+    background-image: url(../Images/Icon/展开.png);
+    background-repeat: no-repeat;
+}
+
+.lineDiv
+{
+    margin-top: 5px;
+    margin-bottom: 15px;
+    width: 100%;
+    height: 2px;
+    border-bottom: 1px dashed #D0D0D0;
+}
+
+
+.inputCss
+{
+    width: 70px;
+    color: Red;
+    height: 30px;
+}
+
+.inputCss_OP
+{
+    width: 70px;
+    color: Red;
+    height: 30px;
+}
+
+.inputCss_MS
+{
+    width: 70px;
+    color: Red;
+    height: 30px;
+}
+
+.inputCheckBox
+{
+    width: 15px;
+    height: 15px;
+}
+
+.wysiwyg-container
+{
+    max-width: 100%;
+}
+
+.wysiwyg-editor
+{
+    width: 100%;
+}
+
+.ScoreInput
+{
+    width: 65px;
+    height: 30px;
+}
+/***************报告页面*****************/
+
+
+/***************批注*****************/
+
+
+/***************批注*****************/
+
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button
+{
+    -webkit-appearance: none;
+}
+
+input[type="number"]
+{
+    -moz-appearance: textfield;
+}
+
+input[required]:invalid,
+input:focus:invalid,
+textarea[required]:invalid,
+textarea:focus:invalid
+{
+    box-shadow: none;
+    -moz-box-shadow: none;
+}
+
+input
+{
+    box-shadow: none;
+}
+
+.table > thead > tr > td > a
+{
+    text-decoration: none;
+}
+
+.loginBgImg
+{
+    background-image: url(../Images/login/登录背景.jpg);
+}
+
+.loginSmallBgImg
+{
+    background-image: url(../Images/login/登录框.png);
+}
+
+#ReportModal .width80 {
+
+  width:1350px !important;
+}
+#ReviewReportModal .width80 {
+    width: 1350px !important;
+}

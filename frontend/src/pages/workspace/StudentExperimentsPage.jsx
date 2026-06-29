@@ -9,59 +9,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { GoldButton, OutlineButton, PageHeading, StatCard, StatusBadge } from '../../components/ui/index.js';
 
-export const experimentConfigs = [
-  {
-    id: 'hall-effect',
-    name: '霍尔法测量圆线圈和亥姆霍兹线圈轴线上的磁感应强度',
-    status: 'not_started',
-    requiredImages: [
-      { key: '1.jpg', label: '原始数据记录页' },
-      { key: '2.jpg', label: '计算过程页' },
-      { key: '3.jpg', label: '实验问题页' },
-    ],
-    fixedFields: [
-      { id: 'temperature', label: '实验温度', type: 'text' },
-      { id: 'instrument', label: '仪器编号', type: 'text' },
-    ],
-    questions: [
-      { id: 'q1', label: '实验问题 1' },
-      { id: 'q2', label: '实验问题 2' },
-    ],
-  },
-  {
-    id: 'young-modulus',
-    name: '杨氏模量的测定',
-    status: 'need_upload',
-    requiredImages: [
-      { key: '1.jpg', label: '实验数据表照片' },
-      { key: '2.jpg', label: '逐差法计算页' },
-    ],
-    fixedFields: [{ id: 'material', label: '样品材料', type: 'text' }],
-    questions: [{ id: 'q1', label: '实验问题 1' }],
-  },
-  {
-    id: 'franck-hertz',
-    name: '弗兰克-赫兹实验',
-    status: 'manual_review',
-    requiredImages: [
-      { key: '1.jpg', label: '实验曲线页' },
-      { key: '2.jpg', label: '数据处理页' },
-    ],
-    fixedFields: [],
-    questions: [{ id: 'q1', label: '实验问题 1' }],
-  },
-  {
-    id: 'grating',
-    name: '光栅衍射实验',
-    status: 'submitted',
-    requiredImages: [
-      { key: '1.jpg', label: '原始数据页' },
-      { key: '2.jpg', label: '计算与结论页' },
-    ],
-    fixedFields: [],
-    questions: [],
-  },
-];
+import { getAllExperiments } from '../../services/experimentConfigStore.js';
+
+export const experimentConfigs = getAllExperiments();
 
 export const statusMeta = {
   not_started: { label: '待处理', tone: 'pending' },

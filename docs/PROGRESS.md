@@ -96,3 +96,22 @@
 - 将登录页、工作台侧栏、实验详情返回按钮、landing 页可点击按钮等处的圆形/胶囊按钮改为 8px 圆角矩形。
 - 在 `/workspace/admin/design-system` 增加输入控件规范示例：文本输入、密码输入、数字输入、Select 和文本域。
 - 验证：在 `frontend/` 执行 `npm run build` 通过。
+
+## 2026-06-29
+
+### 实验配置 V2 架构设计与前端详情页重构
+
+- 确立“前端零业务逻辑、后端 DAG (有向无环图) 解析”的 V2 JSON 配置架构（解耦为 meta, inputs, ui, ai, automation 五大模块）。解决了跨域、连环推导和重复 DOM 定位的历史痛点。
+- 重构 `StudentExperimentDetailPage.jsx`，按 V2 配置规范实现三大区域的严格映射：1. 基础参数填空区；2. 实验数据表格与逻辑图片插槽区 (Image Slots)；3. 思考题长文本区。同时结合 DebugRole 实现了严格的 Pro 权限按钮锁定。
+- 更新 `workspace.css`，为不同数据来源的填空组件增加视觉状态区分（`is-computed` 绿色、`is-async` 紫色、`is-fixed` 灰色），并完善多图上传插槽样式。
+- 新建 `experimentConfigStore.js`，移除了旧版的本地 `labCalculations.js` 物理推导逻辑，全面改写为调用后端通用接口获取更新字典（当前使用 Mock API）。
+- 验证：重构组件编译通过；V2 配置模型下 UI 区域划分准确，图片插槽与表单联动正常；权限鉴权逻辑符合产品定义。
+- 遗留风险：由于核心逻辑整体后移，FastAPI 后端针对该配置的统一 DAG 推导计算接口 (`POST /compute`) 及真正的 AI 图片识别接口尚未实现；Playwright 配合高级 Locator 的提交 Worker 也需进一步开发。
+
+### 实验配置 V2 彻底迁移与 UI 规范收拢
+
+- 完全移除旧版向下兼容的 `buildExperimentPreviewConfig` 以及对应的旧配置数据。
+- 新增《电表的改装》(`exp_meter_modification`) 作为系统中唯一真实的 V2 全景配置数据源，保存在 `assets/v2_configs`。
+- 将 Admin 侧的 `ExperimentConfigPage.jsx` 与 `AdminExperimentPreviewPage.jsx` 强制迁移至新 V2 Store。实验详情预览已彻底同步学生侧页面，并支持设置中心里的角色切换实时鉴权。
+- 确立界面 UI 规范化（进行中）：将“实验仪器与基础参数”（优化输入框视觉）、“数据表格”、“图片工作台”三大核心板块沉淀至 `DesignSystemPage.jsx` 中，作为未来的全局 Single Source of Truth。
+- 验证：点击“预览”或“编辑”能调起 100% 同步的 V2 界面。

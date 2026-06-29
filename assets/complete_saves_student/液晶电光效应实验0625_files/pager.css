@@ -1,0 +1,7 @@
+﻿.tcdPageCode{padding: 15px 20px;text-align: left;color: #ccc; text-align:center; font-size:14px;}
+.tcdPageCode a{display: inline-block;color: #51d0c0;display: inline-block;height: 30px;	line-height: 30px;	padding: 0 10px;border: 1px solid #ddd;	margin: 0 2px;border-radius: 0px;vertical-align: middle;
+               border-color:#51d0c0;border-style:solid;border-width:1px;outline: 0;}
+.tcdPageCode a:hover{text-decoration: none;border: 1px solid #4BBEDD;background-color:#51d0c0;color:White;outline: 0;}
+.tcdPageCode span.current{display: inline-block;height: 30px;line-height: 30px;padding: 0 10px;margin: 0 2px;color: #fff;background-color: #51d0c0;	border: 1px solid #35b8da;border-radius: 0px;vertical-align: middle;}
+.tcdPageCode span.disabled{	display: inline-block;height: 30px;line-height: 30px;padding: 0 10px;margin: 0 2px;	color: #ffffff;background: #a1e2df;border: 1px solid #a1e2df;border-radius: 0px;vertical-align: middle;}
+.tcdPageCode span.noneResult{display: inline-block;height: 30px;line-height: 30px;padding: 0 10px;margin: 0 2px;	color: red;vertical-align: middle;}

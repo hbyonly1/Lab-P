@@ -1,38 +1,13 @@
-import { useRef, useState } from 'react';
-import { Table, message } from 'antd';
-import { EyeOutlined, UploadOutlined } from '@ant-design/icons';
+import { Table } from 'antd';
+import { EyeOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { OutlineButton, PageHeading, TablePanel } from '../../components/ui/index.js';
-import {
-  loadExperimentProfiles,
-  normalizeExperimentProfiles,
-  saveExperimentProfiles,
-} from './experimentConfigStore.js';
+import { getAllExperiments } from '../../services/experimentConfigStore.js';
 
 export default function ExperimentConfigPage() {
   const navigate = useNavigate();
-  const fileInputRef = useRef(null);
-  const [profiles, setProfiles] = useState(() => loadExperimentProfiles());
-
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-
-    try {
-      const payload = JSON.parse(await file.text());
-      const nextProfiles = normalizeExperimentProfiles(payload);
-      setProfiles(nextProfiles);
-      saveExperimentProfiles(nextProfiles);
-      message.success(`已导入 ${nextProfiles.length} 个实验配置。`);
-    } catch (error) {
-      message.error(error?.message || 'JSON 解析失败，请检查文件格式。');
-    }
-  };
+  // 从全局 V2 Store 加载实验
+  const profiles = getAllExperiments();
 
   const columns = [
     {
@@ -58,22 +33,8 @@ export default function ExperimentConfigPage() {
   return (
     <section className="workspace-standard-page admin-experiments-page">
       <PageHeading
-        title="实验配置"
-        description="通过 JSON 管理实验识别、填空和自动化配置"
-        actions={
-          <>
-            <OutlineButton icon={<UploadOutlined />} onClick={handleUploadClick}>
-              上传 JSON
-            </OutlineButton>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json,application/json"
-              hidden
-              onChange={handleFileChange}
-            />
-          </>
-        }
+        title="实验配置 (V2)"
+        description="管理基于 DAG 后端解析的纯 V2 架构实验。不再支持旧版兼容配置导入。"
       />
 
       <TablePanel>

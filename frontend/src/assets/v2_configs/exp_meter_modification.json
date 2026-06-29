@@ -1,0 +1,68 @@
+{
+  "meta": {
+    "id": "exp_meter_modification",
+    "name": "电表的改装",
+    "version": "2.0",
+    "status": "not_started"
+  },
+  "inputs": {
+    "images": [
+      { "id": "IMG_RAW_DATA", "label": "原始数据记录表截图", "maxCount": 1 },
+      { "id": "IMG_CIRCUIT", "label": "改装电路连接实物图", "maxCount": 2 }
+    ],
+    "fields": [
+      { "id": "Ig", "type": "extract", "label": "表头满偏电流(μA)" },
+      { "id": "Rg", "type": "extract", "label": "表头内阻(Ω)" },
+      { "id": "E", "type": "extract", "label": "电源电动势(V)" },
+      { "id": "I_range", "type": "fixed", "value": "10", "label": "扩大量程(mA)" },
+      { "id": "R_shunt", "type": "computed", "fn": "calcShunt", "args": ["Ig", "Rg", "I_range"] },
+      { "id": "R_mid", "type": "computed", "fn": "calcMid", "args": ["E", "Ig"] },
+      { "id": "V_std_1", "type": "extract" },
+      { "id": "V_mod_1", "type": "extract" },
+      { "id": "Error_1", "type": "computed", "fn": "calcError", "args": ["V_std_1", "V_mod_1"] },
+      { "id": "GEN_Q1", "type": "generated" }
+    ]
+  },
+  "ui": {
+    "fixedSections": [
+      {
+        "title": "表头基本参数及理论计算",
+        "segments": [
+          "微安表头满偏电流 Ig = ", { "nodeId": "Ig", "width": "60px" }, " μA，",
+          "表头内阻 Rg = ", { "nodeId": "Rg", "width": "60px" }, " Ω。",
+          "当扩大量程至 ", { "nodeId": "I_range", "width": "50px" }, " mA时，",
+          "理论分流电阻 Rs = ", { "nodeId": "R_shunt", "width": "80px" }, " Ω。"
+        ]
+      },
+      {
+        "title": "欧姆表改装参数",
+        "segments": [
+          "已知电源电动势 E = ", { "nodeId": "E", "width": "60px" }, " V，",
+          "则欧姆表的中值电阻 R_mid = ", { "nodeId": "R_mid", "width": "80px" }, " Ω。"
+        ]
+      }
+    ],
+    "dataTable": {
+      "caption": "电表校准数据表",
+      "columns": [
+        { "label": "校准点" },
+        { "label": "标准表读数", "nodePattern": "V_std_{1..5}" },
+        { "label": "改装表读数", "nodePattern": "V_mod_{1..5}" },
+        { "label": "绝对误差", "nodePattern": "Error_{1..5}" }
+      ]
+    },
+    "questions": [
+      { "nodeId": "GEN_Q1", "title": "思考题：如果要将表头改装为量程更大的电压表，应该串联还是并联电阻？为什么？", "rows": 4, "placeholder": "请详细作答..." }
+    ]
+  },
+  "ai": {
+    "recognition": { "imageRef": "IMG_RAW_DATA", "prompt": "提取电表改装实验中的微安表内阻、满偏电流以及校准数据表" },
+    "generation": { "targetRef": "GEN_Q1", "prompt": "基于电表改装物理实验原理回答" }
+  },
+  "automation": {
+    "submitLocator": "button:has-text('提交实验')",
+    "mappings": [
+      { "sourceId": "GEN_Q1", "targetLocator": "div.wysiwyg-editor >> nth=0" }
+    ]
+  }
+}
