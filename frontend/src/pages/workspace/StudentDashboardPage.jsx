@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { Button, Table, Tag, Tooltip } from 'antd';
+import { useState, useEffect } from 'react';
+import { Button, Table, Tag, Tooltip, message, Badge } from 'antd';
 import {
   BellOutlined,
   CheckCircleOutlined,
   CheckOutlined,
   ClockCircleOutlined,
   CloseOutlined,
+  CrownOutlined,
   EditOutlined,
   ExclamationCircleOutlined,
   EyeOutlined,
@@ -17,7 +18,15 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { getAdminUserName } from '../../auth.js';
-import { GoldButton, OutlineButton, TablePanel } from '../../components/ui/index.js';
+import { GoldButton, OutlineButton, TablePanel, UpgradePlanModal, AnnouncementDrawer } from '../../components/ui/index.js';
+import { ProSubmitModal } from '../../components/experiment/index.js';
+import { getAllExperiments } from '../../services/experimentConfigStore.js';
+import {
+  getDebugServiceCapabilities,
+  getDebugServiceRole,
+  subscribeDebugServiceRole,
+} from './debugRoleStore.js';
+import { STATUS_META, OVERALL_STATUS_META } from '../../constants/statusEnums.js';
 
 const dashboardData = {
   plan: {
@@ -31,8 +40,20 @@ const dashboardData = {
       description: '轻量辅助。',
       features: [
         { text: '全流程提交辅助：只需上传实验材料，系统完成全流程提交', available: false },
-        { text: '结构化内容辅助：固定填空、根据公式计算数据与主观题生成式回答', available: false },
-        { text: '有限次数的 AI 数据识别（需自行核对识别结果）', available: true, warning: true },
+        { text: '自动化数据处理：固定填空、根据公式计算数据与主观题生成式回答', available: false },
+        { text: 'AI 智能视觉提取：可供体验的实验数据图片解析并自动回填（需自行核对识别结果）', available: true, warning: true },
+        { text: '直接上传数据到实验网站', available: true },
+      ],
+    },
+    {
+      key: 'pay_per_use',
+      name: '按次付费',
+      subtitle: '单次代劳',
+      description: '适合仅需完成个别实验的用户。',
+      features: [
+        { text: '全流程提交辅助：只需上传实验材料，系统完成全流程提交', available: true },
+        { text: '自动化数据处理：固定填空、根据公式计算数据与主观题生成式回答', available: false },
+        { text: 'AI 智能视觉提取：无高级提取权限', available: false },
         { text: '直接上传数据到实验网站', available: true },
       ],
     },
@@ -43,8 +64,8 @@ const dashboardData = {
       description: '获取更多特性，自动提取实验数据并整理成清晰结果。',
       features: [
         { text: '全流程提交辅助：只需上传实验材料，系统完成全流程提交', available: false },
-        { text: '部分结构化内容辅助：根据公式计算数据与主观题生成式回答', available: false, warning: true },
-        { text: '更多次数的 AI 数据识别（需自行核对识别结果）', available: true, warning: true },
+        { text: '半自动化数据处理：根据公式计算数据与主观题生成式回答（存在限制）', available: true, warning: true },
+        { text: 'AI 智能视觉提取：更多次数的实验数据图片解析并自动回填（需自行核对识别结果）', available: true, warning: true },
         { text: '直接上传数据到实验网站', available: true },
       ],
     },
@@ -55,8 +76,8 @@ const dashboardData = {
       description: '享受无忧的优先处理、人工核对和完整自动化填充能力。',
       features: [
         { text: '全流程提交辅助：只需上传实验材料，系统完成全流程提交', available: true },
-        { text: '结构化内容辅助：固定填空、根据公式计算数据与主观题生成式回答', available: true },
-        { text: '人工数据识别（无需自行核对识别结果）', available: true },
+        { text: '全自动化数据处理：固定填空、根据公式计算数据与主观题生成式回答', available: true },
+        { text: '人工提取与自动填写：人工的实验图片数据解析并填写（无需自行核对识别结果）', available: true },
         { text: '直接上传数据到实验网站', available: true }
       ],
     },
@@ -68,7 +89,7 @@ const dashboardData = {
   metrics: [
     {
       key: 'completion-status',
-      label: '完成状态',
+      label: '总进度',
       icon: <UploadOutlined />,
       tone: 'completion',
     },
@@ -99,6 +120,7 @@ const dashboardData = {
   recentTasks: [
     {
       submission_id: 'sub_1001',
+      experiment_id: 'exp-001',
       experiment_name: '光学实验报告',
       experiment_type: '基础实验',
       deadline: '2025-05-28',
@@ -108,10 +130,11 @@ const dashboardData = {
     },
     {
       submission_id: 'sub_1002',
+      experiment_id: 'exp-002',
       experiment_name: '电路分析实验',
       experiment_type: '专业实验',
       deadline: '2025-05-30',
-      status: 'pending_upload',
+      status: 'incomplete',
       updated_at: '1 天前',
       actions: ['edit', 'upload'],
     },
@@ -129,18 +152,11 @@ const dashboardData = {
       experiment_name: '物理力学实验',
       experiment_type: '专业实验',
       deadline: '2025-06-05',
-      status: 'automation_running',
+      status: 'not_started',
       updated_at: '3 天前',
       actions: ['edit'],
     },
   ],
-};
-
-const statusMeta = {
-  completed: { label: '已完成', color: 'success' },
-  pending_upload: { label: '待提交', color: 'warning' },
-  reviewing: { label: '待处理', color: 'gold' },
-  automation_running: { label: '进行中', color: 'processing' },
 };
 
 export default function StudentDashboardPage() {
@@ -152,25 +168,108 @@ export default function StudentDashboardPage() {
   const pending = Math.max(total - completed, 0);
   const progress = total > 0 ? completed / total : 0;
 
+  const [debugRole, setDebugRole] = useState(() => getDebugServiceRole());
+  useEffect(() => subscribeDebugServiceRole(setDebugRole), []);
+  const capabilities = getDebugServiceCapabilities(debugRole);
+
+  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  const [submitTargets, setSubmitTargets] = useState([]);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+
+  const handleBatchSubmitClick = () => {
+    const allExps = getAllExperiments();
+    const pendingExps = allExps.filter(exp => ['not_started', 'need_upload'].includes(exp.status));
+
+    setSubmitTargets(pendingExps);
+    setIsSubmitModalOpen(true);
+  };
+
+  const handleModalSubmit = async (batchImages) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve();
+      }, 1500);
+    });
+  };
+
   return (
     <section className="workspace-standard-page student-dashboard-page">
       <DashboardTopbar firstName={firstName} />
 
-      <QuickSubmitCard onSubmit={() => navigate('/workspace/student/experiments')} />
+      <QuickSubmitCard
+        onBatchSubmit={handleBatchSubmitClick}
+        onManualSubmit={() => navigate('/workspace/student/experiments')}
+      />
 
       <MetricStack completed={completed} metrics={dashboardData.metrics} total={total} />
 
       <div className="student-dashboard-main-grid">
-        <ServicePlanCard plan={dashboardData.plan} plans={dashboardData.plans} />
+        <ServicePlanCard plan={{ current: debugRole }} plans={dashboardData.plans} onUpgrade={() => setIsUpgradeModalOpen(true)} />
         <ProgressRingCard completed={completed} pending={pending} progress={progress} total={total} />
       </div>
 
       <RecentTasksTable tasks={dashboardData.recentTasks} onViewAll={() => navigate('/workspace/student/experiments')} />
+      <ProSubmitModal
+        open={isSubmitModalOpen}
+        experiments={submitTargets}
+        onCancel={() => setIsSubmitModalOpen(false)}
+        onSubmit={handleModalSubmit}
+      />
+      <UpgradePlanModal
+        open={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        plans={dashboardData.plans}
+        currentPlan={debugRole}
+      />
     </section>
   );
 }
 
+const MOCK_ANNOUNCEMENTS = [
+  {
+    id: 'ann-1',
+    title: '系统维护通知',
+    content: '为了提供更好的服务，实验报告系统将于本周五晚 20:00 进行升级维护，期间将暂停服务约 2 小时，请合理安排提交时间。',
+    type: 'update',
+    is_read: false,
+    created_at: '2026-06-30 08:00:00'
+  },
+  {
+    id: 'ann-2',
+    title: '期末提交警告',
+    content: '严禁任何形式的学术不端行为，系统已升级风控监测，一经发现将直接通报辅导员，请各位同学诚实守信。',
+    type: 'notice',
+    is_read: false,
+    created_at: '2026-06-29 14:00:00'
+  },
+  {
+    id: 'ann-3',
+    title: 'Pro 套餐限时优惠',
+    content: '期末冲刺福利，Pro 套餐直降 20%，现在升级即可享受全部自动化填报特权！',
+    type: 'promotion',
+    is_read: true,
+    created_at: '2026-06-25 10:00:00'
+  }
+];
+
 function DashboardTopbar({ firstName }) {
+  const [announcements, setAnnouncements] = useState(MOCK_ANNOUNCEMENTS);
+  const [isDrawerVisible, setIsDrawerVisible] = useState(false);
+
+  const unreadCount = announcements.filter((a) => !a.is_read).length;
+
+  const handleMarkAsRead = (id) => {
+    setAnnouncements((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, is_read: true } : a))
+    );
+  };
+
+  const handleMarkAllRead = () => {
+    setAnnouncements((prev) =>
+      prev.map((a) => ({ ...a, is_read: true }))
+    );
+  };
+
   return (
     <header className="student-dashboard-topbar">
       <div>
@@ -178,13 +277,28 @@ function DashboardTopbar({ firstName }) {
         <p>Have a nice day!</p>
       </div>
       <div className="student-dashboard-userbar">
-        <Button className="ui-icon-button" icon={<BellOutlined />} aria-label="通知" />
+        <Badge dot={unreadCount > 0} offset={[-4, 4]}>
+          <Button 
+            className={`ui-icon-button ${unreadCount > 0 ? 'bell-unread-ripple' : ''}`} 
+            icon={<BellOutlined />} 
+            aria-label="通知"
+            onClick={() => setIsDrawerVisible(true)}
+          />
+        </Badge>
       </div>
+
+      <AnnouncementDrawer
+        visible={isDrawerVisible}
+        onClose={() => setIsDrawerVisible(false)}
+        announcements={announcements}
+        onMarkAsRead={handleMarkAsRead}
+        onMarkAllRead={handleMarkAllRead}
+      />
     </header>
   );
 }
 
-function QuickSubmitCard({ onSubmit }) {
+function QuickSubmitCard({ onBatchSubmit, onManualSubmit }) {
   return (
     <aside className="dashboard-quick-submit-card">
       <div className="quick-submit-illustration">
@@ -195,10 +309,10 @@ function QuickSubmitCard({ onSubmit }) {
         <p>无需打开实验网站，一站式操作。</p>
       </div>
       <div className="quick-submit-actions">
-        <GoldButton onClick={onSubmit}>
-          一键提交全部 (Pro) &gt;
+        <GoldButton onClick={onBatchSubmit} icon={<CrownOutlined />}>
+          一键批量提交 &gt;
         </GoldButton>
-        <Button type="primary" onClick={onSubmit}>
+        <Button type="primary" onClick={onManualSubmit}>
           去手动提交 &gt;
         </Button>
       </div>
@@ -206,7 +320,7 @@ function QuickSubmitCard({ onSubmit }) {
   );
 }
 
-function ServicePlanCard({ plan, plans }) {
+function ServicePlanCard({ plan, plans, onUpgrade }) {
   const [previewPlanKey, setPreviewPlanKey] = useState(plan.current);
   const currentPlan = plans.find((item) => item.key === plan.current) ?? plans[0];
   const previewPlan = plans.find((item) => item.key === previewPlanKey) ?? currentPlan;
@@ -219,7 +333,7 @@ function ServicePlanCard({ plan, plans }) {
             当前服务计划：<span>{currentPlan.name}</span>
           </h2>
         </div>
-        <GoldButton icon={<SettingOutlined />}>
+        <GoldButton icon={<SettingOutlined />} onClick={onUpgrade}>
           升级套餐
         </GoldButton>
         <p>
@@ -266,6 +380,9 @@ function ServicePlanCard({ plan, plans }) {
         })}
       </div>
 
+      <div style={{ marginTop: 'auto', paddingTop: '5px', fontSize: '12px', color: '#8c8c8c', textAlign: 'center' }}>
+        不想购买套餐？您可以在带有皇冠标识的一键提交操作时选择低至 ¥8/次的单次付费。
+      </div>
     </section>
   );
 }
@@ -325,7 +442,9 @@ function MetricStack({ completed, metrics, total }) {
     <aside className="dashboard-metric-stack">
       {metrics.map((metric) => {
         const isCompletion = metric.key === 'completion-status';
-        const value = isCompletion ? (allCompleted ? '全部完成' : '未完成') : metric.value;
+        const value = isCompletion
+          ? OVERALL_STATUS_META[allCompleted ? 'completed' : 'incomplete'].label
+          : metric.value;
         const cardClass = [
           'dashboard-metric-card',
           `is-${metric.tone}`,
@@ -355,6 +474,8 @@ function MetricStack({ completed, metrics, total }) {
 }
 
 function RecentTasksTable({ tasks, onViewAll }) {
+  const navigate = useNavigate();
+
   const columns = [
     {
       title: '实验名称',
@@ -372,7 +493,7 @@ function RecentTasksTable({ tasks, onViewAll }) {
       dataIndex: 'status',
       key: 'status',
       render: (status) => {
-        const meta = statusMeta[status] ?? statusMeta.reviewing;
+        const meta = STATUS_META[status] ?? STATUS_META.not_started;
         return <Tag color={meta.color}>{meta.label}</Tag>;
       },
     },
@@ -385,12 +506,14 @@ function RecentTasksTable({ tasks, onViewAll }) {
       title: '操作',
       key: 'actions',
       align: 'right',
-      render: (_, record) => (
-        <div className="recent-task-actions">
-          <TooltipButton icon={<EyeOutlined />} label="查看" />
-          <TooltipButton icon={<EditOutlined />} label="编辑" />
-        </div>
-      ),
+      render: (_, record) => {
+        return (
+          <div className="recent-task-actions">
+            <TooltipButton icon={<EyeOutlined />} label="在系统里查看" onClick={() => navigate(`/workspace/student/experiments/${record.experiment_id || 'exp-001'}`)} />
+            <TooltipButton icon={<EditOutlined />} label="编辑" onClick={() => navigate(`/workspace/student/experiments/${record.experiment_id || 'exp-001'}`)} />
+          </div>
+        );
+      },
     },
   ];
 
@@ -407,10 +530,10 @@ function RecentTasksTable({ tasks, onViewAll }) {
   );
 }
 
-function TooltipButton({ icon, label }) {
+function TooltipButton({ icon, label, ...props }) {
   return (
     <Tooltip title={label}>
-      <OutlineButton icon={icon} aria-label={label} />
+      <OutlineButton icon={icon} aria-label={label} {...props} />
     </Tooltip>
   );
 }

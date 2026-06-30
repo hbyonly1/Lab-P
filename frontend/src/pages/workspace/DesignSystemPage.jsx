@@ -19,6 +19,7 @@ import {
   TablePanel,
   UiPanel,
 } from '../../components/ui/index.js';
+import { STATUS_META } from '../../constants/statusEnums.js';
 import { SectionShell, ExperimentDataTable, ExperimentImageUploader } from '../../components/experiment/index.js';
 
 const mockDataTable = {
@@ -42,14 +43,14 @@ const mockImageSlots = {
 const sampleRows = [
   {
     id: 'sub_1001',
-    experiment: '霍尔法测量磁感应强度',
-    status: 'processing',
+    experiment: '大学物理实验 A',
+    status: 'reviewing',
     updated_at: '2 小时前',
   },
   {
     id: 'sub_1002',
     experiment: '杨氏模量的测定',
-    status: 'submit',
+    status: 'incomplete',
     updated_at: '1 天前',
   },
   {
@@ -59,12 +60,6 @@ const sampleRows = [
     updated_at: '3 天前',
   },
 ];
-
-const statusMeta = {
-  submit: { label: '待提交', tone: 'submit' },
-  processing: { label: '进行中', tone: 'processing' },
-  completed: { label: '已完成', tone: 'completed' },
-};
 
 export default function DesignSystemPage() {
   const columns = [
@@ -78,7 +73,7 @@ export default function DesignSystemPage() {
       dataIndex: 'status',
       key: 'status',
       render: (status) => {
-        const meta = statusMeta[status] ?? statusMeta.submit;
+        const meta = STATUS_META[status] ?? STATUS_META.not_started;
         return <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>;
       },
     },

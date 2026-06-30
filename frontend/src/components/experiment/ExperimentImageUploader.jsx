@@ -91,7 +91,7 @@ export function ExperimentImageUploader({ images, imageSlots, onImageUpload, onR
           <div className="image-upload-empty">
             <CloudUploadOutlined />
             <strong>拖动文件到这里上传实验图片</strong>
-            <span>支持多图片，可拖动或用鼠标滚轮缩放来对比信息</span>
+            <span>支持多张图片，可拖动或用鼠标滚轮缩放来对比信息</span>
           </div>
         </Upload.Dragger>
       )}

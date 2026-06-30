@@ -33,8 +33,8 @@ export default function ExperimentConfigPage() {
   return (
     <section className="workspace-standard-page admin-experiments-page">
       <PageHeading
-        title="实验配置 (V2)"
-        description="管理基于 DAG 后端解析的纯 V2 架构实验。不再支持旧版兼容配置导入。"
+        title="实验配置"
+        description="管理实验配置。暂不支持配置导入。"
       />
 
       <TablePanel>

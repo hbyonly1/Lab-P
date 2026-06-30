@@ -9,7 +9,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { message } from 'antd';
 import { GoldButton, OutlineButton, PageHeading, StatCard, StatusBadge } from '../../components/ui/index.js';
+import { ProSubmitModal } from '../../components/experiment/index.js';
 
+import { STATUS_META } from '../../constants/statusEnums.js';
 import { getAllExperiments } from '../../services/experimentConfigStore.js';
 import {
   getDebugServiceCapabilities,
@@ -19,14 +21,6 @@ import {
 
 export const experimentConfigs = getAllExperiments();
 
-export const statusMeta = {
-  not_started: { label: '待处理', tone: 'pending' },
-  need_upload: { label: '待提交', tone: 'submit' },
-  manual_review: { label: '进行中', tone: 'processing' },
-  processing: { label: '进行中', tone: 'processing' },
-  submitted: { label: '已完成', tone: 'completed' },
-};
-
 export default function StudentExperimentsPage() {
   const navigate = useNavigate();
   const [debugRole, setDebugRole] = useState(() => getDebugServiceRole());
@@ -35,22 +29,30 @@ export default function StudentExperimentsPage() {
 
   const capabilities = getDebugServiceCapabilities(debugRole);
 
-  const handleOneClickSubmit = () => {
-    if (!capabilities.canUseOneClickSubmit) {
-      message.warning('权限拒绝：该功能需要 Pro 订阅。');
-      return;
-    }
-    message.success(`尊贵的 ${debugRole === 'pro' ? 'Pro' : 'Plus'} 用户，您的请求已提交，请耐心等待后台人工审核！`);
+  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  const [submitTargets, setSubmitTargets] = useState([]);
+
+  const handleOneClickSubmit = (experiment) => {
+    setSubmitTargets([experiment]);
+    setIsSubmitModalOpen(true);
+  };
+
+  const handleModalSubmit = async (batchImages) => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve();
+      }, 1500);
+    });
   };
 
   const metrics = useMemo(
     () => ({
       total: experimentConfigs.length,
       pending: experimentConfigs.filter((item) =>
-        ['not_started', 'need_upload', 'processing'].includes(item.status),
+        ['not_started', 'incomplete'].includes(item.status),
       ).length,
-      reviewing: experimentConfigs.filter((item) => item.status === 'manual_review').length,
-      completed: experimentConfigs.filter((item) => item.status === 'submitted').length,
+      reviewing: experimentConfigs.filter((item) => item.status === 'reviewing').length,
+      completed: experimentConfigs.filter((item) => item.status === 'completed').length,
     }),
     [],
   );
@@ -74,7 +76,7 @@ export default function StudentExperimentsPage() {
         </div>
         <div className="experiment-list">
           {experimentConfigs.map((experiment) => {
-            const meta = statusMeta[experiment.status] ?? statusMeta.not_started;
+            const meta = STATUS_META[experiment.status] ?? STATUS_META.not_started;
             return (
               <article className="experiment-row" key={experiment.id}>
                 <h3>{experiment.name}</h3>
@@ -89,8 +91,8 @@ export default function StudentExperimentsPage() {
                   <OutlineButton>
                     在系统里查看
                   </OutlineButton>
-                  <GoldButton onClick={handleOneClickSubmit} icon={<CrownOutlined />}>
-                    一键提交 (Pro)
+                  <GoldButton onClick={() => handleOneClickSubmit(experiment)} icon={<CrownOutlined />}>
+                    一键提交
                   </GoldButton>
                 </div>
               </article>
@@ -98,6 +100,12 @@ export default function StudentExperimentsPage() {
           })}
         </div>
       </div>
+      <ProSubmitModal
+        open={isSubmitModalOpen}
+        experiments={submitTargets}
+        onCancel={() => setIsSubmitModalOpen(false)}
+        onSubmit={handleModalSubmit}
+      />
     </section>
   );
 }

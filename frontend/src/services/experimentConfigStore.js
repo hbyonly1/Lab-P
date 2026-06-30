@@ -24,7 +24,8 @@ export function getAllExperiments() {
   return Object.values(v2Configs).map(config => ({
     id: config.meta.id,
     name: config.meta.name,
-    status: config.meta.status || 'not_started'
+    status: config.meta.status || 'not_started',
+    inputs: config.inputs
   }));
 }
 

@@ -16,7 +16,7 @@ import {
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { getExperimentConfig, initFixedValues } from '../../services/experimentConfigStore.js';
 import { GoldButton, LockedNotice, StatusBadge } from '../../components/ui/index.js';
-import { SectionShell, ExperimentDataTable, ExperimentImageUploader } from '../../components/experiment/index.js';
+import { SectionShell, ExperimentDataTable, ExperimentImageUploader, ProSubmitModal } from '../../components/experiment/index.js';
 import {
   getDebugServiceCapabilities,
   getDebugServiceRole,
@@ -39,9 +39,9 @@ export default function StudentExperimentDetailPage() {
     return (
       <div style={{ padding: '40px', textAlign: 'center', minHeight: '100vh', background: '#fafafc' }}>
         <h1 style={{ fontSize: '48px', color: '#ff4d4f', margin: '0' }}>403</h1>
-        <h2 style={{ color: '#141413' }}>配置未授权或不兼容</h2>
-        <p style={{ color: '#696969', maxWidth: '400px', margin: '16px auto' }}>
-          此系统已升级为纯正的 V2 架构。当前请求的实验配置不属于 V2 标准或不存在。旧版的实验由于前端逻辑的废除已被强制拦截。
+        <h2 style={{ color: '#141413' }}>配置不存在</h2>
+        <p style={{ color: '#696969', maxWidth: '700px', margin: '16px auto' }}>
+          当前请求的实验配置不存在。若遇到此错误，请联系管理员，QQ: 1952096193。
         </p>
         <Button onClick={() => navigate('/workspace/student/experiments')}>返回列表</Button>
       </div>
@@ -67,6 +67,7 @@ export function ExperimentDetailView({ experiment, onBack }) {
 
   // 图片槽位状态映射：{ "IMG_RAW": [file1, file2], "IMG_WAVE": [file3] }
   const [imageSlots, setImageSlots] = useState({});
+  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
 
   useEffect(() => subscribeDebugServiceRole(setDebugRole), []);
 
@@ -190,11 +191,16 @@ export function ExperimentDetailView({ experiment, onBack }) {
   };
 
   const handleOneClickSubmit = () => {
-    if (!capabilities.canUseOneClickSubmit) {
-      message.warning('权限拒绝：该功能需要 Pro 订阅。');
-      return;
-    }
-    message.success('尊贵的 Pro 用户，您的请求已提交，请耐心等待后台人工审核！');
+    setIsSubmitModalOpen(true);
+  };
+
+  const handleModalSubmit = async (batchImages) => {
+    // Mock backend API call
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve();
+      }, 1500);
+    });
   };
 
   return (
@@ -211,7 +217,7 @@ export function ExperimentDetailView({ experiment, onBack }) {
           <Button icon={<SaveOutlined />} style={{ background: '#fff' }}>临时提交</Button>
           <Button type="primary" icon={<SendOutlined />}>正式提交</Button>
           <GoldButton onClick={handleOneClickSubmit} icon={<CrownOutlined />}>
-            一键提交<span className="pro-fill-badge">(Pro)</span>
+            一键提交
           </GoldButton>
         </div>
       </header>
@@ -399,8 +405,13 @@ export function ExperimentDetailView({ experiment, onBack }) {
           </div>
         </SectionShell>
       </div>
+      {/* Pro 一键提交流程弹窗 */}
+      <ProSubmitModal
+        open={isSubmitModalOpen}
+        experiments={[experiment]}
+        onCancel={() => setIsSubmitModalOpen(false)}
+        onSubmit={handleModalSubmit}
+      />
     </section>
   );
 }
-
-

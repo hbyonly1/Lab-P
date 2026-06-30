@@ -5,11 +5,14 @@ import LoginPage from './pages/LoginPage.jsx';
 import StudentExperimentsPage from './pages/workspace/StudentExperimentsPage.jsx';
 import StudentExperimentDetailPage from './pages/workspace/StudentExperimentDetailPage.jsx';
 import StudentDashboardPage from './pages/workspace/StudentDashboardPage.jsx';
+import ReviewerTasksPage from './pages/workspace/ReviewerTasksPage.jsx';
 import WorkspaceBlankPage from './pages/workspace/WorkspaceBlankPage.jsx';
+import AdminOperationLogsPage from './pages/workspace/AdminOperationLogsPage.jsx';
 import SettingsPage from './pages/workspace/SettingsPage.jsx';
 import DesignSystemPage from './pages/workspace/DesignSystemPage.jsx';
 import ExperimentConfigPage from './pages/workspace/ExperimentConfigPage.jsx';
 import AdminExperimentPreviewPage from './pages/workspace/AdminExperimentPreviewPage.jsx';
+import AdminOrdersPage from './pages/workspace/AdminOrdersPage.jsx';
 import { getAdminUserRole, hasAdminAccessToken } from './auth.js';
 import {
   canAccessWorkspaceModule,
@@ -84,7 +87,7 @@ function App() {
           path="reviewer/tasks"
           element={
             <RequireWorkspaceRole moduleId="reviewer-tasks">
-              <WorkspaceBlankPage />
+              <ReviewerTasksPage />
             </RequireWorkspaceRole>
           }
         />
@@ -92,23 +95,15 @@ function App() {
           path="reviewer/tasks/:taskId"
           element={
             <RequireWorkspaceRole moduleId="reviewer-tasks">
-              <WorkspaceBlankPage />
+              <ReviewerTasksPage />
             </RequireWorkspaceRole>
           }
         />
         <Route
-          path="admin/orders"
+          path="admin/operation-logs"
           element={
-            <RequireWorkspaceRole moduleId="admin-orders">
-              <WorkspaceBlankPage />
-            </RequireWorkspaceRole>
-          }
-        />
-        <Route
-          path="admin/submissions"
-          element={
-            <RequireWorkspaceRole moduleId="admin-submissions">
-              <WorkspaceBlankPage />
+            <RequireWorkspaceRole moduleId="admin-operation-logs">
+              <AdminOperationLogsPage />
             </RequireWorkspaceRole>
           }
         />
@@ -133,6 +128,14 @@ function App() {
           element={
             <RequireWorkspaceRole moduleId="admin-experiments">
               <ExperimentConfigPage />
+            </RequireWorkspaceRole>
+          }
+        />
+        <Route
+          path="admin/orders"
+          element={
+            <RequireWorkspaceRole moduleId="admin-orders">
+              <AdminOrdersPage />
             </RequireWorkspaceRole>
           }
         />
