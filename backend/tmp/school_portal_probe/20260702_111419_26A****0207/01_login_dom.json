@@ -1,0 +1,287 @@
+{
+  "url": "http://10.25.77.60:8001/Login",
+  "title": "报告系统用户登录",
+  "forms": [
+    {
+      "index": 0,
+      "tag": "div",
+      "text": "用户登录 版权信息：安徽省科大奥锐科技有限公司",
+      "rect": {
+        "x": 360,
+        "y": 300,
+        "width": 679,
+        "height": 492
+      },
+      "attrs": {
+        "id": "loginForm",
+        "name": null,
+        "class": null,
+        "action": null,
+        "method": null
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "index": 0,
+      "tag": "input",
+      "type": "hidden",
+      "value": "",
+      "placeholder": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": "loginStatus",
+        "name": null,
+        "class": null,
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 1,
+      "tag": "input",
+      "type": "text",
+      "value": "",
+      "placeholder": "请输入用户名",
+      "rect": {
+        "x": 547,
+        "y": 436,
+        "width": 345,
+        "height": 54
+      },
+      "attrs": {
+        "id": "userName",
+        "name": "userName",
+        "class": "form-control inputS",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 2,
+      "tag": "input",
+      "type": "password",
+      "value": "<redacted>",
+      "placeholder": "请输入密码",
+      "rect": {
+        "x": 546,
+        "y": 525,
+        "width": 345,
+        "height": 54
+      },
+      "attrs": {
+        "id": "userPass",
+        "name": "password",
+        "class": "form-control inputS",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": "if(event.keyCode==13) {loginClick();}"
+      }
+    },
+    {
+      "index": 3,
+      "tag": "input",
+      "type": "text",
+      "value": "",
+      "placeholder": "请输入验证码",
+      "rect": {
+        "x": 546,
+        "y": 614,
+        "width": 250,
+        "height": 38
+      },
+      "attrs": {
+        "id": "checkCode",
+        "name": "checkCode",
+        "class": "form-control inputS",
+        "maxlength": "4",
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": "if(event.keyCode==13) {loginClick();}"
+      }
+    },
+    {
+      "index": 4,
+      "tag": "input",
+      "type": "button",
+      "value": "<present>",
+      "placeholder": "",
+      "rect": {
+        "x": 601,
+        "y": 687,
+        "width": 197,
+        "height": 55
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "loginBut",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": "loginClick()",
+        "onkeypress": null
+      }
+    }
+  ],
+  "buttons": [
+    {
+      "index": 0,
+      "tag": "a",
+      "text": "",
+      "rect": {
+        "x": 799,
+        "y": 624,
+        "width": 90,
+        "height": 15
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": null,
+        "type": null,
+        "href": "#",
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 1,
+      "tag": "input",
+      "text": "登 录",
+      "rect": {
+        "x": 601,
+        "y": 687,
+        "width": 197,
+        "height": 55
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "loginBut",
+        "type": "button",
+        "href": null,
+        "onclick": "loginClick()",
+        "value": "登 录"
+      }
+    }
+  ],
+  "images": [
+    {
+      "index": 0,
+      "src": "http://10.25.77.60:8001/Images/login/%e7%94%a8%e6%88%b7.png",
+      "alt": "",
+      "title": "",
+      "rect": {
+        "x": 490,
+        "y": 446,
+        "width": 33,
+        "height": 34
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": null,
+        "onclick": null,
+        "width": null,
+        "height": null
+      }
+    },
+    {
+      "index": 1,
+      "src": "http://10.25.77.60:8001/Images/login/%e5%af%86%e7%a0%81.png",
+      "alt": "",
+      "title": "",
+      "rect": {
+        "x": 490,
+        "y": 535,
+        "width": 27,
+        "height": 34
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": null,
+        "onclick": null,
+        "width": null,
+        "height": null
+      }
+    },
+    {
+      "index": 2,
+      "src": "http://10.25.77.60:8001/Images/login/%e5%af%86%e7%a0%81.png",
+      "alt": "",
+      "title": "",
+      "rect": {
+        "x": 490,
+        "y": 616,
+        "width": 27,
+        "height": 34
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": null,
+        "onclick": null,
+        "width": null,
+        "height": null
+      }
+    },
+    {
+      "index": 3,
+      "src": "http://10.25.77.60:8001/CheckCode.ashx?Flag=DengLu",
+      "alt": "点击刷新",
+      "title": "点击刷新",
+      "rect": {
+        "x": 799,
+        "y": 614,
+        "width": 90,
+        "height": 38
+      },
+      "attrs": {
+        "id": "imgCheckCode",
+        "name": null,
+        "class": null,
+        "onclick": "javascript: this.src = _websiteName+'/CheckCode.ashx?Flag=DengLu&aa=' + Math.random();",
+        "width": "90",
+        "height": "38"
+      }
+    }
+  ],
+  "scripts": [
+    "http://10.25.77.60:8001/Scripts/jquery-3.7.1.min.js",
+    "http://10.25.77.60:8001/Scripts/bootstrap.min.js",
+    "http://10.25.77.60:8001/Scripts/bootstrapValidator.min.js",
+    "http://10.25.77.60:8001/Scripts/bootstrap-datetimepicker.min.js",
+    "http://10.25.77.60:8001/Scripts/locales/bootstrap-datetimepicker.zh-CN.js",
+    "http://10.25.77.60:8001/Scripts/Editor/wysiwyg.js",
+    "http://10.25.77.60:8001/Scripts/Editor/wysiwyg-editor.js",
+    "http://10.25.77.60:8001/Scripts/bootbox.min.js",
+    "http://10.25.77.60:8001/Scripts/jquery.ztree.all-3.5.min.js",
+    "http://10.25.77.60:8001/Scripts/knockout-3.4.0.js",
+    "http://10.25.77.60:8001/Scripts/jquery.page.js",
+    "http://10.25.77.60:8001/Scripts/ajaxfileupload.js",
+    "http://10.25.77.60:8001/Scripts/md5.js",
+    "http://10.25.77.60:8001/Scripts/Base64.js",
+    "http://10.25.77.60:8001/Scripts/APP/GlobleJS.js",
+    "http://10.25.77.60:8001/Scripts/Base64.js",
+    "<inline>",
+    "http://10.25.77.60:8001/Scripts/APP/LoginJS.js?t=0.4986121020768294"
+  ],
+  "localStorageKeys": [],
+  "sessionStorageKeys": [
+    "PageSize",
+    "pdfHeight",
+    "scale",
+    "tableHeight"
+  ]
+}

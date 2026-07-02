@@ -15,4 +15,28 @@ export default defineConfig({
       allow: [fileURLToPath(new URL('..', import.meta.url))],
     },
   },
+  build: {
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('monaco-editor') || id.includes('@monaco-editor') || id.includes('@coder')) {
+              return 'vendor-monaco';
+            }
+            return 'vendor-core';
+          }
+          if (id.includes('/pages/workspace/admin/')) {
+            return 'page-admin';
+          }
+          if (id.includes('/pages/workspace/student/')) {
+            return 'page-student';
+          }
+          if (id.includes('/pages/workspace/reviewer/')) {
+            return 'page-reviewer';
+          }
+        },
+      },
+    },
+  },
 });

@@ -8,27 +8,23 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { message } from 'antd';
-import { GoldButton, OutlineButton, PageHeading, StatCard, StatusBadge } from '../../components/ui/index.js';
-import { ProSubmitModal } from '../../components/experiment/index.js';
+import { GoldButton, OutlineButton, PageHeading, StatCard, StatusBadge } from '../../../components/ui/index.js';
+import { ProSubmitModal } from '../../../components/experiment/index.js';
+import { calculateExperimentMetrics } from '../../../utils/metricsUtils.js';
 
-import { STATUS_META } from '../../constants/statusEnums.js';
-import { getAllExperiments } from '../../services/experimentConfigStore.js';
-import {
-  getDebugServiceCapabilities,
-  getDebugServiceRole,
-  subscribeDebugServiceRole,
-} from './debugRoleStore.js';
-
-export const experimentConfigs = getAllExperiments();
+import { STATUS_META } from '../../../constants/statusEnums.js';
+import { getMySubmissions, submitExperiment } from '../../../services/submissionsApi.js';
+import { experimentsApi } from '../../../services/experimentsApi.js';
 
 export default function StudentExperimentsPage() {
   const navigate = useNavigate();
-  const [debugRole, setDebugRole] = useState(() => getDebugServiceRole());
-
-  useEffect(() => subscribeDebugServiceRole(setDebugRole), []);
-
-  const capabilities = getDebugServiceCapabilities(debugRole);
-
+  const [mergedList, setMergedList] = useState([]);
+  const [metrics, setMetrics] = useState({
+    total: 0,
+    unsubmitted: 0,
+    reviewing: 0,
+    completed: 0,
+  });
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [submitTargets, setSubmitTargets] = useState([]);
 
@@ -37,25 +33,44 @@ export default function StudentExperimentsPage() {
     setIsSubmitModalOpen(true);
   };
 
-  const handleModalSubmit = async (batchImages) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve();
-      }, 1500);
-    });
+  const loadData = async () => {
+    try {
+      const [experiments, subs] = await Promise.all([
+        experimentsApi.listExperiments(),
+        getMySubmissions(),
+      ]);
+      const { mappedList, metrics } = calculateExperimentMetrics(subs, experiments);
+
+      setMergedList(mappedList);
+      setMetrics(metrics);
+    } catch (error) {
+      console.error("Failed to fetch experiments list:", error);
+      const msg = error.response?.data?.detail || error.message;
+      message.error(`获取实验数据失败: ${msg}`);
+    }
   };
 
-  const metrics = useMemo(
-    () => ({
-      total: experimentConfigs.length,
-      pending: experimentConfigs.filter((item) =>
-        ['not_started', 'incomplete'].includes(item.status),
-      ).length,
-      reviewing: experimentConfigs.filter((item) => item.status === 'reviewing').length,
-      completed: experimentConfigs.filter((item) => item.status === 'completed').length,
-    }),
-    [],
-  );
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleModalSubmit = async (batchImages, targetStudent, isHungup = false) => {
+    try {
+      for (const target of submitTargets) {
+        const expImages = batchImages[target.id] || {};
+        const imagePaths = Object.values(expImages).flat().map(img => img.url).filter(Boolean);
+        await submitExperiment(target.id, targetStudent, isHungup, imagePaths);
+      }
+      message.success('提交成功，后台正在处理中！');
+      await loadData();
+    } catch (error) {
+      if (error.response?.status !== 403 && error.status !== 403) {
+        const msg = error.response?.data?.detail || error.message;
+        message.error(`提交失败: ${msg}`);
+      }
+      throw error;
+    }
+  };
 
   return (
     <section className="workspace-standard-page student-experiments-page">
@@ -63,7 +78,7 @@ export default function StudentExperimentsPage() {
 
       <div className="ui-stat-grid">
         <StatCard icon={<AppstoreOutlined />} label="全部实验" value={metrics.total} tone="blue" />
-        <StatCard icon={<CloudUploadOutlined />} label="待提交" value={metrics.pending} tone="amber" />
+        <StatCard icon={<CloudUploadOutlined />} label="待提交" value={metrics.unsubmitted} tone="amber" />
         <StatCard icon={<LineChartOutlined />} label="人工审核中" value={metrics.reviewing} tone="green" />
         <StatCard icon={<CheckCircleOutlined />} label="已完成" value={metrics.completed} tone="violet" />
       </div>
@@ -75,8 +90,8 @@ export default function StudentExperimentsPage() {
           <span>操作</span>
         </div>
         <div className="experiment-list">
-          {experimentConfigs.map((experiment) => {
-            const meta = STATUS_META[experiment.status] ?? STATUS_META.not_started;
+          {mergedList.map((experiment) => {
+            const meta = STATUS_META[experiment.status] || { label: '未提交', color: 'default', tone: 'pending' };
             return (
               <article className="experiment-row" key={experiment.id}>
                 <h3>{experiment.name}</h3>

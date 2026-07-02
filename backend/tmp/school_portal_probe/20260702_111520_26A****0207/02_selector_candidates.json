@@ -1,0 +1,108 @@
+{
+  "username": {
+    "index": 1,
+    "tag": "input",
+    "type": "text",
+    "value": "",
+    "placeholder": "请输入用户名",
+    "rect": {
+      "x": 547,
+      "y": 436,
+      "width": 345,
+      "height": 54
+    },
+    "attrs": {
+      "id": "userName",
+      "name": "userName",
+      "class": "form-control inputS",
+      "maxlength": null,
+      "autocomplete": null,
+      "onclick": null,
+      "onkeypress": null
+    }
+  },
+  "password": {
+    "index": 2,
+    "tag": "input",
+    "type": "password",
+    "value": "<redacted>",
+    "placeholder": "请输入密码",
+    "rect": {
+      "x": 546,
+      "y": 525,
+      "width": 345,
+      "height": 54
+    },
+    "attrs": {
+      "id": "userPass",
+      "name": "password",
+      "class": "form-control inputS",
+      "maxlength": null,
+      "autocomplete": null,
+      "onclick": null,
+      "onkeypress": "if(event.keyCode==13) {loginClick();}"
+    }
+  },
+  "captcha": {
+    "index": 3,
+    "tag": "input",
+    "type": "text",
+    "value": "",
+    "placeholder": "请输入验证码",
+    "rect": {
+      "x": 546,
+      "y": 614,
+      "width": 250,
+      "height": 38
+    },
+    "attrs": {
+      "id": "checkCode",
+      "name": "checkCode",
+      "class": "form-control inputS",
+      "maxlength": "4",
+      "autocomplete": null,
+      "onclick": null,
+      "onkeypress": "if(event.keyCode==13) {loginClick();}"
+    }
+  },
+  "captcha_image": {
+    "index": 3,
+    "src": "http://10.25.77.60:8001/CheckCode.ashx?Flag=DengLu",
+    "alt": "点击刷新",
+    "title": "点击刷新",
+    "rect": {
+      "x": 799,
+      "y": 614,
+      "width": 90,
+      "height": 38
+    },
+    "attrs": {
+      "id": "imgCheckCode",
+      "name": null,
+      "class": null,
+      "onclick": "javascript: this.src = _websiteName+'/CheckCode.ashx?Flag=DengLu&aa=' + Math.random();",
+      "width": "90",
+      "height": "38"
+    }
+  },
+  "submit": {
+    "index": 1,
+    "tag": "input",
+    "text": "登 录",
+    "rect": {
+      "x": 601,
+      "y": 687,
+      "width": 197,
+      "height": 55
+    },
+    "attrs": {
+      "id": null,
+      "name": null,
+      "class": "loginBut",
+      "type": "button",
+      "href": null,
+      "onclick": "loginClick()",
+      "value": "登 录"
+    }
+  }
+}

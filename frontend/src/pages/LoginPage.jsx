@@ -13,21 +13,7 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const redirectTo = location.state?.from?.pathname;
 
-  const enterDemoRole = (role) => {
-    const demoNames = {
-      student: '2410000000',
-      reviewer: 'reviewer',
-      admin: 'admin',
-    };
-    const session = {
-      accessToken: `demo-${role}-token`,
-      username: demoNames[role],
-      role,
-    };
-    saveAdminSession(session);
-    message.success(`已进入${role}演示账号`);
-    navigate(getDefaultWorkspacePath(role), { replace: true });
-  };
+
 
   const handleSubmit = async (values) => {
     setSubmitting(true);
@@ -72,7 +58,7 @@ export default function LoginPage() {
               <Input
                 autoComplete="username"
                 prefix={<UserOutlined />}
-                placeholder="学生输入学号，后台人员输入账号"
+                placeholder="请输入账号"
                 size="large"
               />
             </Form.Item>
@@ -96,14 +82,7 @@ export default function LoginPage() {
             </Button>
           </Form>
 
-          <div className="demo-login-panel">
-            <span>后端未接入时使用</span>
-            <div className="demo-login-actions">
-              <Button onClick={() => enterDemoRole('student')}>学生演示</Button>
-              <Button onClick={() => enterDemoRole('reviewer')}>审核员演示</Button>
-              <Button onClick={() => enterDemoRole('admin')}>管理员演示</Button>
-            </div>
-          </div>
+
         </div>
       </section>
     </main>

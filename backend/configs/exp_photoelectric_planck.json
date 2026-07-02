@@ -1,0 +1,1025 @@
+{
+  "meta": {
+    "id": "exp_photoelectric_planck",
+    "name": "光电效应和普朗克常量的测定",
+    "version": "2.0",
+    "sortOrder": 10,
+    "enabled": true
+  },
+  "inputs": {
+    "images": [
+      {
+        "id": "IMG_RAW_DATA",
+        "label": "原始实验记录与曲线图片"
+      }
+    ],
+    "fields": [
+      {
+        "id": "SYMD_Fill_0",
+        "type": "extract",
+        "label": "SYMD_Fill_0"
+      },
+      {
+        "id": "SYYL_Fill_0",
+        "type": "extract",
+        "label": "SYYL_Fill_0"
+      },
+      {
+        "id": "SYYL_Fill_1",
+        "type": "extract",
+        "label": "SYYL_Fill_1"
+      },
+      {
+        "id": "SYYL_Fill_2",
+        "type": "extract",
+        "label": "SYYL_Fill_2"
+      },
+      {
+        "id": "SYYL_Fill_3",
+        "type": "extract",
+        "label": "SYYL_Fill_3"
+      },
+      {
+        "id": "SYBZ_Fill_0",
+        "type": "extract",
+        "label": "SYBZ_Fill_0"
+      },
+      {
+        "id": "SYBZ_Fill_1",
+        "type": "extract",
+        "label": "SYBZ_Fill_1"
+      },
+      {
+        "id": "SYBZ_Fill_2",
+        "type": "extract",
+        "label": "SYBZ_Fill_2"
+      },
+      {
+        "id": "YSSJDrawingAreaArea",
+        "type": "generated",
+        "label": "YSSJDrawingAreaArea"
+      },
+      {
+        "id": "G10-0",
+        "type": "extract",
+        "label": "G10-0"
+      },
+      {
+        "id": "G10-1",
+        "type": "extract",
+        "label": "G10-1"
+      },
+      {
+        "id": "G10-2",
+        "type": "extract",
+        "label": "G10-2"
+      },
+      {
+        "id": "G10-3",
+        "type": "extract",
+        "label": "G10-3"
+      },
+      {
+        "id": "G10-4",
+        "type": "extract",
+        "label": "G10-4"
+      },
+      {
+        "id": "G10-5",
+        "type": "extract",
+        "label": "G10-5"
+      },
+      {
+        "id": "G10-6",
+        "type": "extract",
+        "label": "G10-6"
+      },
+      {
+        "id": "G10-7",
+        "type": "extract",
+        "label": "G10-7"
+      },
+      {
+        "id": "G10-8",
+        "type": "extract",
+        "label": "G10-8"
+      },
+      {
+        "id": "G11-0",
+        "type": "extract",
+        "label": "G11-0"
+      },
+      {
+        "id": "G11-1",
+        "type": "extract",
+        "label": "G11-1"
+      },
+      {
+        "id": "G11-2",
+        "type": "extract",
+        "label": "G11-2"
+      },
+      {
+        "id": "G11-3",
+        "type": "extract",
+        "label": "G11-3"
+      },
+      {
+        "id": "G11-4",
+        "type": "extract",
+        "label": "G11-4"
+      },
+      {
+        "id": "G11-5",
+        "type": "extract",
+        "label": "G11-5"
+      },
+      {
+        "id": "G11-6",
+        "type": "extract",
+        "label": "G11-6"
+      },
+      {
+        "id": "G11-7",
+        "type": "extract",
+        "label": "G11-7"
+      },
+      {
+        "id": "G11-8",
+        "type": "extract",
+        "label": "G11-8"
+      },
+      {
+        "id": "G12-0",
+        "type": "extract",
+        "label": "G12-0"
+      },
+      {
+        "id": "G12-1",
+        "type": "extract",
+        "label": "G12-1"
+      },
+      {
+        "id": "G12-2",
+        "type": "extract",
+        "label": "G12-2"
+      },
+      {
+        "id": "G12-3",
+        "type": "extract",
+        "label": "G12-3"
+      },
+      {
+        "id": "G12-4",
+        "type": "extract",
+        "label": "G12-4"
+      },
+      {
+        "id": "G12-5",
+        "type": "extract",
+        "label": "G12-5"
+      },
+      {
+        "id": "G12-6",
+        "type": "extract",
+        "label": "G12-6"
+      },
+      {
+        "id": "G12-7",
+        "type": "extract",
+        "label": "G12-7"
+      },
+      {
+        "id": "G12-8",
+        "type": "extract",
+        "label": "G12-8"
+      },
+      {
+        "id": "G20-0",
+        "type": "extract",
+        "label": "G20-0"
+      },
+      {
+        "id": "G20-1",
+        "type": "extract",
+        "label": "G20-1"
+      },
+      {
+        "id": "G20-2",
+        "type": "extract",
+        "label": "G20-2"
+      },
+      {
+        "id": "G3",
+        "type": "computed",
+        "label": "G3"
+      },
+      {
+        "id": "G4",
+        "type": "computed",
+        "label": "G4"
+      },
+      {
+        "id": "G5",
+        "type": "computed",
+        "label": "G5"
+      },
+      {
+        "id": "G60-0",
+        "type": "extract",
+        "label": "G60-0"
+      },
+      {
+        "id": "G60-1",
+        "type": "extract",
+        "label": "G60-1"
+      },
+      {
+        "id": "G60-2",
+        "type": "extract",
+        "label": "G60-2"
+      },
+      {
+        "id": "G60-3",
+        "type": "extract",
+        "label": "G60-3"
+      },
+      {
+        "id": "G60-4",
+        "type": "extract",
+        "label": "G60-4"
+      },
+      {
+        "id": "G61-0",
+        "type": "extract",
+        "label": "G61-0"
+      },
+      {
+        "id": "G61-1",
+        "type": "extract",
+        "label": "G61-1"
+      },
+      {
+        "id": "G61-2",
+        "type": "extract",
+        "label": "G61-2"
+      },
+      {
+        "id": "G61-3",
+        "type": "extract",
+        "label": "G61-3"
+      },
+      {
+        "id": "G61-4",
+        "type": "extract",
+        "label": "G61-4"
+      },
+      {
+        "id": "G7",
+        "type": "computed",
+        "label": "G7"
+      },
+      {
+        "id": "G8",
+        "type": "computed",
+        "label": "G8"
+      },
+      {
+        "id": "skt0Area",
+        "type": "generated",
+        "label": "skt0Area"
+      }
+    ]
+  },
+  "ui": {
+    "fixedSections": [
+      {
+        "title": "实验目的",
+        "segments": [
+          "1.观测光电效应现象与其特性。2.了解光电效应的物理规律。3.理解光的量子性，测量普朗克常数。4.实验仪器：",
+          {
+            "nodeId": "SYMD_Fill_0",
+            "width": "50px"
+          },
+          "（A：真空管 ; B：ZKY-GD-3光电效应实验仪）。"
+        ]
+      },
+      {
+        "title": "实验原理",
+        "segments": [
+          "光电效应现象：光照射到金属表面时，有电子从金属表面逸出的现象。光电子：逸出的电子。图1为光电效应实验原理图。T为真空管，K为发射电子的阴极，A为阳极，用一定频率和强度的单色光照射K时，金属将释放出光电子，若在两极上加一定的电压",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_001.png",
+            "inline": true,
+            "width": "22.9414188751457px",
+            "height": "12.1079710729935px"
+          },
+          "，光电子由K飞向A，则回路中就出现光电流。改变外加电压",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_002.png",
+            "inline": true,
+            "width": "22.9414188751457px",
+            "height": "12.1079710729935px"
+          },
+          "，测量出光电流",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_003.png",
+            "inline": true,
+            "width": "9.87755534902105px",
+            "height": "12.1079710729935px"
+          },
+          "的大小，即可得出光电管的伏安特性曲线。",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_004.png",
+            "inline": false,
+            "width": "208.065923964863px",
+            "height": "249.169299449499px"
+          },
+          "1.实验规律：（1）对一定金属，只有入射光的频率",
+          {
+            "nodeId": "SYYL_Fill_0",
+            "width": "50px"
+          },
+          "（A：大于 ； B：小于）某一频率",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_005.png",
+            "inline": true,
+            "width": "15.0361882877517px",
+            "height": "11.9518419723155px"
+          },
+          "时, 电子才能从该金属表面逸出，这个频率叫做截止频率。截止频率与材料",
+          {
+            "nodeId": "SYYL_Fill_1",
+            "width": "50px"
+          },
+          "（A：无关 ； B：相关），与入射光强",
+          {
+            "nodeId": "SYYL_Fill_2",
+            "width": "50px"
+          },
+          "（A：无关 ； B：相关）。（2）对应于某一频率光，光电效应的",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_006.png",
+            "inline": true,
+            "width": "36.4513655460648px",
+            "height": "13.3187681802929px"
+          },
+          "关系如图2所示。从图中可见，对一定的频率，当",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_007.png",
+            "inline": true,
+            "width": "42.0592679377671px",
+            "height": "12.6177803813301px"
+          },
+          "时，",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_008.png",
+            "inline": true,
+            "width": "30.1424753553997px",
+            "height": "14.3702498787371px"
+          },
+          "，因为从阴极发出的光电子具有一定的初动能。当",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_009.png",
+            "inline": true,
+            "width": "47.6671703294693px",
+            "height": "15.7722254766626px"
+          },
+          "并达到一定值时，",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_010.png",
+            "inline": true,
+            "width": "23.1325973657719px",
+            "height": "12.6177803813301px"
+          },
+          "，此时电压称为遏止电压",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_011.png",
+            "inline": true,
+            "width": "17.1742010745882px",
+            "height": "14.7207437782185px"
+          },
+          "。表明在此电压下，逸出金属后具有最大动能的光电子也不能到达阳极。此时有：",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_012.png",
+            "inline": true,
+            "width": "83.7680419760527px",
+            "height": "26.2870424611044px"
+          },
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_013.png",
+            "inline": false,
+            "width": "272.333759897042px",
+            "height": "215.553748181056px"
+          },
+          "（3）当",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_014.png",
+            "inline": true,
+            "width": "56.0790239170227px",
+            "height": "14.3702498787371px"
+          },
+          "，",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_015.png",
+            "inline": true,
+            "width": "10.8653108839232px",
+            "height": "13.3187681802929px"
+          },
+          "迅速增加，然后趋于饱和，饱和光电流",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_016.png",
+            "inline": true,
+            "width": "14.3702498787371px",
+            "height": "12.6177803813301px"
+          },
+          "的大小与入射光的强度P成正比。在同一频率下，饱和光电流强度",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_017.png",
+            "inline": true,
+            "width": "14.3702498787371px",
+            "height": "12.6177803813301px"
+          },
+          "正比于入射光强P。",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_018.png",
+            "inline": false,
+            "width": "309.836607141551px",
+            "height": "278.292156188225px"
+          },
+          "（4）对于不同频率的入射光，其截止电压的值不同。截止电压",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_019.png",
+            "inline": true,
+            "width": "17.1742010745882px",
+            "height": "14.7207437782185px"
+          },
+          "与入射光频率具有",
+          {
+            "nodeId": "SYYL_Fill_3",
+            "width": "50px"
+          },
+          "（A：线性 ； B：指数）关系。",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_020.png",
+            "inline": false,
+            "width": "564.645672064523px",
+            "height": "219.05868717587px"
+          },
+          "2.爱因斯坦对光电效应的解释(1905年）光束由光子构成，频率为",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_021.png",
+            "inline": true,
+            "width": "10.1643230849604px",
+            "height": "10.8653108839232px"
+          },
+          "的光束，光子能量为",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_022.png",
+            "inline": true,
+            "width": "33.997908249695px",
+            "height": "14.0197559792557px"
+          },
+          "，当光子照到金属表面时，一个光子的能量一次为金属中的一个电子全部吸收，而不需积累能量的时间。电子把这能量的一部分用来克服金属表面对它的吸引力而作功W，余下的就成为电子离开金属表面后的动能。由此，光电效应方程为：",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_023.png",
+            "inline": true,
+            "width": "106.900639341825px",
+            "height": "26.6375363605858px"
+          },
+          "。依据该方程可解释实验得到的规律：（1）当",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_024.png",
+            "inline": true,
+            "width": "46.9661825305066px",
+            "height": "16.4732132756254px"
+          },
+          "时，电子不能脱离金属，因而没有光电流产生。即当",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_025.png",
+            "inline": true,
+            "width": "69.748285996797px",
+            "height": "16.122719376144px"
+          },
+          "（截止频率）时才发生光电效应。（2）",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_026.png",
+            "inline": false,
+            "width": "365.214643259611px",
+            "height": "82.0155724786458px"
+          },
+          "即截止电压",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_027.png",
+            "inline": true,
+            "width": "16.4732132756254px",
+            "height": "12.9682742808115px"
+          },
+          "与入射光频率",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_028.png",
+            "inline": true,
+            "width": "10.1643230849604px",
+            "height": "10.8653108839232px"
+          },
+          "成线性关系。 由实验可确定该直线的斜率，从而算出普朗克常数h。（3）当频率一定时，入射光强 P 越大，光子数目越多，则单位时间内产生光电子数目越多，饱和光电流强度就越大。即在同一频率下，饱和光电流强度",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_029.png",
+            "inline": true,
+            "width": "14.3702498787371px",
+            "height": "12.6177803813301px"
+          },
+          "正比于入射光强P。"
+        ]
+      },
+      {
+        "title": "实验步骤",
+        "segments": [
+          "1. 测试前准备:（1）将测试仪及汞灯电源接通，预热20分钟。（注意：汞灯一旦开启，不要随意关闭）（2）把汞灯及光电管暗盒遮光盖盖上，将汞灯暗盒光输出口对准光电管暗盒光输入口，调整光电管与汞灯距离为约40cm并保持不变。（3）调零：将“电流量程”选择开关置于所选档位，仪器在充分预热后，进行测试前调零。调零时，将“调零/测量”切换开关切换到“调零”档位，旋转“电流调零”旋钮使电流指示为“000”。调节好后，将“调零/测量”切换开关切换到“测试”档位，就可以进行实验了。注意：在进行每一组实验前， 必须按照上面的调零方法进行调零，否则会影响实验精度。2. 测量光电管的伏安特性曲线（1）将电压选择按键置于-2V—+30V档，选择合适的“电流量程”档位；（2）将仪器进行电流调零；（3）将直径8mm的光阑及365nm的滤波片装在光电管暗盒光输入口上。从低到高调节电压，记录对应的电流值。当电流过大溢出时要更换档位，更换档位后要重新",
+          {
+            "nodeId": "SYBZ_Fill_0",
+            "width": "50px"
+          },
+          "（ A:调节电压 ； B:调零）。3. 验证光电流与入射光强成正比（1）调节",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_030.png",
+            "inline": true,
+            "width": "27.7591168389263px",
+            "height": "14.6506449983222px"
+          },
+          "为30V，选择合适的电流量程，将仪器电流调零；（2）在同一谱线、同一入射距离下，记录光阑分别为2mm，4mm，8mm时对应的电流值。测得电流值的比例接近于",
+          {
+            "nodeId": "SYBZ_Fill_1",
+            "width": "50px"
+          },
+          "（A:1：4：16 ; B:1：2：4 ）。4. 测定普朗克常数（1）将电压选择按键置于-2 V～0 V档； （2）选择合适的电流量程，将仪器电流调零； （3）将直径4mm的光阑及365.0nm的滤色片装在光电管暗盒光输入口上；（4）拿走汞灯灯罩，调反向电压，使电流为",
+          {
+            "nodeId": "SYBZ_Fill_2",
+            "width": "50px"
+          },
+          "（A:最大值 ； B:零），记录对应的截止电压",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_031.png",
+            "inline": true,
+            "width": "18.891621182047px",
+            "height": "16.1928181560403px"
+          },
+          "。（5）依次换上 404.7nm、435.8nm、546.1nm、578.0nm 的滤色片，重复以上测量步骤。"
+        ]
+      }
+    ],
+    "dataTables": [
+      {
+        "caption": "G1",
+        "rows": [
+          {
+            "isHeader": true,
+            "cells": [
+              {
+                "label": "UAK（V）"
+              },
+              {
+                "label": "-1.5"
+              },
+              {
+                "label": "-1"
+              },
+              {
+                "label": "-0.5"
+              },
+              {
+                "label": "0"
+              },
+              {
+                "label": "1"
+              },
+              {
+                "label": "2"
+              },
+              {
+                "label": "3"
+              },
+              {
+                "label": "4"
+              },
+              {
+                "label": "5"
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "I（10⁻¹¹A）"
+              },
+              {
+                "nodeId": "G10-0",
+                "label": ""
+              },
+              {
+                "nodeId": "G10-1",
+                "label": ""
+              },
+              {
+                "nodeId": "G10-2",
+                "label": ""
+              },
+              {
+                "nodeId": "G10-3",
+                "label": ""
+              },
+              {
+                "nodeId": "G10-4",
+                "label": ""
+              },
+              {
+                "nodeId": "G10-5",
+                "label": ""
+              },
+              {
+                "nodeId": "G10-6",
+                "label": ""
+              },
+              {
+                "nodeId": "G10-7",
+                "label": ""
+              },
+              {
+                "nodeId": "G10-8",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "UAK（V）"
+              },
+              {
+                "nodeId": "G11-0",
+                "label": ""
+              },
+              {
+                "nodeId": "G11-1",
+                "label": ""
+              },
+              {
+                "nodeId": "G11-2",
+                "label": ""
+              },
+              {
+                "nodeId": "G11-3",
+                "label": ""
+              },
+              {
+                "nodeId": "G11-4",
+                "label": ""
+              },
+              {
+                "nodeId": "G11-5",
+                "label": ""
+              },
+              {
+                "nodeId": "G11-6",
+                "label": ""
+              },
+              {
+                "nodeId": "G11-7",
+                "label": ""
+              },
+              {
+                "nodeId": "G11-8",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "I（10⁻¹¹A）"
+              },
+              {
+                "nodeId": "G12-0",
+                "label": ""
+              },
+              {
+                "nodeId": "G12-1",
+                "label": ""
+              },
+              {
+                "nodeId": "G12-2",
+                "label": ""
+              },
+              {
+                "nodeId": "G12-3",
+                "label": ""
+              },
+              {
+                "nodeId": "G12-4",
+                "label": ""
+              },
+              {
+                "nodeId": "G12-5",
+                "label": ""
+              },
+              {
+                "nodeId": "G12-6",
+                "label": ""
+              },
+              {
+                "nodeId": "G12-7",
+                "label": ""
+              },
+              {
+                "nodeId": "G12-8",
+                "label": ""
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "caption": "G2",
+        "rows": [
+          {
+            "isHeader": true,
+            "cells": [
+              {
+                "label": "365nm滤光片，光阑孔径"
+              },
+              {
+                "label": "2mm"
+              },
+              {
+                "label": "4mm"
+              },
+              {
+                "label": "8mm"
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "I（10⁻¹⁰A）"
+              },
+              {
+                "nodeId": "G20-0",
+                "label": ""
+              },
+              {
+                "nodeId": "G20-1",
+                "label": ""
+              },
+              {
+                "nodeId": "G20-2",
+                "label": ""
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "caption": "G6",
+        "rows": [
+          {
+            "isHeader": true,
+            "cells": [
+              {
+                "label": "波长（nm）"
+              },
+              {
+                "label": "365"
+              },
+              {
+                "label": "405"
+              },
+              {
+                "label": "436"
+              },
+              {
+                "label": "546"
+              },
+              {
+                "label": "577"
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "频率（10¹⁴Hz）"
+              },
+              {
+                "nodeId": "G60-0",
+                "label": ""
+              },
+              {
+                "nodeId": "G60-1",
+                "label": ""
+              },
+              {
+                "nodeId": "G60-2",
+                "label": ""
+              },
+              {
+                "nodeId": "G60-3",
+                "label": ""
+              },
+              {
+                "nodeId": "G60-4",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "截止电压U₀（V）"
+              },
+              {
+                "nodeId": "G61-0",
+                "label": ""
+              },
+              {
+                "nodeId": "G61-1",
+                "label": ""
+              },
+              {
+                "nodeId": "G61-2",
+                "label": ""
+              },
+              {
+                "nodeId": "G61-3",
+                "label": ""
+              },
+              {
+                "nodeId": "G61-4",
+                "label": ""
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "postDataSections": [
+      {
+        "title": "数据处理",
+        "segments": [
+          "实验内容：光电效应和普朗克常数的测定签字原始数据上传Σ请输入文本……",
+          {
+            "nodeId": "YSSJDrawingAreaArea",
+            "width": "100px"
+          },
+          "1. 测量光电管的伏安特性曲线（365 nm）"
+        ]
+      },
+      {
+        "title": "数据处理",
+        "segments": [
+          "2. 验证光电流与入射光强成正比"
+        ]
+      },
+      {
+        "title": "数据处理",
+        "segments": [
+          "电流比例：",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_032.png",
+            "inline": true,
+            "width": "50.1206276258391px",
+            "height": "17.5246949740696px"
+          },
+          "=",
+          {
+            "nodeId": "G3",
+            "width": "80px"
+          },
+          "电流比例：",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_033.png",
+            "inline": true,
+            "width": "50.1206276258391px",
+            "height": "16.4732132756254px"
+          },
+          "=",
+          {
+            "nodeId": "G4",
+            "width": "80px"
+          },
+          "电流比例：",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_034.png",
+            "inline": true,
+            "width": "49.0691459273949px",
+            "height": "16.4732132756254px"
+          },
+          "=",
+          {
+            "nodeId": "G5",
+            "width": "80px"
+          },
+          "3. 测定普朗克常数"
+        ]
+      },
+      {
+        "title": "数据处理",
+        "segments": [
+          "普朗克常数计算值h₁（",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_035.png",
+            "inline": true,
+            "width": "63.0889019066506px",
+            "height": "14.7207437782185px"
+          },
+          "）=",
+          {
+            "nodeId": "G7",
+            "width": "80px"
+          },
+          "相对误差",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_photoelectric_planck_img_036.png",
+            "inline": true,
+            "width": "72.2017432931668px",
+            "height": "16.4732132756254px"
+          },
+          "（单位：%）=",
+          {
+            "nodeId": "G8",
+            "width": "80px"
+          }
+        ]
+      },
+      {
+        "title": "实验分析与拓展",
+        "segments": [
+          "1. 普朗克常数测定实验中所选的光阑孔径对普朗克常数的计算值是否有影响？请分析原因。Σ请输入文本……",
+          {
+            "nodeId": "skt0Area",
+            "width": "100px"
+          }
+        ]
+      }
+    ],
+    "questions": [
+      {
+        "nodeId": "skt0Area",
+        "title": "1. 普朗克常数测定实验中所选的光阑孔径对普朗克常数的计算值是否有影响？请分析原因。Σ请输入文本……",
+        "rows": 5
+      }
+    ]
+  },
+  "ai": {
+    "recognition": {
+      "imageRef": "IMG_RAW_DATA",
+      "prompt": "提取光电效应和普朗克常量的测定实验报告中的表格数据、填空和曲线读数"
+    },
+    "answerGeneration": {
+      "prompt": "基于光电效应和普朗克常量的测定实验原理，用中文学术性语言回答实验分析与拓展题。"
+    }
+  },
+  "formulas": {}
+}

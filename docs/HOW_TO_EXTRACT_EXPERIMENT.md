@@ -45,7 +45,7 @@ imgMatches.forEach(m => {
 脚本执行输出 JSON 后，需进行最终的人工校验：
 1. **清理多余空白与换行**：修正由于 HTML 解析残留的过多空白段落。
 2. **嵌入占位符 (Inputs)**：找出原有文本中的空缺横线（如 `____`），用含有 `nodeId` 的输入框配置对象替换，例如 `{"nodeId": "SYMD_Fill_0", "width": "100px"}`。
-3. **注入到全局配置**：将生成的 `segments` 填入 `frontend/src/assets/configs/exp_xxxx.json`。
+3. **注入到后端配置**：将生成的 `segments` 填入 `backend/configs/exp_xxxx.json`，由后端同步到 `experiments.config_json` 并通过 API 提供给前端。
 
 ## 5. 渲染引擎对接
 前端的 `SectionShell` 和 `ExperimentDetailView` 组件在遍历这套 JSON 的 `segments` 时：

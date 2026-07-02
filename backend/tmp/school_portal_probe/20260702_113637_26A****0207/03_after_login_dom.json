@@ -1,0 +1,1604 @@
+{
+  "url": "http://10.25.77.60:8001/ReportStudent/CompleteReport/",
+  "title": "完成报告",
+  "forms": [
+    {
+      "index": 0,
+      "tag": "form",
+      "text": "下载报告 上传报告： 报告名称：",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": "ReportForm",
+        "name": "form-horizontal",
+        "class": "form-horizontal",
+        "action": null,
+        "method": null
+      }
+    },
+    {
+      "index": 1,
+      "tag": "form",
+      "text": "上传图片： × 0% 移除 取消 选择",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": "ReportForm",
+        "name": "form-horizontal",
+        "class": "form-horizontal",
+        "action": null,
+        "method": null
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "index": 0,
+      "tag": "input",
+      "type": "file",
+      "value": "",
+      "placeholder": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": "importButtonXml",
+        "name": "importButtonXml",
+        "class": "hide",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 1,
+      "tag": "input",
+      "type": "text",
+      "value": "",
+      "placeholder": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": "fileNames",
+        "name": null,
+        "class": "form-control",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 2,
+      "tag": "input",
+      "type": "button",
+      "value": "<present>",
+      "placeholder": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": "UploadReportFile();",
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 3,
+      "tag": "input",
+      "type": "file",
+      "value": "",
+      "placeholder": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": "importButton",
+        "name": "importButton",
+        "class": "hide",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 4,
+      "tag": "input",
+      "type": "",
+      "value": "",
+      "placeholder": "选择个文件 ...",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "file-caption-name",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 5,
+      "tag": "input",
+      "type": "file",
+      "value": "",
+      "placeholder": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": "itemImagers",
+        "name": "itemImagers",
+        "class": "form-control",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 6,
+      "tag": "input",
+      "type": "text",
+      "value": "",
+      "placeholder": "",
+      "rect": {
+        "x": 342,
+        "y": 187,
+        "width": 348,
+        "height": 40
+      },
+      "attrs": {
+        "id": "inpReportName",
+        "name": "inpReportName",
+        "class": "form-control",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 7,
+      "tag": "select",
+      "type": "",
+      "value": "<present>",
+      "placeholder": "",
+      "rect": {
+        "x": 806,
+        "y": 187,
+        "width": 348,
+        "height": 40
+      },
+      "attrs": {
+        "id": "selCourseID",
+        "name": "selCourseID",
+        "class": "form-control",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 8,
+      "tag": "input",
+      "type": "button",
+      "value": "<present>",
+      "placeholder": "",
+      "rect": {
+        "x": 1305,
+        "y": 187,
+        "width": 56,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": "SelScoreInfo()",
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 9,
+      "tag": "input",
+      "type": "button",
+      "value": "<present>",
+      "placeholder": "",
+      "rect": {
+        "x": 1315,
+        "y": 316,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 10,
+      "tag": "input",
+      "type": "button",
+      "value": "<present>",
+      "placeholder": "",
+      "rect": {
+        "x": 1315,
+        "y": 373,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 11,
+      "tag": "input",
+      "type": "button",
+      "value": "<present>",
+      "placeholder": "",
+      "rect": {
+        "x": 1315,
+        "y": 430,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 12,
+      "tag": "input",
+      "type": "button",
+      "value": "<present>",
+      "placeholder": "",
+      "rect": {
+        "x": 1315,
+        "y": 487,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 13,
+      "tag": "input",
+      "type": "button",
+      "value": "<present>",
+      "placeholder": "",
+      "rect": {
+        "x": 1315,
+        "y": 544,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 14,
+      "tag": "input",
+      "type": "button",
+      "value": "<present>",
+      "placeholder": "",
+      "rect": {
+        "x": 1315,
+        "y": 601,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 15,
+      "tag": "input",
+      "type": "button",
+      "value": "<present>",
+      "placeholder": "",
+      "rect": {
+        "x": 1315,
+        "y": 658,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 16,
+      "tag": "input",
+      "type": "button",
+      "value": "<present>",
+      "placeholder": "",
+      "rect": {
+        "x": 1315,
+        "y": 715,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 17,
+      "tag": "input",
+      "type": "button",
+      "value": "<present>",
+      "placeholder": "",
+      "rect": {
+        "x": 1315,
+        "y": 772,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    },
+    {
+      "index": 18,
+      "tag": "input",
+      "type": "button",
+      "value": "<present>",
+      "placeholder": "",
+      "rect": {
+        "x": 1315,
+        "y": 829,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "maxlength": null,
+        "autocomplete": null,
+        "onclick": null,
+        "onkeypress": null
+      }
+    }
+  ],
+  "buttons": [
+    {
+      "index": 0,
+      "tag": "a",
+      "text": "安全退出",
+      "rect": {
+        "x": 1380,
+        "y": 47,
+        "width": 48,
+        "height": 14
+      },
+      "attrs": {
+        "id": "LogOut",
+        "name": null,
+        "class": "quit",
+        "type": null,
+        "href": null,
+        "onclick": "LogOut()",
+        "value": null
+      }
+    },
+    {
+      "index": 1,
+      "tag": "a",
+      "text": "通知公告",
+      "rect": {
+        "x": 22,
+        "y": 94,
+        "width": 216,
+        "height": 64
+      },
+      "attrs": {
+        "id": "noticeA",
+        "name": null,
+        "class": "notice",
+        "type": null,
+        "href": "/ReportStudent/Notice/StuNotice",
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 2,
+      "tag": "a",
+      "text": "完成报告",
+      "rect": {
+        "x": 22,
+        "y": 161,
+        "width": 216,
+        "height": 64
+      },
+      "attrs": {
+        "id": "reportA",
+        "name": null,
+        "class": "reportActive",
+        "type": null,
+        "href": "/ReportStudent/CompleteReport/CompleteReport",
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 3,
+      "tag": "a",
+      "text": "成绩查询",
+      "rect": {
+        "x": 22,
+        "y": 227,
+        "width": 216,
+        "height": 64
+      },
+      "attrs": {
+        "id": "creditA",
+        "name": null,
+        "class": "credit",
+        "type": null,
+        "href": "/ReportStudent/ResultInquiry/ScoreInquiry",
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 4,
+      "tag": "a",
+      "text": "完成报告",
+      "rect": {
+        "x": 226,
+        "y": 104,
+        "width": 96,
+        "height": 43
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": null,
+        "type": null,
+        "href": "/ReportStudent/CompleteReport/CompleteReport",
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 5,
+      "tag": "button",
+      "text": "×",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "close",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 6,
+      "tag": "button",
+      "text": "临时提交",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": "XMLSubmitReport_LSTJ();",
+        "value": null
+      }
+    },
+    {
+      "index": 7,
+      "tag": "button",
+      "text": "正式提交",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": "XMLSubmitReport_ZSTJ();",
+        "value": null
+      }
+    },
+    {
+      "index": 8,
+      "tag": "button",
+      "text": "关闭",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 9,
+      "tag": "button",
+      "text": "×",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "close",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 10,
+      "tag": "button",
+      "text": "关闭",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 11,
+      "tag": "button",
+      "text": "保存",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": "SaveEditor()",
+        "value": null
+      }
+    },
+    {
+      "index": 12,
+      "tag": "button",
+      "text": "×",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "close",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 13,
+      "tag": "button",
+      "text": "下载报告",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": "downReport",
+        "name": null,
+        "class": "btn btn-primary",
+        "type": "button",
+        "href": null,
+        "onclick": "DownReportTemp();",
+        "value": null
+      }
+    },
+    {
+      "index": 14,
+      "tag": "input",
+      "text": "上传",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": "UploadReportFile();",
+        "value": "上传"
+      }
+    },
+    {
+      "index": 15,
+      "tag": "button",
+      "text": "临时提交",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 16,
+      "tag": "button",
+      "text": "正式提交",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 17,
+      "tag": "button",
+      "text": "关闭",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 18,
+      "tag": "button",
+      "text": "×",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "close",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 19,
+      "tag": "button",
+      "text": "×",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "close fileinput-remove",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 20,
+      "tag": "button",
+      "text": "移除",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-default btn-secondary fileinput-remove fileinput-remove-button",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 21,
+      "tag": "button",
+      "text": "取消",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-default btn-secondary kv-hidden fileinput-cancel fileinput-cancel-button",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 22,
+      "tag": "button",
+      "text": "提交",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 23,
+      "tag": "button",
+      "text": "关闭",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 24,
+      "tag": "input",
+      "text": "搜索",
+      "rect": {
+        "x": 1305,
+        "y": 187,
+        "width": 56,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": "SelScoreInfo()",
+        "value": "搜索"
+      }
+    },
+    {
+      "index": 25,
+      "tag": "a",
+      "text": "未提交",
+      "rect": {
+        "x": 1071,
+        "y": 326,
+        "width": 42,
+        "height": 15
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": null,
+        "type": null,
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 26,
+      "tag": "input",
+      "text": "完成报告",
+      "rect": {
+        "x": 1315,
+        "y": 316,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": "完成报告"
+      }
+    },
+    {
+      "index": 27,
+      "tag": "a",
+      "text": "未提交",
+      "rect": {
+        "x": 1071,
+        "y": 383,
+        "width": 42,
+        "height": 15
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": null,
+        "type": null,
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 28,
+      "tag": "input",
+      "text": "完成报告",
+      "rect": {
+        "x": 1315,
+        "y": 373,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": "完成报告"
+      }
+    },
+    {
+      "index": 29,
+      "tag": "a",
+      "text": "未提交",
+      "rect": {
+        "x": 1071,
+        "y": 440,
+        "width": 42,
+        "height": 15
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": null,
+        "type": null,
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 30,
+      "tag": "input",
+      "text": "完成报告",
+      "rect": {
+        "x": 1315,
+        "y": 430,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": "完成报告"
+      }
+    },
+    {
+      "index": 31,
+      "tag": "a",
+      "text": "未提交",
+      "rect": {
+        "x": 1071,
+        "y": 497,
+        "width": 42,
+        "height": 15
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": null,
+        "type": null,
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 32,
+      "tag": "input",
+      "text": "完成报告",
+      "rect": {
+        "x": 1315,
+        "y": 487,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": "完成报告"
+      }
+    },
+    {
+      "index": 33,
+      "tag": "a",
+      "text": "未提交",
+      "rect": {
+        "x": 1071,
+        "y": 554,
+        "width": 42,
+        "height": 15
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": null,
+        "type": null,
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 34,
+      "tag": "input",
+      "text": "完成报告",
+      "rect": {
+        "x": 1315,
+        "y": 544,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": "完成报告"
+      }
+    },
+    {
+      "index": 35,
+      "tag": "a",
+      "text": "未提交",
+      "rect": {
+        "x": 1071,
+        "y": 611,
+        "width": 42,
+        "height": 15
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": null,
+        "type": null,
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 36,
+      "tag": "input",
+      "text": "完成报告",
+      "rect": {
+        "x": 1315,
+        "y": 601,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": "完成报告"
+      }
+    },
+    {
+      "index": 37,
+      "tag": "a",
+      "text": "未提交",
+      "rect": {
+        "x": 1071,
+        "y": 668,
+        "width": 42,
+        "height": 15
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": null,
+        "type": null,
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 38,
+      "tag": "input",
+      "text": "完成报告",
+      "rect": {
+        "x": 1315,
+        "y": 658,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": "完成报告"
+      }
+    },
+    {
+      "index": 39,
+      "tag": "a",
+      "text": "未提交",
+      "rect": {
+        "x": 1071,
+        "y": 725,
+        "width": 42,
+        "height": 15
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": null,
+        "type": null,
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 40,
+      "tag": "input",
+      "text": "完成报告",
+      "rect": {
+        "x": 1315,
+        "y": 715,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": "完成报告"
+      }
+    },
+    {
+      "index": 41,
+      "tag": "a",
+      "text": "未提交",
+      "rect": {
+        "x": 1071,
+        "y": 782,
+        "width": 42,
+        "height": 15
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": null,
+        "type": null,
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 42,
+      "tag": "input",
+      "text": "完成报告",
+      "rect": {
+        "x": 1315,
+        "y": 772,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": "完成报告"
+      }
+    },
+    {
+      "index": 43,
+      "tag": "a",
+      "text": "未提交",
+      "rect": {
+        "x": 1071,
+        "y": 839,
+        "width": 42,
+        "height": 15
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": null,
+        "type": null,
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 44,
+      "tag": "input",
+      "text": "完成报告",
+      "rect": {
+        "x": 1315,
+        "y": 829,
+        "width": 86,
+        "height": 35
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-LightGreen",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": "完成报告"
+      }
+    },
+    {
+      "index": 45,
+      "tag": "button",
+      "text": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-sm btn-kv btn-default btn-outline-secondary btn-toggleheader",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 46,
+      "tag": "button",
+      "text": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-sm btn-kv btn-default btn-outline-secondary btn-fullscreen",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 47,
+      "tag": "button",
+      "text": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-sm btn-kv btn-default btn-outline-secondary btn-borderless",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 48,
+      "tag": "button",
+      "text": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-sm btn-kv btn-default btn-outline-secondary btn-close",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 49,
+      "tag": "button",
+      "text": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-navigate btn-prev",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    },
+    {
+      "index": 50,
+      "tag": "button",
+      "text": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": "btn btn-navigate btn-next",
+        "type": "button",
+        "href": null,
+        "onclick": null,
+        "value": null
+      }
+    }
+  ],
+  "images": [
+    {
+      "index": 0,
+      "src": "http://10.25.77.60:8001/Images/zy_logo.png",
+      "alt": "",
+      "title": "",
+      "rect": {
+        "x": 1,
+        "y": 0,
+        "width": 604,
+        "height": 74
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": null,
+        "onclick": null,
+        "width": null,
+        "height": null
+      }
+    },
+    {
+      "index": 1,
+      "src": "http://10.25.77.60:8001/Images/loginout.png",
+      "alt": "",
+      "title": "",
+      "rect": {
+        "x": 1364,
+        "y": 48,
+        "width": 13,
+        "height": 14
+      },
+      "attrs": {
+        "id": null,
+        "name": null,
+        "class": null,
+        "onclick": null,
+        "width": null,
+        "height": null
+      }
+    },
+    {
+      "index": 2,
+      "src": "http://10.25.77.60:8001/ReportStudent/CompleteReport/",
+      "alt": "",
+      "title": "",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0
+      },
+      "attrs": {
+        "id": "bigimg",
+        "name": null,
+        "class": null,
+        "onclick": null,
+        "width": null,
+        "height": null
+      }
+    }
+  ],
+  "scripts": [
+    "http://10.25.77.60:8001/Scripts/jquery-3.7.1.min.js",
+    "http://10.25.77.60:8001/Scripts/bootstrap.min.js",
+    "http://10.25.77.60:8001/Scripts/bootstrapValidator.min.js",
+    "http://10.25.77.60:8001/Scripts/bootstrap-datetimepicker.min.js",
+    "http://10.25.77.60:8001/Scripts/locales/bootstrap-datetimepicker.zh-CN.js",
+    "http://10.25.77.60:8001/Scripts/Editor/wysiwyg.js",
+    "http://10.25.77.60:8001/Scripts/Editor/wysiwyg-editor.js",
+    "http://10.25.77.60:8001/Scripts/bootbox.min.js",
+    "http://10.25.77.60:8001/Scripts/jquery.ztree.all-3.5.min.js",
+    "http://10.25.77.60:8001/Scripts/knockout-3.4.0.js",
+    "http://10.25.77.60:8001/Scripts/jquery.page.js",
+    "http://10.25.77.60:8001/Scripts/ajaxfileupload.js",
+    "http://10.25.77.60:8001/Scripts/ichart.1.2.1.min.js",
+    "http://10.25.77.60:8001/Scripts/compatibility.js",
+    "http://10.25.77.60:8001/Scripts/pdf.js",
+    "http://10.25.77.60:8001/Scripts/Ueditor/ueditor.config.js",
+    "http://10.25.77.60:8001/Scripts/Ueditor/ueditor.all.min.js",
+    "http://10.25.77.60:8001/Scripts/Ueditor/ueditor.all.js",
+    "http://10.25.77.60:8001/Scripts/Ueditor/ueditor.parse.js",
+    "http://10.25.77.60:8001/Scripts/Ueditor/ueditor.parse.min.js",
+    "http://10.25.77.60:8001/Scripts/Ueditor/lang/zh-cn/zh-cn.js",
+    "http://10.25.77.60:8001/Scripts/Ueditor/kityformula-plugin/addKityFormulaDialog.js",
+    "http://10.25.77.60:8001/Scripts/Ueditor/kityformula-plugin/getKfContent.js",
+    "http://10.25.77.60:8001/Scripts/Ueditor/kityformula-plugin/defaultFilterFix.js",
+    "http://10.25.77.60:8001/Scripts/APP/GlobleJS.js?t=0821",
+    "http://10.25.77.60:8001/Scripts/Base64.js",
+    "http://10.25.77.60:8001/Content/APP/BacicInfo/fabicrc/fabric.min.js",
+    "http://10.25.77.60:8001/Content/APP/BacicInfo/fabicrc/ReviewReportFabric.js",
+    "<inline>",
+    "http://10.25.77.60:8001/Content/bootstrap-fileinput/fileinput.js",
+    "<inline>",
+    "<inline>",
+    "http://10.25.77.60:8001/Scripts/echarts.min.js?t=0.6865570549177996",
+    "http://10.25.77.60:8001/Scripts/APP/ReportStudent/CompleteReportJS.js?t=0.4334317637161291"
+  ],
+  "localStorageKeys": [],
+  "sessionStorageKeys": [
+    "Areas",
+    "ID",
+    "ImgSize",
+    "IsHasAdjustModel",
+    "IsHasCheck",
+    "IsHasFourceSubmit",
+    "IsHasHP",
+    "IsSupportWrite",
+    "LoginTextID",
+    "PageSize",
+    "ReportSize",
+    "RoleType",
+    "SemesterID",
+    "Token",
+    "UserID",
+    "UserName",
+    "pdfHeight",
+    "scale",
+    "tableHeight"
+  ]
+}

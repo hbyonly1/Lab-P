@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+sqlmodel
+alembic
+psycopg2-binary
+asyncpg
+python-multipart
+python-jose[cryptography]
+passlib
+bcrypt<4.0.0
+celery
+redis
+playwright
+pydantic-settings
+openai>=1.0.0
+cryptography>=41.0.0
+simpleeval==0.9.13

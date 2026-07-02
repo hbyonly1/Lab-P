@@ -17,7 +17,8 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
-    if ((status === 401 || status === 403) && window.location.pathname.startsWith('/workspace')) {
+    // 401 means invalid/expired token. 403 means Forbidden (like lack of permissions or unpaid), which should be handled by the UI.
+    if (status === 401 && window.location.pathname.startsWith('/workspace')) {
       clearAdminSession();
       window.location.assign('/login');
     }

@@ -1,0 +1,716 @@
+{
+  "meta": {
+    "id": "exp_liquid_crystal_0625",
+    "name": "液晶电光效应实验0625",
+    "version": "2.0",
+    "sortOrder": 3,
+    "enabled": true
+  },
+  "inputs": {
+    "images": [
+      {
+        "id": "IMG_RAW_DATA",
+        "label": "原始实验记录与曲线图片"
+      }
+    ],
+    "fields": [
+      {
+        "id": "SYMD_Fill_0",
+        "type": "extract",
+        "label": "SYMD_Fill_0"
+      },
+      {
+        "id": "SYMD_Fill_1",
+        "type": "extract",
+        "label": "SYMD_Fill_1"
+      },
+      {
+        "id": "SYMD_Fill_2",
+        "type": "extract",
+        "label": "SYMD_Fill_2"
+      },
+      {
+        "id": "SYYL_Fill_0",
+        "type": "extract",
+        "label": "SYYL_Fill_0"
+      },
+      {
+        "id": "SYYL_Fill_1",
+        "type": "extract",
+        "label": "SYYL_Fill_1"
+      },
+      {
+        "id": "SYYL_Fill_2",
+        "type": "extract",
+        "label": "SYYL_Fill_2"
+      },
+      {
+        "id": "SYYL_Fill_3",
+        "type": "extract",
+        "label": "SYYL_Fill_3"
+      },
+      {
+        "id": "SYYL_Fill_4",
+        "type": "extract",
+        "label": "SYYL_Fill_4"
+      },
+      {
+        "id": "SYYL_Fill_5",
+        "type": "extract",
+        "label": "SYYL_Fill_5"
+      },
+      {
+        "id": "SYYL_Fill_6",
+        "type": "extract",
+        "label": "SYYL_Fill_6"
+      },
+      {
+        "id": "SYYL_Fill_7",
+        "type": "extract",
+        "label": "SYYL_Fill_7"
+      },
+      {
+        "id": "YSSJDrawingAreaArea",
+        "type": "generated",
+        "label": "YSSJDrawingAreaArea"
+      },
+      {
+        "id": "Y10-0",
+        "type": "extract",
+        "label": "Y10-0"
+      },
+      {
+        "id": "Y10-1",
+        "type": "extract",
+        "label": "Y10-1"
+      },
+      {
+        "id": "Y11-0",
+        "type": "extract",
+        "label": "Y11-0"
+      },
+      {
+        "id": "Y11-1",
+        "type": "extract",
+        "label": "Y11-1"
+      },
+      {
+        "id": "Y12-0",
+        "type": "extract",
+        "label": "Y12-0"
+      },
+      {
+        "id": "Y12-1",
+        "type": "extract",
+        "label": "Y12-1"
+      },
+      {
+        "id": "Y13-0",
+        "type": "extract",
+        "label": "Y13-0"
+      },
+      {
+        "id": "Y13-1",
+        "type": "extract",
+        "label": "Y13-1"
+      },
+      {
+        "id": "Y14-0",
+        "type": "extract",
+        "label": "Y14-0"
+      },
+      {
+        "id": "Y14-1",
+        "type": "extract",
+        "label": "Y14-1"
+      },
+      {
+        "id": "Y15-0",
+        "type": "extract",
+        "label": "Y15-0"
+      },
+      {
+        "id": "Y15-1",
+        "type": "extract",
+        "label": "Y15-1"
+      },
+      {
+        "id": "Y16-0",
+        "type": "extract",
+        "label": "Y16-0"
+      },
+      {
+        "id": "Y16-1",
+        "type": "extract",
+        "label": "Y16-1"
+      },
+      {
+        "id": "Y17-0",
+        "type": "extract",
+        "label": "Y17-0"
+      },
+      {
+        "id": "Y17-1",
+        "type": "extract",
+        "label": "Y17-1"
+      },
+      {
+        "id": "Y18-0",
+        "type": "extract",
+        "label": "Y18-0"
+      },
+      {
+        "id": "Y18-1",
+        "type": "extract",
+        "label": "Y18-1"
+      },
+      {
+        "id": "Y19-0",
+        "type": "extract",
+        "label": "Y19-0"
+      },
+      {
+        "id": "Y19-1",
+        "type": "extract",
+        "label": "Y19-1"
+      },
+      {
+        "id": "Y110-0",
+        "type": "extract",
+        "label": "Y110-0"
+      },
+      {
+        "id": "Y110-1",
+        "type": "extract",
+        "label": "Y110-1"
+      },
+      {
+        "id": "Y111-0",
+        "type": "extract",
+        "label": "Y111-0"
+      },
+      {
+        "id": "Y111-1",
+        "type": "extract",
+        "label": "Y111-1"
+      },
+      {
+        "id": "Y112-0",
+        "type": "extract",
+        "label": "Y112-0"
+      },
+      {
+        "id": "Y112-1",
+        "type": "extract",
+        "label": "Y112-1"
+      },
+      {
+        "id": "Y113-0",
+        "type": "extract",
+        "label": "Y113-0"
+      },
+      {
+        "id": "Y113-1",
+        "type": "extract",
+        "label": "Y113-1"
+      },
+      {
+        "id": "Y114-0",
+        "type": "extract",
+        "label": "Y114-0"
+      },
+      {
+        "id": "Y114-1",
+        "type": "extract",
+        "label": "Y114-1"
+      },
+      {
+        "id": "Y2Area",
+        "type": "generated",
+        "label": "Y2Area"
+      },
+      {
+        "id": "Y3",
+        "type": "computed",
+        "label": "Y3"
+      },
+      {
+        "id": "Y6",
+        "type": "computed",
+        "label": "Y6"
+      },
+      {
+        "id": "Y8",
+        "type": "computed",
+        "label": "Y8"
+      }
+    ]
+  },
+  "ui": {
+    "fixedSections": [
+      {
+        "title": "实验目的",
+        "segments": [
+          "实验目的：1. 在掌握液晶光开关的基本工作原理的基础上，测量液晶光开关的电光特性曲线，并由电光特性曲线得到液晶的",
+          {
+            "nodeId": "SYMD_Fill_0",
+            "width": "200px"
+          },
+          "（请写出**电压和**电压）。2. 测量驱动电压周期变化时液晶光开关的时间响应曲线，并由时间响应曲线得到液晶的",
+          {
+            "nodeId": "SYMD_Fill_1",
+            "width": "200px"
+          },
+          "（请写出**时间和**时间）。实验仪器：液晶电光效应综合实验仪和",
+          {
+            "nodeId": "SYMD_Fill_2",
+            "width": "100px"
+          },
+          "。",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_liquid_crystal_0625_img_001.png",
+            "inline": false,
+            "width": "482.700198365773px",
+            "height": "323.856363120806px"
+          }
+        ]
+      },
+      {
+        "title": "实验原理",
+        "segments": [
+          "1.自然光和偏振光自然光：由构成自然光源（如日光，各种照明灯等）的大量分子或原子发出的光波的合成，这些分子或原子的热运动和辐射是随机的，它们所发射的光振动，出现在各个方向的几率相等。",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_liquid_crystal_0625_img_002.png",
+            "inline": false,
+            "width": "210.2753100548664px",
+            "height": "243.9332392220649px"
+          },
+          "2.偏振光（又叫平面偏振光、线偏振光、完全偏振光）：光振动只沿某一固定方向的光。",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_liquid_crystal_0625_img_003.png",
+            "inline": false,
+            "width": "522.9123634532737px",
+            "height": "192.231884109564px"
+          },
+          "3.偏振片涂有二向色性材料的透明薄片，上述特殊方向称为偏振片的",
+          {
+            "nodeId": "SYYL_Fill_0",
+            "width": "80px"
+          },
+          "。偏振片可以作为起偏器，或者检偏器使用。作用：将非偏振光（自然光）过滤成线偏振光。当非偏振光通过a方向的偏光片时，光线被过滤成与a方向平行的线偏振光。",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_liquid_crystal_0625_img_004.png",
+            "inline": false,
+            "width": "330.025055751679px",
+            "height": "253.687484444632px"
+          },
+          "上图：线偏振光继续前进，通过第二片偏光片时，光线",
+          {
+            "nodeId": "SYYL_Fill_1",
+            "width": "60px"
+          },
+          "。下图：通过第二片时，光线被完全",
+          {
+            "nodeId": "SYYL_Fill_2",
+            "width": "60px"
+          },
+          "。4. 液晶TN型液晶一般是顺着长轴方向串接，长轴间彼此平行方式排列。当接触到槽装表面时，液晶分子就会顺着槽的方向排列于槽中。当液晶被包含在两个槽状表面中间，且槽的方向互相垂直，则液晶分子的排列为： 上表面分子：沿着a方向 下表面分子：沿着b方向介于上下表面中间的分子：受",
+          {
+            "nodeId": "SYYL_Fill_3",
+            "width": "80px"
+          },
+          "影响产生逐渐旋转的效应。因此液晶分子在两槽状表面间产生",
+          {
+            "nodeId": "SYYL_Fill_4",
+            "width": "60px"
+          },
+          "度的旋转。（故称扭曲向列型液晶）",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_liquid_crystal_0625_img_005.png",
+            "inline": false,
+            "width": "492.3773349304545px",
+            "height": "285.5719144804536px"
+          },
+          "5. 光与液晶分子产生的效果当线偏振光射入上层槽状表面时，此光线随着液晶分子的旋转也产生旋转。当线偏振光射出下层槽状表面时，此光线已经产生了90度的旋转。当在上下表面之间加电压时，液晶分子会顺着",
+          {
+            "nodeId": "SYYL_Fill_5",
+            "width": "60px"
+          },
+          "方向排列，形成直立排列的现象。此时入射光线不受液晶分子影响，直线射出下表面。",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_liquid_crystal_0625_img_006.png",
+            "inline": false,
+            "width": "488.483347707216px",
+            "height": "254.458571023491px"
+          },
+          "6.将偏光板、槽状表面、液晶组合后产生的光学效果当上下偏光片相互垂直时，若未施加电压，光线可通过。当施加电压时，光线被完全阻挡。",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_liquid_crystal_0625_img_007.png",
+            "inline": false,
+            "width": "603.760791246646px",
+            "height": "213.205439054531px"
+          },
+          "7.液晶材料的几种关键特性光开关特性：透光率随电压的变化关系。低于",
+          {
+            "nodeId": "SYYL_Fill_6",
+            "width": "60px"
+          },
+          "%透光率视为“关”，高于",
+          {
+            "nodeId": "SYYL_Fill_7",
+            "width": "60px"
+          },
+          "%透光率视为“开”。“开关”性质越强越好。时间响应特性：电压从零压变成加压，或者加压变成零压时，液晶的透光率状态从“开”到“关”以及从“关”到“开”的时间响应性质。",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_liquid_crystal_0625_img_008.png",
+            "inline": false,
+            "width": "636.531970848156px",
+            "height": "235.181406552014px"
+          }
+        ]
+      },
+      {
+        "title": "实验步骤",
+        "segments": [
+          "1. 测量液晶的光开关特性曲线(1) 开机后供电电压调为零，当透射率显示大于250时，长按透光率校准按钮3秒，自动校准为100%。(2) 依次按表格中的数据改变电压，记录透光率的变化，重复两次取平均。(3) 在坐标纸上描点作图，画出电光特性曲线。2. 测量液晶的时间响应曲线"
+        ]
+      }
+    ],
+    "dataTables": [
+      {
+        "caption": "Y1",
+        "rows": [
+          {
+            "isHeader": true,
+            "cells": [
+              {
+                "label": "序号"
+              },
+              {
+                "label": "电压(V)"
+              },
+              {
+                "label": "平均透射率(％)"
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "1"
+              },
+              {
+                "nodeId": "Y10-0",
+                "label": ""
+              },
+              {
+                "nodeId": "Y10-1",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "2"
+              },
+              {
+                "nodeId": "Y11-0",
+                "label": ""
+              },
+              {
+                "nodeId": "Y11-1",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "3"
+              },
+              {
+                "nodeId": "Y12-0",
+                "label": ""
+              },
+              {
+                "nodeId": "Y12-1",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "4"
+              },
+              {
+                "nodeId": "Y13-0",
+                "label": ""
+              },
+              {
+                "nodeId": "Y13-1",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "5"
+              },
+              {
+                "nodeId": "Y14-0",
+                "label": ""
+              },
+              {
+                "nodeId": "Y14-1",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "6"
+              },
+              {
+                "nodeId": "Y15-0",
+                "label": ""
+              },
+              {
+                "nodeId": "Y15-1",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "7"
+              },
+              {
+                "nodeId": "Y16-0",
+                "label": ""
+              },
+              {
+                "nodeId": "Y16-1",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "8"
+              },
+              {
+                "nodeId": "Y17-0",
+                "label": ""
+              },
+              {
+                "nodeId": "Y17-1",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "9"
+              },
+              {
+                "nodeId": "Y18-0",
+                "label": ""
+              },
+              {
+                "nodeId": "Y18-1",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "10"
+              },
+              {
+                "nodeId": "Y19-0",
+                "label": ""
+              },
+              {
+                "nodeId": "Y19-1",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "11"
+              },
+              {
+                "nodeId": "Y110-0",
+                "label": ""
+              },
+              {
+                "nodeId": "Y110-1",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "12"
+              },
+              {
+                "nodeId": "Y111-0",
+                "label": ""
+              },
+              {
+                "nodeId": "Y111-1",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "13"
+              },
+              {
+                "nodeId": "Y112-0",
+                "label": ""
+              },
+              {
+                "nodeId": "Y112-1",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "14"
+              },
+              {
+                "nodeId": "Y113-0",
+                "label": ""
+              },
+              {
+                "nodeId": "Y113-1",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "15"
+              },
+              {
+                "nodeId": "Y114-0",
+                "label": ""
+              },
+              {
+                "nodeId": "Y114-1",
+                "label": ""
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "postDataSections": [
+      {
+        "title": "数据处理",
+        "segments": [
+          "实验内容：液晶的电光效应实验签字原始数据上传Σ请输入文本……",
+          {
+            "nodeId": "YSSJDrawingAreaArea",
+            "width": "100px"
+          },
+          "1.液晶的光开关数据和光开关特性曲线（1）记录“平均透射率-电压”数据并生成曲线：注意：○请先将“平均透射率-电压”数据录入到excel表格，之后点击excel导入即可完成数据录入。○在excel中录入数据时无需制作表头，只填写两列数据。○请将excel的数据生成“平均透射率-电压”曲线，截图保存，并将该图片上传。示例：",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_liquid_crystal_0625_img_009.png",
+            "inline": true,
+            "width": "131.1568869431016px",
+            "height": "231.0149713202364px"
+          }
+        ]
+      },
+      {
+        "title": "数据处理",
+        "segments": [
+          "（2）请在此处上传根据上一步表格生成的“平均透射率-电压”曲线：Σ请输入文本……",
+          {
+            "nodeId": "Y2Area",
+            "width": "100px"
+          },
+          "（3）请根据以上“平均透射率-电压”曲线写出阈值电压（V）：",
+          {
+            "nodeId": "Y3",
+            "width": "80px"
+          },
+          "（2）从以上照片读出Fall（ms）=",
+          {
+            "nodeId": "Y6",
+            "width": "80px"
+          },
+          "（4）从以上照片读出Rise（ms）=",
+          {
+            "nodeId": "Y8",
+            "width": "80px"
+          }
+        ]
+      }
+    ],
+    "questions": [
+      {
+        "nodeId": "YSSJDrawingAreaArea",
+        "title": "实验问题 1",
+        "rows": 5
+      },
+      {
+        "nodeId": "Y2Area",
+        "title": "实验问题 2",
+        "rows": 5
+      }
+    ]
+  },
+  "ai": {
+    "recognition": {
+      "imageRef": "IMG_RAW_DATA",
+      "prompt": "提取液晶电光效应实验0625实验报告中的表格数据、填空和曲线读数"
+    },
+    "answerGeneration": {
+      "prompt": "基于液晶电光效应实验0625实验原理，用中文学术性语言回答实验分析与拓展题。"
+    }
+  },
+  "formulas": {}
+}

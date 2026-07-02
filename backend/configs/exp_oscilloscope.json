@@ -1,0 +1,284 @@
+{
+  "meta": {
+    "id": "exp_oscilloscope",
+    "name": "示波器的使用",
+    "version": "2.0",
+    "sortOrder": 4,
+    "enabled": true
+  },
+  "inputs": {
+    "images": [
+      {
+        "id": "IMG_RAW_DATA",
+        "label": "原始实验记录与曲线图片"
+      }
+    ],
+    "fields": [
+      {
+        "id": "SYYL_Fill_0",
+        "type": "extract",
+        "label": "SYYL_Fill_0"
+      },
+      {
+        "id": "SYYL_Fill_1",
+        "type": "extract",
+        "label": "SYYL_Fill_1"
+      },
+      {
+        "id": "SYYL_Fill_2",
+        "type": "extract",
+        "label": "SYYL_Fill_2"
+      },
+      {
+        "id": "SYYL_Fill_3",
+        "type": "extract",
+        "label": "SYYL_Fill_3"
+      },
+      {
+        "id": "SYYL_Fill_4",
+        "type": "extract",
+        "label": "SYYL_Fill_4"
+      },
+      {
+        "id": "SYYL_Fill_5",
+        "type": "extract",
+        "label": "SYYL_Fill_5"
+      },
+      {
+        "id": "SYBZ_Fill_0",
+        "type": "extract",
+        "label": "SYBZ_Fill_0"
+      },
+      {
+        "id": "SYBZ_Fill_1",
+        "type": "extract",
+        "label": "SYBZ_Fill_1"
+      },
+      {
+        "id": "SYBZ_Fill_2",
+        "type": "extract",
+        "label": "SYBZ_Fill_2"
+      },
+      {
+        "id": "SYBZ_Fill_3",
+        "type": "extract",
+        "label": "SYBZ_Fill_3"
+      },
+      {
+        "id": "YSSJDrawingAreaArea",
+        "type": "generated",
+        "label": "YSSJDrawingAreaArea"
+      },
+      {
+        "id": "S1Area",
+        "type": "generated",
+        "label": "S1Area"
+      },
+      {
+        "id": "OP_Fill_0",
+        "type": "extract",
+        "label": "OP_Fill_0"
+      },
+      {
+        "id": "S3",
+        "type": "computed",
+        "label": "S3"
+      },
+      {
+        "id": "OP2_Fill_0",
+        "type": "extract",
+        "label": "OP2_Fill_0"
+      },
+      {
+        "id": "OP3_Fill_0",
+        "type": "extract",
+        "label": "OP3_Fill_0"
+      },
+      {
+        "id": "OP4_Fill_0",
+        "type": "extract",
+        "label": "OP4_Fill_0"
+      },
+      {
+        "id": "OP5_Fill_0",
+        "type": "extract",
+        "label": "OP5_Fill_0"
+      },
+      {
+        "id": "OP6_Fill_0",
+        "type": "extract",
+        "label": "OP6_Fill_0"
+      }
+    ]
+  },
+  "ui": {
+    "fixedSections": [
+      {
+        "title": "实验目的",
+        "segments": [
+          "1、了解示波器的工作原理和使用方法2、掌握用示波器观察电信号波形的方法3、学会使用函数信号发生器4、学习使用示波器测量交流电的电压、周期和频率的方法5、学习用示波器通过李萨如图形测量频率的方法实验仪器：函数信号发生器、双踪示波器"
+        ]
+      },
+      {
+        "title": "实验原理",
+        "segments": [
+          "示波器是一种多用途的现代测量工具，它可直接观察电信号的波形，也能测定电压信号的幅度、周期和频率等参数。双踪示波器不仅能独立观察两种信号的波形，以便对它们进行对比、分析和研究，还能测量两个信号之间的时间差和相位差。一切可以转化为电压的其他电学量（如电流、电功率、阻抗、位相等）和非电学量（如温度、位移、压强、磁场、频率等）都可以用示波器来进行观测。其基本结构与工作原理如下：1、示波器的基本结构与显示波形的基本原理示波器的基本结构可分为示波管（CRT）、扫描同步系统、放大与衰减系统、电源系统四个部分。 “示波管（CRT）”是示波器的核心部件。如图1所示，示波管可细分为电子枪，偏转系统和荧光屏三部分。",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_oscilloscope_img_001.png",
+            "inline": false,
+            "width": "616.4055316187244px",
+            "height": "238.9264198482168px"
+          },
+          "（1）电子枪电子枪包括灯丝F，阴极K，控制栅极G，第一阳极A1，第二阳极A2等。阴极被灯丝加热后，可沿轴向发射电子。控制栅极的电位比阴极",
+          {
+            "nodeId": "SYYL_Fill_0",
+            "width": "50px"
+          },
+          "(请填写“高”或“低”)，用来控制阴极发射的电子数，从而控制荧光屏上显示光点的亮度。第一阳极和第二阳极加有直流电压，使电子在电场作用下",
+          {
+            "nodeId": "SYYL_Fill_1",
+            "width": "50px"
+          },
+          "（请填写“加速”或“减速”），并具有静电透镜的作用，能把电子束会聚成一点。（2）偏转系统偏转系统由两对互相垂直的金属偏转板x和y组成，分别控制电子束在水平方向和竖直方向的偏转。从电子枪射出的电子束若不受横向电场的作用，将沿轴线前进并在荧光屏的中心呈现静止的光点。若受到横向电场的作用，电子束的运动方向就会偏离轴线，屏上光点的位置就会移动。x偏转板之间的横向电场用来控制光点在水平方向的位移，y偏转板用来控制光点在竖直方向的位移。容易证明，光点在荧光屏上偏移的距离与偏转板上所加的电压成",
+          {
+            "nodeId": "SYYL_Fill_2",
+            "width": "50px"
+          },
+          "（请填写“正比”或“反比”），因此可将电压的测量转化为屏上的光斑偏离距离的测量，这就是示波器测量电压的原理。（3）波形显示的原理",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_oscilloscope_img_002.png",
+            "inline": false,
+            "width": "529.019369157837px",
+            "height": "219.258468698575px"
+          },
+          "在竖直偏转板上加一交变正弦电压，可看到一条竖直的亮线，如图2所示。在水平偏转板上加",
+          {
+            "nodeId": "SYYL_Fill_3",
+            "width": "80px"
+          },
+          "（请填写“方波电压”或“三角波电压”或“锯齿波电压”）作为扫描电压，使荧光屏上的亮点沿水平方向拉开，如图3所示。电子的运动是两相互相垂直运动的合成。当扫描电压变化周期",
+          {
+            "nodeId": "SYYL_Fill_4",
+            "width": "50px"
+          },
+          "（请填写“大于”或“小于”或“等于”）正弦电压的变化周期，在荧光屏上将显示出一个稳定的正弦电压波形图，如图4所示。当波形信号的频率等于锯齿波频率的",
+          {
+            "nodeId": "SYYL_Fill_5",
+            "width": "50px"
+          },
+          "（请填写“n”或“1/n”，其中n为整数）倍时，荧光屏上将呈现n个完整而稳定的被测信号的波形，当两者不成整数倍时，对于被测信号来说，每次扫描的起点都不会相同，结果造成波形在水平方向上不断的移动。为了消除这一现象，必须使被测信号的起点与扫描电压的起点保持“同步”，这一功能由机内 “触发同步”电路来完成。"
+        ]
+      },
+      {
+        "title": "实验步骤",
+        "segments": [
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_oscilloscope_img_003.png",
+            "inline": false,
+            "width": "486.16680408080833px",
+            "height": "213.52918902637248px"
+          },
+          "1、用示波器观察单波信号信号发生器的输出端接示波器的“CH1输入”端，观察正弦、方波、三角波等的波形。其中，MODE键需拨至",
+          {
+            "nodeId": "SYBZ_Fill_0",
+            "width": "50px"
+          },
+          "位置（请填写“CH1”或“CH2”或“DUAL”或“ADD”），调整正弦波使其稳定、清晰定位于荧光屏的中央，拍摄清晰的正弦波波形图，根据屏幕的坐标刻度，读出并记录被测正弦信号的周期和振幅。2、用示波器观察两种信号的同向叠加利用示波器观察“拍”现象，其中，MODE键需拨至",
+          {
+            "nodeId": "SYBZ_Fill_1",
+            "width": "50px"
+          },
+          "位置（请填写“CH1”或“CH2”或“DUAL”或“ADD”），触发信号源键需拨至",
+          {
+            "nodeId": "SYBZ_Fill_2",
+            "width": "50px"
+          },
+          "（请填写“CH1”或“CH2”或“LINE”或“EXT”）。记录两个信号的频率f₁ ,f₂，根据图形读取振幅的变化周期T，将1/T和两个信号的频率差Δf 进行对比，记录并分析结果。3、用示波器观察两种信号的垂直叠加将示波器的TIME/DIV旋钮调至",
+          {
+            "nodeId": "SYBZ_Fill_3",
+            "width": "50px"
+          },
+          "档(请填写“CH1”或“CH2”或“X-Y”) ，显示两种信号的垂直叠加。（1）观察频率比为fy : fx=1:2和1:3的李萨如图形，并用手机拍摄清晰的李萨如图形照片。（2）用示波器观察输入正弦信号频率比为1:1，相位差(相移)为0、π/4和π/2时的李萨如图形，并用手机拍摄清晰的照片。"
+        ]
+      }
+    ],
+    "dataTables": [],
+    "postDataSections": [
+      {
+        "title": "数据处理",
+        "segments": [
+          "实验内容：示波器的使用签字原始数据上传Σ请输入文本……",
+          {
+            "nodeId": "YSSJDrawingAreaArea",
+            "width": "100px"
+          },
+          "1、用示波器观察单波信号（1）上传正弦波照片；Σ请输入文本……",
+          {
+            "nodeId": "S1Area",
+            "width": "100px"
+          },
+          "（2）该正弦波周期为",
+          {
+            "nodeId": "OP_Fill_0",
+            "width": "60px"
+          },
+          "（2）用于合成“拍”现象的两个正弦信号频率分别为f1（Hz）=",
+          {
+            "nodeId": "S3",
+            "width": "80px"
+          },
+          "（1.2）fy : fx=1:1，B路信号相移为",
+          {
+            "nodeId": "OP2_Fill_0",
+            "width": "50px"
+          },
+          "（2.2）fy : fx=1:1，B路信号相移为",
+          {
+            "nodeId": "OP3_Fill_0",
+            "width": "50px"
+          },
+          "（3.2）fy : fx=1:1，B路信号相移为",
+          {
+            "nodeId": "OP4_Fill_0",
+            "width": "50px"
+          },
+          "（4.2）（需填写整数）fx : fy=1:",
+          {
+            "nodeId": "OP5_Fill_0",
+            "width": "50px"
+          },
+          "（5.2）（需填写整数）fx : fy=1:",
+          {
+            "nodeId": "OP6_Fill_0",
+            "width": "50px"
+          }
+        ]
+      }
+    ],
+    "questions": [
+      {
+        "nodeId": "YSSJDrawingAreaArea",
+        "title": "实验问题 1",
+        "rows": 5
+      },
+      {
+        "nodeId": "S1Area",
+        "title": "实验问题 2",
+        "rows": 5
+      }
+    ]
+  },
+  "ai": {
+    "recognition": {
+      "imageRef": "IMG_RAW_DATA",
+      "prompt": "提取示波器的使用实验报告中的表格数据、填空和曲线读数"
+    },
+    "answerGeneration": {
+      "prompt": "基于示波器的使用实验原理，用中文学术性语言回答实验分析与拓展题。"
+    }
+  },
+  "formulas": {}
+}

@@ -1,0 +1,58 @@
+import { apiClient } from './apiClient';
+
+export const recognizeDirect = async (experimentId, imagePaths) => {
+  const response = await apiClient.post('/api/v1/ai/recognize-direct', {
+    experiment_id: experimentId,
+    image_paths: imagePaths,
+  });
+  return response.data;
+};
+
+export const generateAnswerDirect = async (experimentId, questions, currentFormValues) => {
+  const response = await apiClient.post('/api/v1/ai/generate-answer-direct', {
+    experiment_id: experimentId,
+    questions,
+    current_form_values: currentFormValues,
+  });
+  return response.data;
+};
+
+export const getFixedFillDirect = async (experimentId) => {
+  const response = await apiClient.post(`/api/v1/ai/fixed-fill/${experimentId}`);
+  return response.data;
+};
+
+export const getTaskStatus = async (taskId) => {
+  const response = await apiClient.get(`/api/v1/ai/task/${taskId}`);
+  return response.data;
+};
+
+export const triggerSubmissionRecognition = async (submissionId) => {
+  const response = await apiClient.post(`/api/v1/ai/recognize/${submissionId}`);
+  return response.data;
+};
+
+export const getAiConfig = async () => {
+  const response = await apiClient.get('/api/v1/ai/admin/config');
+  return response.data;
+};
+
+export const updateAiConfig = async (configData) => {
+  const response = await apiClient.put('/api/v1/ai/admin/config', configData);
+  return response.data;
+};
+
+export const getAiPromptTemplate = async (experimentId) => {
+  const response = await apiClient.get(`/api/v1/ai/admin/prompts/${experimentId}`);
+  return response.data;
+};
+
+export const updateAiPromptTemplate = async (experimentId, promptData) => {
+  const response = await apiClient.put(`/api/v1/ai/admin/prompts/${experimentId}`, promptData);
+  return response.data;
+};
+
+export const previewAiPromptTemplate = async (experimentId, promptData) => {
+  const response = await apiClient.post(`/api/v1/ai/admin/prompts/${experimentId}/preview`, promptData);
+  return response.data;
+};

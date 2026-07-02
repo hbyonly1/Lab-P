@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Button, Table, Tag, Tooltip, message, Badge } from 'antd';
 import {
+  AppstoreOutlined,
   BellOutlined,
   CheckCircleOutlined,
   CheckOutlined,
   ClockCircleOutlined,
   CloseOutlined,
+  CloudUploadOutlined,
   CrownOutlined,
   EditOutlined,
   ExclamationCircleOutlined,
@@ -17,16 +19,16 @@ import {
   UploadOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { getAdminUserName } from '../../auth.js';
-import { GoldButton, OutlineButton, TablePanel, UpgradePlanModal, AnnouncementDrawer } from '../../components/ui/index.js';
-import { ProSubmitModal } from '../../components/experiment/index.js';
-import { getAllExperiments } from '../../services/experimentConfigStore.js';
-import {
-  getDebugServiceCapabilities,
-  getDebugServiceRole,
-  subscribeDebugServiceRole,
-} from './debugRoleStore.js';
-import { STATUS_META, OVERALL_STATUS_META } from '../../constants/statusEnums.js';
+import { getAdminUserName } from '../../../auth.js';
+import { GoldButton, OutlineButton, TablePanel, AnnouncementDrawer, UpgradePlanModal } from '../../../components/ui/index.js';
+import { ProSubmitModal } from '../../../components/experiment/index.js';
+import { calculateExperimentMetrics } from '../../../utils/metricsUtils.js';
+import { auditApi } from '../../../services/auditApi.js';
+import { getMe } from '../../../services/authApi.js';
+import { getMySubmissions, submitExperiment } from '../../../services/submissionsApi.js';
+import { experimentsApi } from '../../../services/experimentsApi.js';
+import { STATUS_META, OVERALL_STATUS_META } from '../../../constants/statusEnums.js';
+import { AUDIT_ACTION_META } from '../../../constants/auditEnums.js';
 
 const dashboardData = {
   plan: {
@@ -64,7 +66,7 @@ const dashboardData = {
       description: '获取更多特性，自动提取实验数据并整理成清晰结果。',
       features: [
         { text: '全流程提交辅助：只需上传实验材料，系统完成全流程提交', available: false },
-        { text: '半自动化数据处理：根据公式计算数据与主观题生成式回答（存在限制）', available: true, warning: true },
+        { text: '半自动化数据处理：根据公式计算数据与主观题生成式回答', available: true, warning: true },
         { text: 'AI 智能视觉提取：更多次数的实验数据图片解析并自动回填（需自行核对识别结果）', available: true, warning: true },
         { text: '直接上传数据到实验网站', available: true },
       ],
@@ -82,114 +84,134 @@ const dashboardData = {
       ],
     },
   ],
-  progress: {
-    completed: 1,
-    total: 6,
-  },
-  metrics: [
-    {
-      key: 'completion-status',
-      label: '总进度',
-      icon: <UploadOutlined />,
-      tone: 'completion',
-    },
-    {
-      key: 'pending',
-      label: '待处理实验',
-      value: '3',
-      icon: <ClockCircleOutlined />,
-      tone: 'amber',
-    },
-    {
-      key: 'manual-review',
-      label: '人工审核中',
-      value: '5',
-      icon: <LineChartOutlined />,
-      tone: 'green',
-    },
-    {
-      key: 'latest',
-      label: '最近审核完成',
-      value: '光学实验报告',
-      trend: '2 小时前',
-      icon: <CheckCircleOutlined />,
-      tone: 'violet',
-      compact: true,
-    },
-  ],
-  recentTasks: [
-    {
-      submission_id: 'sub_1001',
-      experiment_id: 'exp-001',
-      experiment_name: '光学实验报告',
-      experiment_type: '基础实验',
-      deadline: '2025-05-28',
-      status: 'completed',
-      updated_at: '2 小时前',
-      actions: ['view', 'download'],
-    },
-    {
-      submission_id: 'sub_1002',
-      experiment_id: 'exp-002',
-      experiment_name: '电路分析实验',
-      experiment_type: '专业实验',
-      deadline: '2025-05-30',
-      status: 'incomplete',
-      updated_at: '1 天前',
-      actions: ['edit', 'upload'],
-    },
-    {
-      submission_id: 'sub_1003',
-      experiment_name: '化学反应实验',
-      experiment_type: '基础实验',
-      deadline: '2025-06-02',
-      status: 'reviewing',
-      updated_at: '2 天前',
-      actions: ['view'],
-    },
-    {
-      submission_id: 'sub_1004',
-      experiment_name: '物理力学实验',
-      experiment_type: '专业实验',
-      deadline: '2025-06-05',
-      status: 'not_started',
-      updated_at: '3 天前',
-      actions: ['edit'],
-    },
-  ],
 };
 
 export default function StudentDashboardPage() {
   const navigate = useNavigate();
   const userName = getAdminUserName();
   const firstName = userName.replace(/同学$/, '') || '同学';
-  const completed = dashboardData.progress.completed;
-  const total = dashboardData.progress.total;
-  const pending = Math.max(total - completed, 0);
+
+  const [recentOperations, setRecentOperations] = useState([]);
+  const [currentPlan, setCurrentPlan] = useState('free');
+  const [experiments, setExperiments] = useState([]);
+  const [metricsData, setMetricsData] = useState({
+    completed: 0,
+    total: 0,
+    reviewing: 0,
+    unsubmitted: 0,
+    latestName: '暂无记录',
+    latestTime: '-',
+  });
+
+  const completed = metricsData.completed;
+  const total = metricsData.total;
+  const pending = metricsData.unsubmitted;
   const progress = total > 0 ? completed / total : 0;
 
-  const [debugRole, setDebugRole] = useState(() => getDebugServiceRole());
-  useEffect(() => subscribeDebugServiceRole(setDebugRole), []);
-  const capabilities = getDebugServiceCapabilities(debugRole);
+  const dynamicMetrics = [
+    {
+      key: 'completion-status',
+      label: '总进度',
+      icon: <AppstoreOutlined />,
+      tone: 'completion',
+    },
+    {
+      key: 'pending',
+      label: '待提交',
+      value: String(pending),
+      icon: <CloudUploadOutlined />,
+      tone: 'amber',
+    },
+    {
+      key: 'manual-review',
+      label: '人工审核中',
+      value: String(metricsData.reviewing),
+      icon: <LineChartOutlined />,
+      tone: 'green',
+    },
+    {
+      key: 'latest',
+      label: '最近审核完成',
+      value: metricsData.latestName,
+      trend: metricsData.latestTime,
+      icon: <CheckCircleOutlined />,
+      tone: 'violet',
+      compact: true,
+    },
+  ];
 
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [submitTargets, setSubmitTargets] = useState([]);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
+  useEffect(() => {
+    const fetchRecent = async () => {
+      try {
+        const [experimentList, data] = await Promise.all([
+          experimentsApi.listExperiments(),
+          getMySubmissions(),
+        ]);
+        setExperiments(experimentList);
+        const { metrics } = calculateExperimentMetrics(data, experimentList);
+        setMetricsData(metrics);
+      } catch (err) {
+        console.error('Failed to load metrics:', err);
+      }
+    };
+
+    const fetchAudit = async () => {
+      try {
+        const data = await auditApi.getMyAuditLogs();
+        setRecentOperations((data || []).filter((item) => AUDIT_ACTION_META[item.action]));
+      } catch (err) {
+        console.error('Failed to fetch recent operations:', err);
+      }
+    };
+
+    const fetchUserPlan = async () => {
+      try {
+        const data = await getMe();
+        setCurrentPlan(data.capabilities?.plan || 'free');
+      } catch (err) {
+        console.error('Failed to load user profile:', err);
+      }
+    };
+
+    fetchRecent();
+    fetchAudit();
+    fetchUserPlan();
+  }, []);
+
   const handleBatchSubmitClick = () => {
-    const allExps = getAllExperiments();
-    const pendingExps = allExps.filter(exp => ['not_started', 'need_upload'].includes(exp.status));
+    if (['free', 'plus'].includes(currentPlan)) {
+      message.warning(`当前套餐 (${currentPlan}) 不支持一键填空，请升级至 Pro。`);
+      return;
+    }
+    const pendingExps = experiments.filter(exp => ['not_started', 'need_upload'].includes(exp.status));
 
     setSubmitTargets(pendingExps);
     setIsSubmitModalOpen(true);
   };
 
-  const handleModalSubmit = async (batchImages) => {
-    return new Promise((resolve) => {
+  const handleModalSubmit = async (batchImages, targetStudent, isHungup = false, planName = 'pay_per_use') => {
+    try {
+      for (const target of submitTargets) {
+        const expImages = batchImages[target.id] || {};
+        const imagePaths = Object.values(expImages).flat().map(img => img.url).filter(Boolean);
+        await submitExperiment(target.id, targetStudent, isHungup, imagePaths, planName);
+      }
+      message.success('批量提交成功！任务已进入处理队列。');
       setTimeout(() => {
-        resolve();
+        setIsSubmitModalOpen(false);
+        window.location.reload(); // 刷新控制面板数据
       }, 1500);
-    });
+    } catch (e) {
+      if (e.response?.status !== 403 && e.status !== 403) {
+        const msg = e.response?.data?.detail || e.message;
+        message.error(`提交失败: ${msg}`);
+      }
+      throw e; // 继续抛出让下层拦截并弹出二维码
+    }
   };
 
   return (
@@ -201,14 +223,18 @@ export default function StudentDashboardPage() {
         onManualSubmit={() => navigate('/workspace/student/experiments')}
       />
 
-      <MetricStack completed={completed} metrics={dashboardData.metrics} total={total} />
+      <MetricStack completed={completed} metrics={dynamicMetrics} total={total} />
 
       <div className="student-dashboard-main-grid">
-        <ServicePlanCard plan={{ current: debugRole }} plans={dashboardData.plans} onUpgrade={() => setIsUpgradeModalOpen(true)} />
+        <ServicePlanCard
+          plan={{ current: currentPlan }}
+          plans={dashboardData.plans}
+          onUpgrade={() => setIsUpgradeModalOpen(true)}
+        />
         <ProgressRingCard completed={completed} pending={pending} progress={progress} total={total} />
       </div>
 
-      <RecentTasksTable tasks={dashboardData.recentTasks} onViewAll={() => navigate('/workspace/student/experiments')} />
+      <RecentOperationsTable operations={recentOperations} />
       <ProSubmitModal
         open={isSubmitModalOpen}
         experiments={submitTargets}
@@ -219,38 +245,13 @@ export default function StudentDashboardPage() {
         open={isUpgradeModalOpen}
         onClose={() => setIsUpgradeModalOpen(false)}
         plans={dashboardData.plans}
-        currentPlan={debugRole}
+        currentPlan={currentPlan}
       />
     </section>
   );
 }
 
-const MOCK_ANNOUNCEMENTS = [
-  {
-    id: 'ann-1',
-    title: '系统维护通知',
-    content: '为了提供更好的服务，实验报告系统将于本周五晚 20:00 进行升级维护，期间将暂停服务约 2 小时，请合理安排提交时间。',
-    type: 'update',
-    is_read: false,
-    created_at: '2026-06-30 08:00:00'
-  },
-  {
-    id: 'ann-2',
-    title: '期末提交警告',
-    content: '严禁任何形式的学术不端行为，系统已升级风控监测，一经发现将直接通报辅导员，请各位同学诚实守信。',
-    type: 'notice',
-    is_read: false,
-    created_at: '2026-06-29 14:00:00'
-  },
-  {
-    id: 'ann-3',
-    title: 'Pro 套餐限时优惠',
-    content: '期末冲刺福利，Pro 套餐直降 20%，现在升级即可享受全部自动化填报特权！',
-    type: 'promotion',
-    is_read: true,
-    created_at: '2026-06-25 10:00:00'
-  }
-];
+const MOCK_ANNOUNCEMENTS = [];
 
 function DashboardTopbar({ firstName }) {
   const [announcements, setAnnouncements] = useState(MOCK_ANNOUNCEMENTS);
@@ -278,9 +279,9 @@ function DashboardTopbar({ firstName }) {
       </div>
       <div className="student-dashboard-userbar">
         <Badge dot={unreadCount > 0} offset={[-4, 4]}>
-          <Button 
-            className={`ui-icon-button ${unreadCount > 0 ? 'bell-unread-ripple' : ''}`} 
-            icon={<BellOutlined />} 
+          <Button
+            className={`ui-icon-button ${unreadCount > 0 ? 'bell-unread-ripple' : ''}`}
+            icon={<BellOutlined />}
             aria-label="通知"
             onClick={() => setIsDrawerVisible(true)}
           />
@@ -322,6 +323,11 @@ function QuickSubmitCard({ onBatchSubmit, onManualSubmit }) {
 
 function ServicePlanCard({ plan, plans, onUpgrade }) {
   const [previewPlanKey, setPreviewPlanKey] = useState(plan.current);
+
+  useEffect(() => {
+    setPreviewPlanKey(plan.current);
+  }, [plan.current]);
+
   const currentPlan = plans.find((item) => item.key === plan.current) ?? plans[0];
   const previewPlan = plans.find((item) => item.key === previewPlanKey) ?? currentPlan;
 
@@ -473,58 +479,50 @@ function MetricStack({ completed, metrics, total }) {
   );
 }
 
-function RecentTasksTable({ tasks, onViewAll }) {
-  const navigate = useNavigate();
-
+function RecentOperationsTable({ operations }) {
   const columns = [
     {
-      title: '实验名称',
-      dataIndex: 'experiment_name',
-      key: 'experiment_name',
-      render: (name) => (
-        <span className="recent-task-name">
-          <FileTextOutlined />
-          {name}
-        </span>
-      ),
+      title: '操作',
+      dataIndex: 'action',
+      key: 'action',
+      render: (action) => AUDIT_ACTION_META[action]?.label || '操作记录'
+    },
+    {
+      title: '时间',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      align: 'right',
+      render: (dateStr) => dateStr ? new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z').toLocaleString('zh-CN', { hour12: false }) : '-'
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       render: (status) => {
-        const meta = STATUS_META[status] ?? STATUS_META.not_started;
+        const meta = {
+          success: { label: '成功', color: 'success' },
+          failed: { label: '失败', color: 'error' },
+          pending: { label: '处理中', color: 'processing' }
+        }[status] || { label: status, color: 'default' };
         return <Tag color={meta.color}>{meta.label}</Tag>;
-      },
+      }
     },
     {
-      title: '最后更新',
-      dataIndex: 'updated_at',
-      key: 'updated_at',
-    },
-    {
-      title: '操作',
-      key: 'actions',
-      align: 'right',
-      render: (_, record) => {
-        return (
-          <div className="recent-task-actions">
-            <TooltipButton icon={<EyeOutlined />} label="在系统里查看" onClick={() => navigate(`/workspace/student/experiments/${record.experiment_id || 'exp-001'}`)} />
-            <TooltipButton icon={<EditOutlined />} label="编辑" onClick={() => navigate(`/workspace/student/experiments/${record.experiment_id || 'exp-001'}`)} />
-          </div>
-        );
-      },
-    },
+      title: '详情',
+      dataIndex: 'details',
+      key: 'details',
+      render: (text) => text ? <Tooltip title={text}><span style={{maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block'}}>{text}</span></Tooltip> : '-'
+    }
   ];
 
   return (
-    <TablePanel title="最近任务" actions={<OutlineButton onClick={onViewAll}>查看全部</OutlineButton>}>
+    <TablePanel title="最近操作记录">
       <Table
+        dataSource={operations}
         columns={columns}
-        dataSource={tasks}
+        rowKey="created_at"
         pagination={false}
-        rowKey="submission_id"
-        scroll={{ x: 620 }}
+        scroll={{ y: 200 }}
       />
     </TablePanel>
   );

@@ -1,0 +1,402 @@
+import { useState, useEffect } from 'react';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Tabs, Form, Input, Button, message, Space, Card, Typography, Spin, Collapse, Select } from 'antd';
+import { buildExperimentConfig } from '../../../services/experimentConfigStore.js';
+import { ExperimentDetailView } from '../student/StudentExperimentDetailPage.jsx';
+import { experimentsApi } from '../../../services/experimentsApi.js';
+import { getAiPromptTemplate, updateAiPromptTemplate, previewAiPromptTemplate } from '../../../services/aiApi.js';
+import { CodeOutlined, SaveOutlined } from '@ant-design/icons';
+import { JsonConfigEditor } from '../../../components/config/JsonConfigEditor.jsx';
+import { FullScreenSettingsPanel } from '../../../components/config/FullScreenSettingsPanel.jsx';
+import Editor from '@monaco-editor/react';
+
+const { Title, Text, Paragraph } = Typography;
+
+const DEFAULT_RECOGNITION_SYSTEM = "你是一个严格的实验手写数据提取器。\n- 只从图片提取，不得推断、猜测、虚构\n- 字段看不清则保持为空字符串\"\"\n- 只返回 JSON，不输出任何说明文字";
+const DEFAULT_GENERATION_SYSTEM = "你是一名物理实验助教。用中文学术性语言回答实验思考题，每次视角和侧重点不同。";
+
+function ExperimentRawConfigTab({ experimentId, configJson, onSaved }) {
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async (parsedConfig) => {
+    try {
+      setSaving(true);
+      const saved = await experimentsApi.updateExperimentRawConfig(experimentId, parsedConfig);
+      onSaved(saved.config_json);
+      return saved.config_json;
+    } catch (e) {
+      message.error(e.response?.data?.detail || '保存配置失败，请检查 JSON 内容或后端日志');
+      throw e;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <JsonConfigEditor
+      value={configJson}
+      saveText="保存配置"
+      saving={saving}
+      onSave={handleSave}
+      confirmTitle="保存实验配置"
+      confirmContent="保存后会写回后端配置文件并立即同步数据库，请确认 JSON 内容已经核对。"
+      successMessage="实验配置已保存"
+      className="settings-panel settings-automation-panel admin-experiment-raw-config-panel"
+      rows={30}
+      fullScreen={true}
+    />
+  );
+}
+
+function ExperimentSettingsTab({ experimentId }) {
+  const [formulasText, setFormulasText] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchFormulas = async () => {
+      try {
+        const res = await experimentsApi.getExperimentFormulas(experimentId);
+        const formulaStr = Object.entries(res.formulas || {})
+          .map(([k, v]) => `${k} = ${v}`)
+          .join('\n');
+        setFormulasText(formulaStr);
+      } catch (e) {
+        message.error('无法加载计算规则配置');
+      }
+    };
+    fetchFormulas();
+  }, [experimentId]);
+
+  const onSaveFormulas = async () => {
+    setLoading(true);
+    try {
+      const lines = formulasText.split('\n');
+      const formulaObj = {};
+      lines.forEach(line => {
+        const parts = line.split('=');
+        if (parts.length >= 2) {
+          const key = parts[0].trim();
+          const val = parts.slice(1).join('=').trim();
+          if (key && val) {
+            formulaObj[key] = val;
+          }
+        }
+      });
+      await experimentsApi.updateExperimentFormulas(experimentId, formulaObj);
+      message.success('计算规则保存成功');
+    } catch (e) {
+      message.error('保存失败: ' + (e.response?.data?.detail || e.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const description = (
+    <div style={{ padding: '12px 18px', background: '#fafafa', borderRadius: '8px', border: '1px solid rgba(20, 20, 19, 0.08)' }}>
+      <Paragraph style={{ marginBottom: 0 }}>
+        <Text type="secondary">
+          在此处配置实验数据的自动计算公式。每行一条规则，格式为：<Text code>目标节点 = 表达式</Text>。<br />
+          例如：<Text code>B = A + D</Text> | <Text code>N4 = N10-0 * 2.5</Text> &nbsp;&nbsp;
+          （表达式支持基本的数学运算，所有参与运算的节点必须是有效的实验节点ID）
+        </Text>
+      </Paragraph>
+    </div>
+  );
+
+  return (
+    <FullScreenSettingsPanel
+      description={description}
+      actions={
+        <Button type="primary" loading={loading} icon={<SaveOutlined />} onClick={onSaveFormulas}>
+          保存规则配置
+        </Button>
+      }
+    >
+      <div style={{ flex: 1, minHeight: 300, border: '1px solid rgba(20, 20, 19, 0.12)', borderRadius: 8, overflow: 'hidden' }}>
+        <Editor
+          height="100%"
+          language="ini"
+          theme="vs"
+          value={formulasText}
+          loading="正在加载编辑器..."
+          onChange={(val) => setFormulasText(val ?? '')}
+          options={{
+            automaticLayout: true,
+            minimap: { enabled: false },
+            lineNumbers: 'on',
+            fontSize: 13,
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+            wordWrap: 'on',
+          }}
+        />
+      </div>
+    </FullScreenSettingsPanel>
+  );
+}
+
+function ExperimentPromptTab({ experimentId, experimentConfig }) {
+  const [promptForm] = Form.useForm();
+  const [savingPrompt, setSavingPrompt] = useState(false);
+  const [availableDataNodes, setAvailableDataNodes] = useState([]);
+  const [promptPreviews, setPromptPreviews] = useState({ recognition: '', generation: '' });
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const previewTimer = window.previewTimer || { current: null };
+
+  const updatePreview = async (expId, currentValues) => {
+    if (!expId) return;
+    setPreviewLoading(true);
+    const apiValues = { ...currentValues };
+    if (Array.isArray(apiValues.generation_data_nodes)) {
+      apiValues.generation_data_nodes = apiValues.generation_data_nodes.join(',');
+    }
+    try {
+      const result = await previewAiPromptTemplate(expId, apiValues);
+      setPromptPreviews({
+        recognition: result.recognition_prompt,
+        generation: result.generation_prompt
+      });
+    } catch (e) {
+      console.error("Preview fetch failed", e);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handlePromptFormChange = (_, allValues) => {
+    if (previewTimer.current) clearTimeout(previewTimer.current);
+    previewTimer.current = setTimeout(() => {
+      updatePreview(experimentId, allValues);
+    }, 500);
+  };
+
+  const loadPromptConfig = async () => {
+    try {
+      const template = await getAiPromptTemplate(experimentId);
+      const jsonConfig = experimentConfig || {};
+
+      let nodes = [];
+      const fields = jsonConfig.inputs?.fields || [];
+      fields.forEach(f => {
+        if (f.type === 'extract') nodes.push(f.id);
+      });
+      const dataTable = jsonConfig.ui?.dataTable;
+      if (dataTable && dataTable.rows) {
+        for (let r = 0; r < dataTable.rows; r++) {
+          for (let c = 0; c < (dataTable.columns || []).length; c++) {
+            if (!dataTable.columns[c].computed) {
+              const nid = dataTable.nodePattern?.replace('{r}', r).replace('{c}', c);
+              if (nid) nodes.push(nid);
+            }
+          }
+        }
+      }
+      setAvailableDataNodes(nodes.map(n => ({ label: n, value: n })));
+
+      const aiConfig = jsonConfig.ai || {};
+      const newValues = {
+        recognition_system_prompt: template.recognition_system_prompt || aiConfig.recognition?.system_prompt || DEFAULT_RECOGNITION_SYSTEM,
+        recognition_extra_prompt: template.recognition_extra_prompt || aiConfig.recognition?.extra_prompt || '',
+        generation_system_prompt: template.generation_system_prompt || aiConfig.generation?.system_prompt || DEFAULT_GENERATION_SYSTEM,
+        generation_extra_prompt: template.generation_extra_prompt || aiConfig.generation?.extra_prompt || '',
+        generation_data_nodes: template.generation_data_nodes ? template.generation_data_nodes.split(',').filter(Boolean) : [],
+      };
+      promptForm.setFieldsValue(newValues);
+      updatePreview(experimentId, newValues);
+    } catch (e) {
+      message.error('获取 Prompt 模板失败');
+    }
+  };
+
+  useEffect(() => {
+    loadPromptConfig();
+  }, [experimentId, promptForm]);
+
+  const handleSavePrompt = async (values) => {
+    try {
+      setSavingPrompt(true);
+      const apiValues = { ...values };
+      if (Array.isArray(apiValues.generation_data_nodes)) {
+        apiValues.generation_data_nodes = apiValues.generation_data_nodes.join(',');
+      }
+      await updateAiPromptTemplate(experimentId, apiValues);
+      message.success('Prompt 模板已保存');
+    } catch (e) {
+      message.error(e.response?.data?.detail || '保存 Prompt 失败');
+    } finally {
+      setSavingPrompt(false);
+    }
+  };
+
+  return (
+    <Form form={promptForm} layout="vertical" requiredMark={false} onFinish={handleSavePrompt} onValuesChange={handlePromptFormChange} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <FullScreenSettingsPanel
+        actions={
+          <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={savingPrompt}>
+            保存 Prompt 模板
+          </Button>
+        }
+      >
+        <Collapse defaultActiveKey={['1', '2']} style={{ background: '#ffffff' }}>
+          <Collapse.Panel header="图像识别 (数据提取) Prompt" key="1">
+            <Form.Item
+              name="recognition_system_prompt"
+              label="系统指令 (System Prompt)"
+            >
+              <Input.TextArea rows={4} placeholder="例如：你是一个严格的实验手写数据提取器..." />
+            </Form.Item>
+            <Form.Item
+              name="recognition_extra_prompt"
+              label="附加说明 (追加在用户指令末尾)"
+            >
+              <Input.TextArea rows={2} placeholder="例如：表一的电流单位是 mA，请注意转换。" />
+            </Form.Item>
+            <div style={{ marginTop: 16, marginBottom: 8, fontSize: 14, color: '#595959', fontWeight: 500 }}>
+              预览：
+            </div>
+            <Spin spinning={previewLoading}>
+              <div style={{ fontSize: 13, color: '#262626', padding: '12px', background: '#fafafa', borderRadius: 6, border: '1px solid #d9d9d9', minHeight: 60 }}>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+                  {promptPreviews.recognition}
+                </pre>
+              </div>
+            </Spin>
+          </Collapse.Panel>
+          <Collapse.Panel header="实验思考题生成 Prompt" key="2">
+            <Form.Item
+              name="generation_data_nodes"
+              label="传递给 AI 的数据节点 (可选)"
+              tooltip="为空则代表传递提取到的所有数据节点。如果你只想给大模型提供指定的几个节点数据，请在此下拉勾选。"
+            >
+              <Select
+                mode="multiple"
+                allowClear
+                placeholder="请选择要传递的数据节点，留空表示全选"
+                options={availableDataNodes}
+                style={{ width: '100%' }}
+              />
+            </Form.Item>
+            <Form.Item
+              name="generation_system_prompt"
+              label="系统指令 (System Prompt)"
+            >
+              <Input.TextArea rows={4} placeholder="例如：你是一名物理实验助教..." />
+            </Form.Item>
+            <Form.Item
+              name="generation_extra_prompt"
+              label="附加说明 (追加在用户指令末尾)"
+            >
+              <Input.TextArea rows={2} placeholder="例如：要求必须结合实验数据，禁止泛泛而谈。" />
+            </Form.Item>
+            <div style={{ marginTop: 16, marginBottom: 8, fontSize: 14, color: '#595959', fontWeight: 500 }}>
+              预览：
+            </div>
+            <Spin spinning={previewLoading}>
+              <div style={{ fontSize: 13, color: '#262626', padding: '12px', background: '#fafafa', borderRadius: 6, border: '1px solid #d9d9d9', minHeight: 60 }}>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+                  {promptPreviews.generation}
+                </pre>
+              </div>
+            </Spin>
+          </Collapse.Panel>
+        </Collapse>
+      </FullScreenSettingsPanel>
+    </Form>
+  );
+}
+
+export default function AdminExperimentPreviewPage() {
+  const navigate = useNavigate();
+  const { experimentId } = useParams();
+  const [experiment, setExperiment] = useState(null);
+  const [rawExperimentConfig, setRawExperimentConfig] = useState(null);
+  const [loadingConfig, setLoadingConfig] = useState(true);
+  const [configError, setConfigError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingConfig(true);
+    setConfigError(null);
+    experimentsApi.getExperimentRawConfig(experimentId)
+      .then((rawConfig) => {
+        if (!cancelled) {
+          const config = rawConfig.config_json;
+          setRawExperimentConfig(config);
+          setExperiment(buildExperimentConfig(config));
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setConfigError(err.response?.data?.detail || err.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingConfig(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [experimentId]);
+
+  if (loadingConfig) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center', minHeight: '100vh', background: '#fafafc' }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  if (!experiment || configError) {
+    return <Navigate to="/workspace/admin/experiments" replace />;
+  }
+
+  const items = [
+    {
+      key: 'raw_config',
+      label: (
+        <span className="settings-tab-label">
+          raw JSON
+        </span>
+      ),
+      children: (
+        <ExperimentRawConfigTab
+          experimentId={experimentId}
+          configJson={rawExperimentConfig}
+          onSaved={(config) => {
+            setRawExperimentConfig(config);
+            setExperiment(buildExperimentConfig(config));
+          }}
+        />
+      ),
+    },
+    {
+      key: 'preview',
+      label: '实验预览',
+      children: (
+        <ExperimentDetailView
+          experiment={experiment}
+          onBack={() => navigate('/workspace/admin/experiments')}
+        />
+      ),
+    },
+    {
+      key: 'settings',
+      label: '计算规则配置',
+      children: <ExperimentSettingsTab experimentId={experimentId} />,
+    },
+    {
+      key: 'prompt',
+      label: 'Prompt模板配置',
+      children: <ExperimentPromptTab experimentId={experimentId} experimentConfig={experiment} />,
+    },
+  ];
+
+  return (
+    <section className="settings-page admin-experiment-preview-page full-height-page">
+      <div className="settings-tabs-shell">
+        <Tabs
+          className="settings-tabs"
+          defaultActiveKey="raw_config"
+          items={items}
+        />
+      </div>
+    </section>
+  );
+}

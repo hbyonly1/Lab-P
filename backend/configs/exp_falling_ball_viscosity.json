@@ -1,0 +1,405 @@
+{
+  "meta": {
+    "id": "exp_falling_ball_viscosity",
+    "name": "落球法测粘滞系数",
+    "version": "2.0",
+    "sortOrder": 2,
+    "enabled": true
+  },
+  "inputs": {
+    "images": [
+      {
+        "id": "IMG_RAW_DATA",
+        "label": "原始实验记录与曲线图片"
+      }
+    ],
+    "fields": [
+      {
+        "id": "SYYL_Fill_0",
+        "type": "extract",
+        "label": "SYYL_Fill_0"
+      },
+      {
+        "id": "SYYL_Fill_1",
+        "type": "extract",
+        "label": "SYYL_Fill_1"
+      },
+      {
+        "id": "SYYL_Fill_2",
+        "type": "extract",
+        "label": "SYYL_Fill_2"
+      },
+      {
+        "id": "SYYL_Fill_3",
+        "type": "extract",
+        "label": "SYYL_Fill_3"
+      },
+      {
+        "id": "SYYL_Fill_4",
+        "type": "extract",
+        "label": "SYYL_Fill_4"
+      },
+      {
+        "id": "SYYL_Fill_5",
+        "type": "extract",
+        "label": "SYYL_Fill_5"
+      },
+      {
+        "id": "SYYL_Fill_6",
+        "type": "extract",
+        "label": "SYYL_Fill_6"
+      },
+      {
+        "id": "SYYL_Fill_7",
+        "type": "extract",
+        "label": "SYYL_Fill_7"
+      },
+      {
+        "id": "YSSJDrawingAreaArea",
+        "type": "generated",
+        "label": "YSSJDrawingAreaArea"
+      },
+      {
+        "id": "L1",
+        "type": "computed",
+        "label": "L1"
+      },
+      {
+        "id": "L20-0",
+        "type": "extract",
+        "label": "L20-0"
+      },
+      {
+        "id": "L21-0",
+        "type": "extract",
+        "label": "L21-0"
+      },
+      {
+        "id": "L22-0",
+        "type": "extract",
+        "label": "L22-0"
+      },
+      {
+        "id": "L23-0",
+        "type": "extract",
+        "label": "L23-0"
+      },
+      {
+        "id": "L24-0",
+        "type": "extract",
+        "label": "L24-0"
+      },
+      {
+        "id": "L25-0",
+        "type": "extract",
+        "label": "L25-0"
+      },
+      {
+        "id": "L26-0",
+        "type": "extract",
+        "label": "L26-0"
+      },
+      {
+        "id": "L27-0",
+        "type": "extract",
+        "label": "L27-0"
+      },
+      {
+        "id": "L3Area",
+        "type": "generated",
+        "label": "L3Area"
+      },
+      {
+        "id": "OP_Fill_0",
+        "type": "extract",
+        "label": "OP_Fill_0"
+      },
+      {
+        "id": "OP1_Fill_0",
+        "type": "extract",
+        "label": "OP1_Fill_0"
+      },
+      {
+        "id": "OP2_Fill_0",
+        "type": "extract",
+        "label": "OP2_Fill_0"
+      }
+    ]
+  },
+  "ui": {
+    "fixedSections": [
+      {
+        "title": "一、实验目的",
+        "segments": [
+          "1、观察液体中的内摩擦现象 2、掌握用落球法测粘滞系数的原理和方法"
+        ]
+      },
+      {
+        "title": "二、实验原理",
+        "segments": [
+          "当流体（液体和气体）在管道中流动时，管道中心处流速最大，越靠近管壁流速越小，说明在各流层间有内摩擦力（也称为粘滞力）存在，流体的这种性质称为粘滞性。粘滞系数是反映流体内部内摩擦力大小的物理量，是流体的重要性质之一。对于液体，粘滞系数与液体的性质，温度和流速有关。液体粘滞系数的测量在工程技术上有广泛的应用。如：机械的润滑，石油在管道中的输送，油脂涂料，医疗和药物等方面，都需测定粘滞系数。测量液体粘滞系数的方法有多种，如落球法、转筒法、毛细管法等，其中落球法是最基本的一种，它可用于测量粘度较大的透明或半透明液体，如蓖麻油、变压器油、甘油等。 2.1落球法测定液体的粘滞系数原理1个在静止液体中下落的小球受到重力、浮力和粘滞阻力3个力的作用，如果小球的速度v很小，且液体可以看成在各方向上都是无限广阔的，则从流体力学的基本方程可导出表示粘滞阻力的斯托克斯公式：",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_falling_ball_viscosity_img_001.png",
+            "inline": true,
+            "width": "559.958138613347px",
+            "height": "25.40132685242px"
+          },
+          "（1-1）式中d为小球直径。由于粘滞阻力与小球速度v成正比，小球在下落很短一段距离后，所受3力达到平衡，小球将以v₀匀速下落，此时有：",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_falling_ball_viscosity_img_002.png",
+            "inline": true,
+            "width": "575.763408654853px",
+            "height": "42.9000186840871px"
+          },
+          "（1-2）式中ρ为小球密度，ρ₀为液体密度，可解出粘滞系数",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_falling_ball_viscosity_img_003.png",
+            "inline": true,
+            "width": "9.33014760419466px",
+            "height": "13.0622066458725px"
+          },
+          "的表达式：",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_falling_ball_viscosity_img_004.png",
+            "inline": true,
+            "width": "577.456830445014px",
+            "height": "51.9316015649475px"
+          },
+          "本实验中，小球在直径为 D 的玻璃管中下落，液体在各方向无限广阔的条件不满足，此时粘滞阻力的表达式可加修正系数（1+2.4d/D），而（1-3）式可修正为：",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_falling_ball_viscosity_img_005.png",
+            "inline": true,
+            "width": "583.666043675606px",
+            "height": "54.1894972851626px"
+          },
+          "2.2单项选择1. 用落球法测量液体粘滞系数时，小球在液体中下落达到匀速时，受到的力不包括",
+          {
+            "nodeId": "SYYL_Fill_0",
+            "width": "50px"
+          },
+          "A. 重力B. 浮力C. 电场力D. 粘滞阻力2. 落球法中，小球的密度与液体的密度相比",
+          {
+            "nodeId": "SYYL_Fill_1",
+            "width": "50px"
+          },
+          "A. 小球密度小于液体密度B. 小球密度等于液体密度C. 小球密度大于液体密度D. 无要求3. 测量液体粘滞系数时，温度对测量结果",
+          {
+            "nodeId": "SYYL_Fill_2",
+            "width": "50px"
+          },
+          "A. 没有影响B. 有影响，温度升高粘滞系数增大C. 有影响，温度升高粘滞系数减小D. 影响不确定4. 实验中若忘记校正容器壁影响，结果将",
+          {
+            "nodeId": "SYYL_Fill_3",
+            "width": "50px"
+          },
+          "A. 偏大B. 偏小C. 不变D. 随机5. 实验中使用的小球直径为1mm，使用1.5mm的小球能否完成该实验？",
+          {
+            "nodeId": "SYYL_Fill_4",
+            "width": "50px"
+          },
+          "A. 能B. 不能C. 根据具体情况而定 6. 实验过程中，如果发现前后放入的小球下落时间有明显变短的趋势，应该采取的措施是？",
+          {
+            "nodeId": "SYYL_Fill_5",
+            "width": "50px"
+          },
+          "A. 继续实验，多次测量取均值B. 选取更靠下的位置开始计时测量 C. 停止放入小球，等待一段加热时间后再尝试实验D. 关机重启，重设参数7. 小球进入到30℃的蓖麻油中，从哪里开始进入匀速运动？",
+          {
+            "nodeId": "SYYL_Fill_6",
+            "width": "50px"
+          },
+          "A. 10cmB. 15cmC. 20cmD. 永远无法真正达到8. 小球越大，受到的阻力越大，因此实验中使用的小球不宜过小？",
+          {
+            "nodeId": "SYYL_Fill_7",
+            "width": "50px"
+          },
+          "A. 正确B. 错误C. 大小对实验没有任何影响"
+        ]
+      }
+    ],
+    "dataTables": [
+      {
+        "caption": "L2",
+        "rows": [
+          {
+            "isHeader": true,
+            "cells": [
+              {
+                "label": "温度（℃）"
+              },
+              {
+                "label": "η（Pa·S）测量值"
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "30"
+              },
+              {
+                "nodeId": "L20-0",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "33"
+              },
+              {
+                "nodeId": "L21-0",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "36"
+              },
+              {
+                "nodeId": "L22-0",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "39"
+              },
+              {
+                "nodeId": "L23-0",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "40"
+              },
+              {
+                "nodeId": "L24-0",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "42"
+              },
+              {
+                "nodeId": "L25-0",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "44"
+              },
+              {
+                "nodeId": "L26-0",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "46"
+              },
+              {
+                "nodeId": "L27-0",
+                "label": ""
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "postDataSections": [
+      {
+        "title": "数据处理",
+        "segments": [
+          "实验内容：落球法测液体的粘滞系数三、实验内容及数据记录1.上传原始数据（教师签字盖章版本）Σ请输入文本……",
+          {
+            "nodeId": "YSSJDrawingAreaArea",
+            "width": "100px"
+          },
+          "2.请根据本人实际实验内容，选择测量区间（A. 30-39℃ B. 40-46℃）",
+          {
+            "nodeId": "L1",
+            "width": "80px"
+          },
+          "3.表一：粘滞系数的测定（根据上面选择的测量区间，选择30-39℃或者40-46℃填入数据）"
+        ]
+      },
+      {
+        "title": "数据处理",
+        "segments": [
+          "四、数据处理4.1 画出粘滞系数与温度关系曲线（用座标纸）Σ请输入文本……",
+          {
+            "nodeId": "L3Area",
+            "width": "100px"
+          },
+          "4.2 多选题1.下列措施可减小落球法系统误差的是",
+          {
+            "nodeId": "OP_Fill_0",
+            "width": "80px"
+          },
+          "A. 用半径远小于管半径的小球B. 调垂直C. 测多组t取平均D. 保持恒温 2. 若η测得值远大于文献值，可能原因有",
+          {
+            "nodeId": "OP1_Fill_0",
+            "width": "80px"
+          },
+          "A. 温度读数偏低B. 小球半径测大C. 时间测长D. 液体密度测小 3. 实验中，小球所受到的粘滞阻力与哪些量成正比",
+          {
+            "nodeId": "OP2_Fill_0",
+            "width": "80px"
+          },
+          "A. 速度B. 粘滞系数C. 直径D. 温度"
+        ]
+      }
+    ],
+    "questions": [
+      {
+        "nodeId": "YSSJDrawingAreaArea",
+        "title": "实验问题 1",
+        "rows": 5
+      },
+      {
+        "nodeId": "L3Area",
+        "title": "实验问题 2",
+        "rows": 5
+      }
+    ]
+  },
+  "ai": {
+    "recognition": {
+      "imageRef": "IMG_RAW_DATA",
+      "prompt": "提取落球法测粘滞系数实验报告中的表格数据、填空和曲线读数"
+    },
+    "answerGeneration": {
+      "prompt": "基于落球法测粘滞系数实验原理，用中文学术性语言回答实验分析与拓展题。"
+    }
+  },
+  "formulas": {}
+}

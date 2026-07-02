@@ -150,9 +150,9 @@ function MiniScene({ type }) {
 export default function LandingPage() {
   return (
     <main className="landing-page">
-      <header className="floating-nav" aria-label="IgniteNow admin navigation">
-        <div className="logo-lockup" aria-label="IgniteNow Admin">
-          <span className="logo-text">IgniteNow</span>
+      <header className="floating-nav" aria-label="CUMTB Lab+ admin navigation">
+        <div className="logo-lockup" aria-label="CUMTB Lab+">
+          <span className="logo-text">CUMTB Lab+</span>
         </div>
 
         <nav className="nav-links" aria-label="入口页分区">
@@ -180,7 +180,7 @@ export default function LandingPage() {
           <h1>点燃剧情高光</h1>
           <h1>让回应发生在此刻</h1>
           <p className="hero-lede">
-            IgniteNow 识别短剧内容中的关键情绪节点，并将其转化为生动的互动体验
+            CUMTB Lab+ 实验报告智能处理平台，将纸质报告转化为结构化数据，提供完整流程自动化体验
           </p>
           <div className="hero-actions">
             <a className="primary-pill" href="/login">
@@ -227,7 +227,7 @@ export default function LandingPage() {
             短剧的高光瞬间很容易引起用户的共鸣，但传统评论和弹幕输入繁琐，大大降低了用户的互动欲望。
           </p>
           <p>
-            IgniteNow 将剧情高光识别、互动策略和端上触发连接起来，让用户瞬间完成低门槛回应。
+            CUMTB Lab+ 将纸质报告识别、自动填写、人工复核与后台自动化任务连接起来，大幅缩减工作流程。
           </p>
         </div>
         <div className="before-after-panel">

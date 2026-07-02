@@ -37,7 +37,7 @@ export function PaywallModal({ open, onCancel, taskCount = 1 }) {
   };
 
   const renderQRState = () => (
-    <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+    <div style={{ textAlign: 'center', padding: '10px 10px' }}>
       <h3 style={{ fontSize: '24px', fontWeight: 600, marginBottom: '8px' }}>扫码支付 - {selectedPlan}</h3>
       <div style={{ fontSize: '20px', color: '#1677ff', fontWeight: 500, marginBottom: '24px' }}>
         您需支付 ¥{selectedPlan.includes('单次') ? totalPrice : proPrice} 元
@@ -57,7 +57,7 @@ export function PaywallModal({ open, onCancel, taskCount = 1 }) {
         </Button>
         <Button type="primary" onClick={(e) => {
           if (e?.stopPropagation) e.stopPropagation();
-          onCancel(true);
+          onCancel(true, selectedPlan.includes('单次') ? 'pay_per_use' : 'pro');
         }} size="large" style={{ background: '#1677ff' }}>
           我已支付，下一步
         </Button>
@@ -136,6 +136,7 @@ export function PaywallModal({ open, onCancel, taskCount = 1 }) {
 
   return (
     <Modal
+      className="paywall-modal"
       open={open}
       onCancel={handleModalCancel}
       footer={null}

@@ -20,7 +20,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         token: {
           colorPrimary: '#141413',
           colorText: '#141413',
-          colorBgBase: '#F3F0EE',
+          colorBgContainer: '#ffffff',
           borderRadius: 8,
           controlHeight: 32,
           fontFamily:

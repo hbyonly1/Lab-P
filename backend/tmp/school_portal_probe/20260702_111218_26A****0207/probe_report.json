@@ -1,0 +1,25 @@
+{
+  "status": "login_navigation_observed",
+  "student_no_masked": "26A****0207",
+  "login_url": "http://10.25.77.60:8001/Login",
+  "out_dir": "backend/tmp/school_portal_probe/20260702_111218_26A****0207",
+  "artifacts": {
+    "login_screenshot": "backend/tmp/school_portal_probe/20260702_111218_26A****0207/01_login_page.png",
+    "login_html": "backend/tmp/school_portal_probe/20260702_111218_26A****0207/01_login_page.html",
+    "login_dom": "backend/tmp/school_portal_probe/20260702_111218_26A****0207/01_login_dom.json",
+    "captcha_image": "backend/tmp/school_portal_probe/20260702_111218_26A****0207/02_captcha.png",
+    "after_login_screenshot": "backend/tmp/school_portal_probe/20260702_111218_26A****0207/03_after_login.png",
+    "after_login_html": "backend/tmp/school_portal_probe/20260702_111218_26A****0207/03_after_login.html",
+    "after_login_dom": "backend/tmp/school_portal_probe/20260702_111218_26A****0207/03_after_login_dom.json"
+  },
+  "selectors": {
+    "username": "#userName",
+    "password": "#userPass",
+    "captcha": "#checkCode",
+    "captcha_image": "#imgCheckCode",
+    "submit": ".loginBut"
+  },
+  "messages": [],
+  "final_url": "http://10.25.77.60:8001/ReportStudent/CompleteReport/",
+  "final_title": "完成报告"
+}

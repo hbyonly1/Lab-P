@@ -1,18 +1,27 @@
+import React, { Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Spin } from 'antd';
 import LandingPage from './pages/LandingPage.jsx';
 import WorkspaceLayout from './pages/WorkspaceLayout.jsx';
 import LoginPage from './pages/LoginPage.jsx';
-import StudentExperimentsPage from './pages/workspace/StudentExperimentsPage.jsx';
-import StudentExperimentDetailPage from './pages/workspace/StudentExperimentDetailPage.jsx';
-import StudentDashboardPage from './pages/workspace/StudentDashboardPage.jsx';
-import ReviewerTasksPage from './pages/workspace/ReviewerTasksPage.jsx';
 import WorkspaceBlankPage from './pages/workspace/WorkspaceBlankPage.jsx';
-import AdminOperationLogsPage from './pages/workspace/AdminOperationLogsPage.jsx';
-import SettingsPage from './pages/workspace/SettingsPage.jsx';
 import DesignSystemPage from './pages/workspace/DesignSystemPage.jsx';
-import ExperimentConfigPage from './pages/workspace/ExperimentConfigPage.jsx';
-import AdminExperimentPreviewPage from './pages/workspace/AdminExperimentPreviewPage.jsx';
-import AdminOrdersPage from './pages/workspace/AdminOrdersPage.jsx';
+
+// Lazy load role-based workspace pages
+const StudentDashboardPage = React.lazy(() => import('./pages/workspace/student/StudentDashboardPage.jsx'));
+const StudentExperimentsPage = React.lazy(() => import('./pages/workspace/student/StudentExperimentsPage.jsx'));
+const StudentExperimentDetailPage = React.lazy(() => import('./pages/workspace/student/StudentExperimentDetailPage.jsx'));
+const StudentFeedbackPage = React.lazy(() => import('./pages/workspace/student/StudentFeedbackPage.jsx'));
+
+const ReviewerTasksPage = React.lazy(() => import('./pages/workspace/reviewer/ReviewerTasksPage.jsx'));
+const ReviewerTaskDetailPage = React.lazy(() => import('./pages/workspace/reviewer/ReviewerTaskDetailPage.jsx'));
+
+const AdminOperationLogsPage = React.lazy(() => import('./pages/workspace/admin/AdminOperationLogsPage.jsx'));
+const SettingsPage = React.lazy(() => import('./pages/workspace/admin/SettingsPage.jsx'));
+const ExperimentConfigPage = React.lazy(() => import('./pages/workspace/admin/ExperimentConfigPage.jsx'));
+const AdminOrdersPage = React.lazy(() => import('./pages/workspace/admin/AdminOrdersPage.jsx'));
+const AdminExperimentPreviewPage = React.lazy(() => import('./pages/workspace/admin/AdminExperimentPreviewPage.jsx'));
+const AdminFeedbackPage = React.lazy(() => import('./pages/workspace/admin/AdminFeedbackPage.jsx'));
 import { getAdminUserRole, hasAdminAccessToken } from './auth.js';
 import {
   canAccessWorkspaceModule,
@@ -95,7 +104,7 @@ function App() {
           path="reviewer/tasks/:taskId"
           element={
             <RequireWorkspaceRole moduleId="reviewer-tasks">
-              <ReviewerTasksPage />
+              <ReviewerTaskDetailPage />
             </RequireWorkspaceRole>
           }
         />
@@ -152,6 +161,22 @@ function App() {
           element={
             <RequireWorkspaceRole moduleId="design-system">
               <DesignSystemPage />
+            </RequireWorkspaceRole>
+          }
+        />
+        <Route
+          path="admin/feedback"
+          element={
+            <RequireWorkspaceRole moduleId="admin-feedback">
+              <AdminFeedbackPage />
+            </RequireWorkspaceRole>
+          }
+        />
+        <Route
+          path="student/feedback"
+          element={
+            <RequireWorkspaceRole moduleId="student-feedback">
+              <StudentFeedbackPage />
             </RequireWorkspaceRole>
           }
         />

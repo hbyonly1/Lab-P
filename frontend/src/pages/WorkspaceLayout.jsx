@@ -1,12 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, Suspense } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Avatar, Button, Layout, Menu } from 'antd';
-import { DoubleLeftOutlined, DoubleRightOutlined } from '@ant-design/icons';
+import { Avatar, Button, Layout, Menu, Tooltip, Spin } from 'antd';
+import { DoubleLeftOutlined, DoubleRightOutlined, LogoutOutlined } from '@ant-design/icons';
 import {
   getWorkspaceModuleByPath,
   getWorkspaceModulesForRole,
 } from '../workspaceModules.jsx';
-import { getAdminUserName, getAdminUserRole } from '../auth.js';
+import { getAdminUserName, getAdminUserRole, clearAdminSession } from '../auth.js';
 
 const { Sider, Content } = Layout;
 
@@ -79,12 +79,28 @@ export default function WorkspaceLayout() {
               <strong>{userName}</strong>
               <span>学号：{userName}</span>
             </span>
+            {!collapsed && (
+              <Tooltip title="退出登录">
+                <Button 
+                  type="text" 
+                  icon={<LogoutOutlined />} 
+                  onClick={() => {
+                    clearAdminSession();
+                    navigate('/login');
+                  }} 
+                  className="logout-button"
+                  style={{ marginLeft: 'auto', color: 'var(--color-ink-subdued)' }}
+                />
+              </Tooltip>
+            )}
           </div>
         </div>
       </Sider>
       <Layout className="workspace-main">
         <Content className={`workspace-content${isStandardContent ? ' is-standard-content' : ''}`}>
-          <Outlet />
+          <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center' }}><Spin size="large" /></div>}>
+            <Outlet />
+          </Suspense>
         </Content>
       </Layout>
     </Layout>

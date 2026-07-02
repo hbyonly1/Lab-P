@@ -1,0 +1,22 @@
+{
+  "status": "captcha_required",
+  "student_no_masked": "26A****0207",
+  "login_url": "http://10.25.77.60:8001/Login",
+  "out_dir": "backend/tmp/school_portal_probe/20260702_111123_26A****0207",
+  "artifacts": {
+    "login_screenshot": "backend/tmp/school_portal_probe/20260702_111123_26A****0207/01_login_page.png",
+    "login_html": "backend/tmp/school_portal_probe/20260702_111123_26A****0207/01_login_page.html",
+    "login_dom": "backend/tmp/school_portal_probe/20260702_111123_26A****0207/01_login_dom.json",
+    "captcha_image": "backend/tmp/school_portal_probe/20260702_111123_26A****0207/02_captcha.png"
+  },
+  "selectors": {
+    "username": "#userName",
+    "password": "#userPass",
+    "captcha": "#checkCode",
+    "captcha_image": "#imgCheckCode",
+    "submit": ".loginBut"
+  },
+  "messages": [
+    "已填写账号密码但未提交；需要通过 --captcha 传入人工验证码"
+  ]
+}

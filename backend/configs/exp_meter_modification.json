@@ -1,0 +1,332 @@
+{
+  "meta": {
+    "id": "exp_meter_modification",
+    "name": "电表的改装",
+    "version": "2.0",
+    "sortOrder": 1,
+    "enabled": true
+  },
+  "inputs": {
+    "images": [
+      {
+        "id": "IMG_RAW_DATA",
+        "label": "原始数据记录表截图"
+      }
+    ],
+    "fields": [
+      {
+        "id": "SYMD_Fill_0",
+        "type": "extract",
+        "label": "掌握表头改装为"
+      },
+      {
+        "id": "SYMD_Fill_1",
+        "type": "extract",
+        "label": "中值电阻"
+      },
+      {
+        "id": "SYMD_Fill_2",
+        "type": "extract",
+        "label": "拟合被测"
+      },
+      {
+        "id": "SYYL_Fill_0",
+        "type": "extract",
+        "label": "待测电阻"
+      },
+      {
+        "id": "DBGZ2",
+        "type": "computed",
+        "fn": "calc_DBGZ2"
+      },
+      {
+        "id": "DBGZ3",
+        "type": "computed",
+        "fn": "calc_DBGZ3"
+      },
+      {
+        "id": "DBGZ4",
+        "type": "computed",
+        "fn": "calc_DBGZ4"
+      },
+      {
+        "id": "skt0Area",
+        "type": "generated"
+      }
+    ]
+  },
+  "ui": {
+    "fixedSections": [
+      {
+        "title": "实验目的",
+        "segments": [
+          "1. 掌握表头改装为",
+          {
+            "nodeId": "SYMD_Fill_0",
+            "width": "100px"
+          },
+          "的原理；\n",
+          "2. 将表头改装为中值电阻=",
+          {
+            "nodeId": "SYMD_Fill_1",
+            "width": "100px"
+          },
+          "Ω的欧姆表；\n",
+          "3. 拟合被测",
+          {
+            "nodeId": "SYMD_Fill_2",
+            "width": "100px"
+          },
+          "与电流示数的函数曲线。"
+        ]
+      },
+      {
+        "title": "实验仪器",
+        "segments": [
+          "DH4508A型 电表改装与校准实验仪；电阻箱",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/meter_mod_img_1.png",
+            "inline": false,
+            "width": "400px",
+            "height": "300px"
+          }
+        ]
+      },
+      {
+        "title": "实验原理",
+        "segments": [
+          "将电流表（或微安表）改装成欧姆表，是基于闭合电路欧姆定律实现的。其核心思想是：通过接入电源和调零电阻，使表头电流与待测电阻之间形成一一对应关系，从而利用原电流刻度标注对应的电阻值。",
+          "将电流表改装为欧姆表的电路原理图如下图所示，其中Rx为",
+          {
+            "nodeId": "SYYL_Fill_0",
+            "width": "100px"
+          },
+          "，其余元件均由电表改装与校准实验仪提供。",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/meter_mod_img_2.png",
+            "inline": false,
+            "width": "250px",
+            "height": "200px"
+          },
+          "根据欧姆定律做出电路原理图的等效电路图，将电路中电表改装与校准实验仪的电阻等效为电阻Rs，总电流记为kIx，其中Ix为流经电流表表头的电流，如下图所示。",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/meter_mod_img_3.png",
+            "inline": false,
+            "width": "250px",
+            "height": "200px"
+          },
+          "于是根据欧姆定律可得",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/meter_mod_img_4.png",
+            "inline": true,
+            "width": "113.007680796766px",
+            "height": "39.7389646757859px"
+          },
+          "其中E为电路中总电动势。上式可改写为",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/meter_mod_img_5.png",
+            "inline": true,
+            "width": "117.35413005818px",
+            "height": "41.6017286449634px"
+          },
+          "即Rs与",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/meter_mod_img_6.png",
+            "inline": true,
+            "width": "22.9740889531887px",
+            "height": "46.5690992294366px"
+          },
+          "是线性关系。"
+        ]
+      },
+      {
+        "title": "实验步骤",
+        "segments": [
+          "1、校准电流表0点，指针在断电情况下是否和0刻度线重合。\n",
+          "2、按照电流表改装欧姆表电路原理图连接线路。\n",
+          "3、将R₀置0（即对电流表做短路保护），将R置为2000Ω，将R'置为10kΩ，将变阻箱Rₓ置为10kΩ。\n",
+          "4、检查线路，没有问题后打开电源，调节电压为10V。若电流表示数不为0，则连线错误，断开电源，重新连接线路。\n",
+          "5、若电流表示数为0，则将变阻箱Rₓ置为0，调节R₀，使得电流表满偏。\n",
+          "6、将变阻箱Rₓ置为1kΩ，调节R使得电流表半偏。\n",
+          "7、改变Rₓ阻值，记录对应的电流刻度（需估读一位）",
+          "数据处理"
+        ]
+      }
+    ],
+    "postDataSections": [
+      {
+        "title": "（二）拟合Rs与 1/Iₓ 的函数关系",
+        "segments": [
+          "由关系式",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/meter_mod_img_8.png",
+            "inline": true,
+            "width": "113.258772477045px",
+            "height": "30.9940886318256px"
+          },
+          "及实验数据，采用国际单位制，经线性拟合可得：\n(1)",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/meter_mod_img_9.png",
+            "inline": true,
+            "width": "20.2765065815681px",
+            "height": "35.9183830873493px"
+          },
+          "(Ω∙μA) =",
+          {
+            "nodeId": "DBGZ2",
+            "width": "100px"
+          },
+          "\n(2) Rs (Ω) =",
+          {
+            "nodeId": "DBGZ3",
+            "width": "100px"
+          },
+          "\n(3) 拟合的相关系数R² (取3位有效数字) =",
+          {
+            "nodeId": "DBGZ4",
+            "width": "100px"
+          }
+        ]
+      }
+    ],
+    "dataTable": {
+      "caption": "（一）实验数据：记录Rₓ与Iₓ的值",
+      "rowCount": 1,
+      "rowLabels": [
+        "I（μA）"
+      ],
+      "columns": [
+        {
+          "label": "Rₓ（Ω）"
+        },
+        {
+          "label": "200",
+          "nodePattern": "DBGZ10-0"
+        },
+        {
+          "label": "400",
+          "nodePattern": "DBGZ10-1"
+        },
+        {
+          "label": "600",
+          "nodePattern": "DBGZ10-2"
+        },
+        {
+          "label": "800",
+          "nodePattern": "DBGZ10-3"
+        },
+        {
+          "label": "2000",
+          "nodePattern": "DBGZ10-4"
+        },
+        {
+          "label": "4000",
+          "nodePattern": "DBGZ10-5"
+        },
+        {
+          "label": "6000",
+          "nodePattern": "DBGZ10-6"
+        },
+        {
+          "label": "8000",
+          "nodePattern": "DBGZ10-7"
+        }
+      ]
+    },
+    "questions": [
+      {
+        "nodeId": "skt0Area",
+        "title": "若相关系数R²＜0.9，分析可能的原因？",
+        "rows": 4,
+        "placeholder": "请输入文本……"
+      }
+    ]
+  },
+  "ai": {
+    "recognition": {
+      "imageRef": "IMG_RAW_DATA",
+      "prompt": "提取电表改装实验中的各项校准数据和基本参数"
+    },
+    "generation": {
+      "targetRef": "skt0Area",
+      "prompt": "基于电表改装物理实验原理回答，分析相关系数偏低的原因"
+    }
+  },
+  "automation": {
+    "submitLocator": "a:has-text('提交')",
+    "mappings": [
+      {
+        "sourceId": "SYMD_Fill_0",
+        "targetLocator": "#SYMD_Fill_0"
+      },
+      {
+        "sourceId": "SYMD_Fill_1",
+        "targetLocator": "#SYMD_Fill_1"
+      },
+      {
+        "sourceId": "SYMD_Fill_2",
+        "targetLocator": "#SYMD_Fill_2"
+      },
+      {
+        "sourceId": "SYYL_Fill_0",
+        "targetLocator": "#SYYL_Fill_0"
+      },
+      {
+        "sourceId": "DBGZ10-0",
+        "targetLocator": "#DBGZ10-0"
+      },
+      {
+        "sourceId": "DBGZ10-1",
+        "targetLocator": "#DBGZ10-1"
+      },
+      {
+        "sourceId": "DBGZ10-2",
+        "targetLocator": "#DBGZ10-2"
+      },
+      {
+        "sourceId": "DBGZ10-3",
+        "targetLocator": "#DBGZ10-3"
+      },
+      {
+        "sourceId": "DBGZ10-4",
+        "targetLocator": "#DBGZ10-4"
+      },
+      {
+        "sourceId": "DBGZ10-5",
+        "targetLocator": "#DBGZ10-5"
+      },
+      {
+        "sourceId": "DBGZ10-6",
+        "targetLocator": "#DBGZ10-6"
+      },
+      {
+        "sourceId": "DBGZ10-7",
+        "targetLocator": "#DBGZ10-7"
+      },
+      {
+        "sourceId": "DBGZ2",
+        "targetLocator": "#DBGZ2"
+      },
+      {
+        "sourceId": "DBGZ3",
+        "targetLocator": "#DBGZ3"
+      },
+      {
+        "sourceId": "DBGZ4",
+        "targetLocator": "#DBGZ4"
+      },
+      {
+        "sourceId": "skt0Area",
+        "targetLocator": "#skt0Area"
+      }
+    ]
+  }
+}

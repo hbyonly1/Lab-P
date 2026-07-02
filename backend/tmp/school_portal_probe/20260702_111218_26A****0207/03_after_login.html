@@ -1,0 +1,499 @@
+<!DOCTYPE html><html><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>完成报告</title>
+    <link href="/Content/bootstrap.min.css" rel="stylesheet" type="text/css">
+    <link href="/Content/bootstrapValidator.min.css" rel="stylesheet" type="text/css">
+    <link href="/Scripts/Editor/wysiwyg-editor.css" rel="stylesheet" type="text/css">
+    <link href="/Content/bootstrap-datetimepicker.min.css" rel="stylesheet" type="text/css">
+    <link href="/Scripts/Editor/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+    <link href="/Content/Site.css?t=0821" rel="stylesheet" type="text/css">
+    <link href="/Content/zTree.min.css" rel="stylesheet" type="text/css">
+    <link href="/Content/pager.css" rel="stylesheet" type="text/css">
+    <script src="/Scripts/jquery-3.7.1.min.js" type="text/javascript"></script>
+    <script src="/Scripts/bootstrap.min.js" type="text/javascript"></script>
+    <script src="/Scripts/bootstrapValidator.min.js" type="text/javascript"></script>
+    <script src="/Scripts/bootstrap-datetimepicker.min.js" type="text/javascript"></script>
+    <script src="/Scripts/locales/bootstrap-datetimepicker.zh-CN.js" type="text/javascript"></script>
+    <script src="/Scripts/Editor/wysiwyg.js" type="text/javascript"></script>
+    <script src="/Scripts/Editor/wysiwyg-editor.js" type="text/javascript"></script>
+    <script src="/Scripts/bootbox.min.js" type="text/javascript"></script>
+    <script src="/Scripts/jquery.ztree.all-3.5.min.js" type="text/javascript"></script>
+    <script src="/Scripts/knockout-3.4.0.js" type="text/javascript"></script>
+    <script src="/Scripts/jquery.page.js" type="text/javascript"></script>
+    <script src="/Scripts/ajaxfileupload.js" type="text/javascript"></script>
+    <script src="/Scripts/ichart.1.2.1.min.js" type="text/javascript"></script>
+    <script src="/Scripts/compatibility.js" type="text/javascript"></script>
+    <script src="/Scripts/pdf.js" type="text/javascript"></script>
+    <script type="text/javascript" charset="utf-8" src="/Scripts/Ueditor/ueditor.config.js"></script>
+    <script type="text/javascript" charset="utf-8" src="/Scripts/Ueditor/ueditor.all.min.js"></script>
+    <script type="text/javascript" charset="utf-8" src="/Scripts/Ueditor/ueditor.all.js"></script>
+    <script type="text/javascript" charset="utf-8" src="/Scripts/Ueditor/ueditor.parse.js"></script>
+    <script type="text/javascript" charset="utf-8" src="/Scripts/Ueditor/ueditor.parse.min.js"></script>
+    <script type="text/javascript" charset="utf-8" src="/Scripts/Ueditor/lang/zh-cn/zh-cn.js"></script>
+    <script type="text/javascript" charset="utf-8" src="/Scripts/Ueditor/kityformula-plugin/addKityFormulaDialog.js"></script>
+    <script type="text/javascript" charset="utf-8" src="/Scripts/Ueditor/kityformula-plugin/getKfContent.js"></script>
+    <script type="text/javascript" charset="utf-8" src="/Scripts/Ueditor/kityformula-plugin/defaultFilterFix.js"></script>
+    <!--[if lte IE 9]>
+    <script type="text/javascript" src="/Scripts/html5shiv.min.js"></script>
+    <script type="text/javascript" src="/Scripts/html5shiv-printshiv.min.js"></script>
+    <script type="text/javascript" src="/Scripts/respond.min.js"></script>
+    <script type="text/javascript" src="/Scripts/respond.matchmedia.addListener.min.js"></script>
+    <![endif]-->
+    <script src="/Scripts/APP/GlobleJS.js?t=0821" type="text/javascript"></script>
+    <script type="text/javascript" src="/Scripts/Base64.js"></script>
+    <script src="/Content/APP/BacicInfo/fabicrc/fabric.min.js"></script>
+    <script src="/Content/APP/BacicInfo/fabicrc/ReviewReportFabric.js"></script>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            if (typeof _userInfo.UserName == 'undefined') {
+                window.location.href = _websiteName + "/Login";
+            } else {
+                $("#LoginUserName").text(_userInfo.UserName);
+            }
+        });
+        function LogOut() {
+            bootbox.confirm({
+                buttons: {
+                    confirm: {
+                        label: '确认',
+                        className: 'btn btn-LightGreen'
+                    },
+                    cancel: {
+                        label: '取消',
+                        className: 'btn btn-LightGreen'
+                    }
+                },
+                message: '您确认登出系统吗？登出后您将跳转到登录页面。',
+                callback: function (result) {
+                    if (result) {
+                        $.ajax({
+                            type: 'post',
+                            url: _websiteName + '/Login/LoginOut',
+                            data: {
+                                userId: _userInfo.UserID,
+                                Guid: _userInfo.Token
+                            },
+                            success: function (data) {
+                                if (data.IsSuccess) {
+                                    bootbox.confirm("退出成功！", function () {
+                                        window.location.href = _websiteName + data.Data;
+                                    });
+                                }
+                                else {
+                                    bootbox.alert(data.Data);
+                                }
+                            }
+                        });
+                    }
+                }
+            });
+        }
+    </script>
+    <style type="text/css">
+        .notice {
+            background: url(../../Images/Icon/通知公告2.png) no-repeat 0 23px;
+        }
+
+        #noticeA:hover {
+            background: url(../../Images/Icon/通知公告1.png) no-repeat 0 23px;
+        }
+
+        .noticeActive {
+            background: url(../../Images/Icon/通知公告1.png) no-repeat 0 23px;
+        }
+
+        .report {
+            background: url(../../Images/Icon/完成报告2.png) no-repeat 0 23px;
+        }
+
+        #reportA:hover {
+            background: url(../../Images/Icon/完成报告1.png) no-repeat 0 23px;
+        }
+
+        .reportActive {
+            background: url(../../Images/Icon/完成报告1.png) no-repeat 0 23px;
+        }
+
+        .credit {
+            background: url(../../Images/Icon/成绩查询2.png) no-repeat 0 23px;
+        }
+
+        #creditA:hover {
+            background: url(../../Images/Icon/成绩查询1.png) no-repeat 0 23px;
+        }
+
+        .creditActive {
+            background: url(../../Images/Icon/成绩查询1.png) no-repeat 0 23px;
+        }
+
+        li {
+            list-style-type: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="row topBanner head" style="background: url(../../Images/head_bg.jpg) repeat-x;
+        height: 81px; padding-top: 0px;">
+        <div class="col-md-9 col-xs-9" style="float: left; margin-top: -1px;">
+            <img alt="" src="/Images/zy_logo.png">
+        </div>
+        <div class="col-md-3 col-xs-3 align-right">
+            <div class="row top_right">
+                <ul>
+                    <li>服务电话：0551-65355947</li>
+                    <li><span class="loginUser" id="LoginUserName">陈佳波</span>&nbsp;,&nbsp;欢迎您&nbsp;|&nbsp;
+                        <img src="/Images/loginout.png">&nbsp;<a class="quit" id="LogOut" onclick="LogOut()">安全退出</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="row">
+            <div class="topNavUl">
+                <ul class="siteNav bs-docs-sidenav affix-top">
+                    <li class=""><a id="noticeA" class="notice" href="/ReportStudent/Notice/StuNotice">
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;通知公告</a></li>
+                    <li class="siteNavActive"><a id="reportA" class="reportActive" href="/ReportStudent/CompleteReport/CompleteReport">
+                        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;完成报告</a></li>
+                    <li id="NoHp" class="">
+                        <a id="creditA" class="credit" href="/ReportStudent/ResultInquiry/ScoreInquiry">
+                            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;成绩查询</a></li>
+                </ul>
+            </div>
+            
+<div class="renderbodyBasic">
+    <div class="row">
+        <ul class="topNav bs-docs-topnav affix-top padding10">
+            <li class=""><a href="/ReportStudent/CompleteReport/CompleteReport">
+                    完成报告</a></li>         
+                       
+        </ul>
+    </div>
+    <div class="row contentBody">
+        
+<link href="/Content/bootstrap-fileinput/fileinput.css" rel="stylesheet" type="text/css">
+
+<script src="/Content/bootstrap-fileinput/fileinput.js" type="text/javascript"></script>
+<style type="text/css">
+    #editor
+    {
+        height: 200px;
+    }
+    .input-group {
+        display:flex !important
+    }
+    #ReportModal img {
+       max-width: 1200px !important;
+    }
+</style>
+<!--弹出框预览报告-->
+<div class="modal fade" id="ReportModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+    <input type="file" class="hide" id="importButtonXml" name="importButtonXml" onchange="Import()" accept=".xls,.xlsx" style="">
+    <div id="imgDiv" style="display: none">
+    </div>
+    <div class="modal-dialog width80">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+                    ×
+                </button>
+                <h4 class="modal-title" id="ReportModalLabel">
+                </h4>
+            </div>
+            <div class="modal-body">
+                <table border="0" cellpadding="0" cellspacing="0" class="datatable" style="margin-left: auto;
+                    margin-right: auto">
+                    <tbody><tr>
+                        <td>
+                            <div id="content">
+                            </div>
+                        </td>
+                    </tr>
+                </tbody></table>
+            </div>
+            <div class="modal-footer">
+                <div class="text-center">
+                    <button type="button" class="btn btn-LightGreen" onclick="XMLSubmitReport_LSTJ();">
+                        临时提交
+                    </button>
+                    <button type="button" class="btn btn-LightGreen" onclick="XMLSubmitReport_ZSTJ();">
+                        正式提交
+                    </button>
+                    <button type="button" class="btn btn-LightGreen" data-dismiss="modal">
+                        关闭
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!--弹出框预览报告-->
+<!-- 弹出框输入数学公式 -->
+<div id="EditorModal" class="fade" style="display: none; margin-bottom: -500px; margin-left: -250px;">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+                    ×
+                </button>
+                <h4 class="modal-title" id="NoticeModalLabel">
+                    公式编辑预览
+                </h4>
+            </div>
+            <div class="modal-body" style="height: 300px; overflow-y: auto;">
+                <script id="editor" type="text/plain"></script>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-LightGreen" data-dismiss="modal">
+                    关闭
+                </button>
+                <button type="button" class="btn btn-LightGreen" onclick="SaveEditor()">
+                    保存
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 弹出框输入数学公式 -->
+<!--弹出Word版完成报告-->
+<div class="modal fade" id="ReportModal_Word" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog width60">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+                    ×
+                </button>
+                <h4 class="modal-title" id="ReportModalLabel_Word">
+                    完成实验报告
+                </h4>
+            </div>
+            <div class="modal-body">
+                <form class="form-horizontal" id="ReportForm" name="form-horizontal">
+                <table border="0" cellpadding="0" cellspacing="0" class="datatable" style="margin-left: auto;
+                    margin-right: auto">
+                    <tbody><tr align="right">
+                        <td>
+                            <button type="button" class="btn btn-primary" id="downReport" onclick="DownReportTemp();">
+                                下载报告</button>
+                        </td>
+                    </tr>
+                    <tr align="left">
+                        <td align="right">
+                            <label class="control-label width75" for="AddPaperName">
+                                上传报告：</label>
+                        </td>
+                        <td>
+                            <input type="text" class="form-control" disabled="disabled" id="fileNames" style="">
+                            <input type="button" class="btn btn-LightGreen" value="上传" onclick="UploadReportFile();" style="">
+                            <input type="file" class="hide" id="importButton" name="importButton" onchange="GetFileName()" style="">
+                            
+                        </td>
+                    </tr>
+                    <tr align="left">
+                        <td align="right">
+                            <label class="control-label width75" for="AddPaperName">
+                                报告名称：</label>
+                        </td>
+                        <td colspan="2">
+                            <label class="control-label" id="reportFileName" style="white-space: pre;">
+                            </label>
+                        </td>
+                    </tr>
+                </tbody></table>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <div class="text-center">
+                    <button type="button" class="btn btn-LightGreen" data-dismiss="modal" data-bind="event:{click:SubmitReport_doc_LS.bind($data)}">
+                        临时提交
+                    </button>
+                    <button type="button" class="btn btn-LightGreen" data-dismiss="modal" data-bind="event:{click:SubmitReport_doc_ZS.bind($data)}">
+                        正式提交
+                    </button>
+                    <button type="button" class="btn btn-LightGreen" data-dismiss="modal">
+                        关闭
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="ReportModal_Pic" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog width80">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">
+                    ×
+                </button>
+                <h4 class="modal-title" id="ReportModalLabel_Pic">
+                    完成实验报告
+                </h4>
+            </div>
+            <div class="modal-body">
+                <form class="form-horizontal" id="ReportForm" name="form-horizontal">
+                    <table border="0" cellpadding="0" cellspacing="0" class="datatable" style="margin-left: auto;
+                    margin-right: auto">
+
+                        <tbody><tr align="left">
+                            <td align="right">
+                                <label class="control-label width60" for="AddPicName">
+                                    上传图片：
+                                </label>
+                            </td>
+                            <td align="left">
+                                <div class="file-input file-input-new"><div class="file-preview ">
+  <button type="button" class="close fileinput-remove" aria-label="Close">
+  <span aria-hidden="true">×</span>
+</button>  <div class="file-drop-disabled clearfix">
+    <div class="file-preview-thumbnails clearfix">
+    </div>
+    <div class="file-preview-status text-center text-success"></div>
+    <div class="kv-fileinput-error file-error-message" style="display: none;"></div>
+  </div>
+</div>
+<div class="kv-upload-progress kv-hidden" style="display: none;"><div class="progress">
+    <div class="progress-bar bg-success progress-bar-success progress-bar-striped active progress-bar-animated" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;">
+        0%
+     </div>
+</div></div><div class="clearfix"></div>
+<div class="input-group file-caption-main">
+  <div class="file-caption form-control kv-fileinput-caption" tabindex="500">
+  <span class="file-caption-icon"></span>
+  <input class="file-caption-name" placeholder="选择个文件 ..." style="">
+</div>
+<div class="input-group-btn input-group-append">
+      <button type="button" tabindex="500" title="清除选中文件" class="btn btn-default btn-secondary fileinput-remove fileinput-remove-button"><i class="glyphicon glyphicon-trash"></i>  <span class="hidden-xs">移除</span></button>
+      <button type="button" tabindex="500" title="取消进行中的上传" class="btn btn-default btn-secondary kv-hidden fileinput-cancel fileinput-cancel-button"><i class="glyphicon glyphicon-ban-circle"></i>  <span class="hidden-xs">取消</span></button>
+      
+      
+      <div tabindex="500" class="btn btn-primary btn-file"><i class="glyphicon glyphicon-folder-open"></i>&nbsp;  <span class="hidden-xs">选择</span><input id="itemImagers" name="itemImagers" type="file" multiple="" class="form-control" accept="image/jpeg, image/png" style=""></div>
+    </div>
+</div></div>
+                            </td>
+                        </tr>
+                        
+                    </tbody></table>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <div class="text-center">
+                    <button type="button" class="btn btn-LightGreen" data-dismiss="modal" data-bind="event:{click:SubmitReport_Pic_ZS.bind($data)}">
+                        提交
+                    </button>
+                    <button type="button" class="btn btn-LightGreen" data-dismiss="modal">
+                        关闭
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="outerdiv" style="position: fixed; top: 0; left: 0; background: rgba(0,0,0,0.7);
+    z-index: 99999; width: 100%; height: 100%; display: none;">
+    <div id="innerdiv" style="position: absolute;">
+        <img id="bigimg" style="border: 5px solid #fff;" src="">
+    </div>
+</div>
+<!--检索框-->
+<div class="row marginTop14 divBorder">
+    <div class="row Tips">
+        <div class="col-md-1 col-xs-1">
+        </div>
+        <div class="col-md-2 col-xs-2 text-left">
+            <span>&nbsp;&nbsp;查询条件&nbsp;&nbsp;</span></div>
+        <div class="col-md-9 col-xs-9">
+        </div>
+    </div>
+    <div class="row marginTop14">
+        <div class="row ">
+            <div class="col-md-5 col-xs-5 text-center">
+                <label class="control-label width75" for="inpReportName">
+                    报告名称：</label>
+                <input class="form-control" id="inpReportName" name="inpReportName" type="text" style="">
+            </div>
+            <div class="col-md-5 col-xs-5 text-left">
+                <label class="control-label width75" for="selCourseID">
+                    所属课程：</label>
+                <select id="selCourseID" name="selCourseID" class="form-control" data-bind="options:selCourseList,
+　　　　　　　　　　　　　　optionsText: 'name', optionsValue:'otherInfo'">
+                </select>
+            </div>
+            <div class="col-md-2 col-xs-2" style="padding-left: 80px;">
+                <input type="button" class="btn btn-LightGreen" onclick="SelScoreInfo()" value="搜索" style="">
+            </div>
+        </div>
+    </div>
+    <div class="row marginTop14">
+    </div>
+</div>
+<table class="table table-hover marginTop14">
+    <thead>
+        <tr>
+            <td width="10%">
+                实验报告名称
+            </td>
+            <td width="10%">
+                课程名称
+            </td>
+            <td width="10%">
+                所属实验
+            </td>
+            <td width="10%">
+                实验时间
+            </td>
+            <td width="10%">
+                提交截止时间
+            </td>
+            <td width="10%">
+                上传报告时间
+            </td>
+            <td width="10%">
+                状态
+            </td>
+            <td width="10%">
+                成绩
+            </td>
+            <td width="10%">
+                操作
+            </td>
+        </tr>
+    </thead>
+    <tbody data-bind="foreach: CompleteReportList"></tbody>
+</table>
+<div id="Pager" class="tcdPageCode">
+</div>
+
+<script type="text/javascript">
+    document.write("<script type='text/javascript' src='" + _websiteName + "/Scripts/echarts.min.js?t=" + Math.random() + "'><\/script>");
+    document.write("<script type='text/javascript' src='" + _websiteName + "/Scripts/APP/ReportStudent/CompleteReportJS.js?t=" + Math.random() + "'><\/script>");
+    //console.log(returnCitySN["cip"] + ',' + returnCitySN["cname"]); //弹出本地ip
+    //    $.getJSON('//freegeoip.net/json/?callback=?', function (data) {
+    //        console.log(JSON.stringify(data, null, 2));  
+    //    });
+</script><script type="text/javascript" src="/Scripts/echarts.min.js?t=0.7687784739312309"></script><script type="text/javascript" src="/Scripts/APP/ReportStudent/CompleteReportJS.js?t=0.19443972417262012"></script>
+
+    </div>
+</div>
+
+        </div>
+        <div class="pagefooter">
+            技术支持：科大奥锐科技有限公司 （浏览器及分辨率建议：支持HTML5的所有浏览器，1280*800及以上）
+        </div>
+
+
+</div><div id="ajaxInfo" class="loadingLayout"><div class="loading">正在请求数据,请稍等...</div></div><div id="ajaxInfo" class="loadingLayout"><div class="loading">正在请求数据,请稍等...</div></div><div id="ajaxInfo" class="loadingLayout"><div class="loading">正在请求数据,请稍等...</div></div><div id="kvFileinputModal" class="file-zoom-dialog modal fade" tabindex="-1" aria-labelledby="kvFileinputModalLabel"><div class="modal-dialog modal-lg" role="document">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h5 class="modal-title" id="kvFileinputModalLabel">详细预览</h5>
+      <span class="kv-zoom-title"></span>
+      <div class="kv-zoom-actions"><button type="button" class="btn btn-sm btn-kv btn-default btn-outline-secondary btn-toggleheader" title="缩放" data-toggle="button" aria-pressed="false" autocomplete="off"><i class="glyphicon glyphicon-resize-vertical"></i></button><button type="button" class="btn btn-sm btn-kv btn-default btn-outline-secondary btn-fullscreen" title="全屏" data-toggle="button" aria-pressed="false" autocomplete="off"><i class="glyphicon glyphicon-fullscreen"></i></button><button type="button" class="btn btn-sm btn-kv btn-default btn-outline-secondary btn-borderless" title="无边界模式" data-toggle="button" aria-pressed="false" autocomplete="off"><i class="glyphicon glyphicon-resize-full"></i></button><button type="button" class="btn btn-sm btn-kv btn-default btn-outline-secondary btn-close" title="关闭当前预览" data-dismiss="modal" aria-hidden="true"><i class="glyphicon glyphicon-remove"></i></button></div>
+    </div>
+    <div class="modal-body">
+      <div class="floating-buttons"></div>
+      <div class="kv-zoom-body file-zoom-content krajee-default"></div>
+<button type="button" class="btn btn-navigate btn-prev" title="预览上一个文件"><i class="glyphicon glyphicon-triangle-left"></i></button> <button type="button" class="btn btn-navigate btn-next" title="预览下一个文件"><i class="glyphicon glyphicon-triangle-right"></i></button>
+    </div>
+  </div>
+</div>
+</div></body></html>

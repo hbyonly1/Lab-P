@@ -5,6 +5,7 @@ import {
   BgColorsOutlined,
   ExperimentOutlined,
   FileDoneOutlined,
+  MessageOutlined,
   SettingOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
@@ -38,7 +39,6 @@ export const workspaceModules = [
     description: '对照图片审核 AI 识别结果，补充固定填空和实验问题。',
     icon: <AuditOutlined />,
     roles: ['admin', 'reviewer'],
-    status: '人工审核',
   },
   {
     id: 'admin-experiments',
@@ -59,6 +59,16 @@ export const workspaceModules = [
     icon: <FileDoneOutlined />,
     roles: ['admin'],
     status: '全部操作',
+  },
+  {
+    id: 'admin-feedback',
+    path: '/workspace/admin/feedback',
+    title: '用户反馈',
+    eyebrow: 'FEEDBACK',
+    description: '查看学生提交的使用反馈与问题报告。',
+    icon: <MessageOutlined />,
+    roles: ['admin'],
+    status: '反馈',
   },
   {
     id: 'design-system',
@@ -101,19 +111,26 @@ export const workspaceModules = [
     roles: ['student'],
     debugRoles: ['admin'],
     status: '实验列表',
+  },
+  {
+    id: 'student-feedback',
+    path: '/workspace/student/feedback',
+    title: '反馈',
+    eyebrow: 'FEEDBACK',
+    description: '提交使用中遇到的问题或建议。',
+    icon: <MessageOutlined />,
+    roles: ['student'],
+    debugRoles: ['admin'],
+    status: '反馈',
   }
 ];
 
 export function canAccessWorkspaceModule(module, role) {
-  return module.roles.includes(role) || module.debugRoles?.includes(role);
+  return module.roles.includes(role);
 }
 
 export function getWorkspaceModulesForRole(role) {
-  const directModules = workspaceModules.filter((module) => module.roles.includes(role));
-  const debugModules = workspaceModules.filter(
-    (module) => !module.roles.includes(role) && module.debugRoles?.includes(role),
-  );
-  return [...directModules, ...debugModules];
+  return workspaceModules.filter((module) => module.roles.includes(role));
 }
 
 export function getDefaultWorkspacePath(role) {

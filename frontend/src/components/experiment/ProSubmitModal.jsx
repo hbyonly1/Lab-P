@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, message } from 'antd';
+import { Modal, Button, message, Input } from 'antd';
 import { CrownOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { getAdminUserRole } from '../../auth.js';
+import { uploadFile } from '../../services/uploadApi.js';
 import { ExperimentImageUploader } from './ExperimentImageUploader.jsx';
 import { PaywallModal } from '../ui/index.js';
-import { getDebugServiceRole } from '../../pages/workspace/debugRoleStore.js';
 
 /**
  * 一键提交 (Pro) 专属复核弹窗
@@ -12,45 +13,59 @@ import { getDebugServiceRole } from '../../pages/workspace/debugRoleStore.js';
  * @param {Function} onCancel - 取消回调
  * @param {Function} onSubmit - 确认提交回调
  */
-export function ProSubmitModal({ open, experiments = [], onCancel, onSubmit }) {
-  const [step, setStep] = useState(1);
+export function ProSubmitModal({ open, experiments: propExperiments, onCancel, onSubmit }) {
+  const [experiments, setExperiments] = useState(propExperiments || []);
   const [batchImageSlots, setBatchImageSlots] = useState({});
+  const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPaywallOpen, setIsPaywallOpen] = useState(false);
   const [readyCount, setReadyCount] = useState(1);
+  const [targetStudent, setTargetStudent] = useState('');
 
-  // 每次打开弹窗时，重置状态
+  const userRole = getAdminUserRole();
+
+  // 每次打开弹窗时，重置状态并同步传入的实验数据
   useEffect(() => {
     if (open) {
       setStep(1);
+      setExperiments(propExperiments || []);
       setBatchImageSlots({});
       setIsSubmitting(false);
       setIsPaywallOpen(false);
+      setTargetStudent('');
     }
-  }, [open]);
+  }, [open, experiments]);
 
-  // 处理图片上传
-  const handleImageUpload = (expId, slotId, file) => {
-    setBatchImageSlots(prev => {
-      const expSlots = prev[expId] || {};
-      const slotFiles = expSlots[slotId] || [];
-      return {
-        ...prev,
-        [expId]: {
-          ...expSlots,
-          [slotId]: [
-            ...slotFiles,
-            {
-              uid: file.uid || `${file.name}-${Date.now()}`,
-              name: file.name,
-              url: URL.createObjectURL(file),
-              originFileObj: file
-            }
-          ]
-        }
-      };
-    });
-    return false; // 阻止默认上传
+  // 处理图片真实上传
+  const handleImageUpload = async (expId, slotId, file) => {
+    const uid = file.uid || `${file.name}-${Date.now()}`;
+    message.loading({ content: '正在上传...', key: `upload-${uid}` });
+    try {
+      const res = await uploadFile(file);
+      setBatchImageSlots(prev => {
+        const expSlots = prev[expId] || {};
+        const slotFiles = expSlots[slotId] || [];
+        return {
+          ...prev,
+          [expId]: {
+            ...expSlots,
+            [slotId]: [
+              ...slotFiles,
+              {
+                uid: uid,
+                name: file.name,
+                url: res.url, // Real URL from server
+                originFileObj: file
+              }
+            ]
+          }
+        };
+      });
+      message.success({ content: '上传成功', key: `upload-${uid}` });
+    } catch (e) {
+      message.error({ content: '上传失败', key: `upload-${uid}` });
+    }
+    return false; // 阻止默认自动上传动作
   };
 
   // 处理图片移除
@@ -93,36 +108,47 @@ export function ProSubmitModal({ open, experiments = [], onCancel, onSubmit }) {
     setIsSubmitting(true);
     try {
       if (onSubmit) {
-        await onSubmit(batchImageSlots); // 此处模拟后台真实创建任务，初始状态可为 payment_pending
+        await onSubmit(batchImageSlots, targetStudent, false);
       }
-
-      const debugRole = getDebugServiceRole();
-      if (debugRole === 'pro') {
-        message.success('提交成功！任务已进入人工审核队列。');
-        onCancel();
-      } else {
-        setReadyCount(count);
-        setIsPaywallOpen(true);
-      }
+      message.success('提交成功！任务已进入人工审核队列。');
+      onCancel();
     } catch (e) {
       console.error(e);
-      message.error('提交失败，请重试');
+      if (e.response?.status === 403 || e.status === 403) {
+        setReadyCount(count);
+        setIsPaywallOpen(true);
+        return;
+      }
+      const msg = e.response?.data?.detail || e.message;
+      message.error(`提交失败: ${msg}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handlePaywallClose = (isHungup) => {
+  const handlePaywallClose = async (isHungup, planName) => {
     setIsPaywallOpen(false);
     if (isHungup === true) {
-      setTimeout(() => {
-        onCancel(); // 只有真正挂起订单时，才关闭底层的上传弹窗
-        Modal.info({
-          title: '订单已挂起',
-          content: '您的任务订单已提交并处于待付款挂起状态。请确保已扫码支付，管理员核实后，您的实验将自动进入处理队列。如有疑问，请联系管理员，QQ:1952096193',
-          okText: '知道了'
-        });
-      }, 10);
+      setIsSubmitting(true);
+      try {
+        if (onSubmit) {
+          await onSubmit(batchImageSlots, targetStudent, true, planName); // pass planName
+        }
+        setTimeout(() => {
+          onCancel(); // 只有真正挂起订单时，才关闭底层的上传弹窗
+          Modal.info({
+            title: '订单已挂起',
+            content: '您的任务订单已提交并处于待付款挂起状态。请确保已扫码支付，管理员核实后，您的实验将自动进入处理队列。如有疑问，请联系管理员，QQ:1952096193',
+            okText: '知道了'
+          });
+        }, 10);
+      } catch (e) {
+        console.error(e);
+        const msg = e.response?.data?.detail || e.message;
+        message.error(`提交失败: ${msg}`);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -197,6 +223,17 @@ export function ProSubmitModal({ open, experiments = [], onCancel, onSubmit }) {
             <strong>警告：</strong> 选择提交的实验将会覆写系统中已存在的数据，进入后台人工复核流程并正式提交，正式提交后你无需任何操作！此操作不可逆，请再三确认！
           </span>
         </div>
+        
+        {['admin', 'reviewer'].includes(userRole) && (
+          <div style={{ marginTop: '24px' }}>
+            <div style={{ marginBottom: '8px', fontWeight: 'bold' }}>管理员代交设置 (可选)</div>
+            <Input 
+              placeholder="请输入代交的目标学号，留空则绑定在当前账号下" 
+              value={targetStudent}
+              onChange={(e) => setTargetStudent(e.target.value)}
+            />
+          </div>
+        )}
       </div>
     );
   };

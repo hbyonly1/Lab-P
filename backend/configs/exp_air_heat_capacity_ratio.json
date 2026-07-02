@@ -1,0 +1,934 @@
+{
+  "meta": {
+    "id": "exp_air_heat_capacity_ratio",
+    "name": "空气比热容比的测定",
+    "version": "2.0",
+    "sortOrder": 5,
+    "enabled": true
+  },
+  "inputs": {
+    "images": [
+      {
+        "id": "IMG_RAW_DATA",
+        "label": "原始实验记录与曲线图片"
+      }
+    ],
+    "fields": [
+      {
+        "id": "SYMD_Fill_0",
+        "type": "extract",
+        "label": "SYMD_Fill_0"
+      },
+      {
+        "id": "SYYL_Fill_0",
+        "type": "extract",
+        "label": "SYYL_Fill_0"
+      },
+      {
+        "id": "SYBZ_Fill_0",
+        "type": "extract",
+        "label": "SYBZ_Fill_0"
+      },
+      {
+        "id": "SYBZ_Fill_1",
+        "type": "extract",
+        "label": "SYBZ_Fill_1"
+      },
+      {
+        "id": "SYBZ_Fill_2",
+        "type": "extract",
+        "label": "SYBZ_Fill_2"
+      },
+      {
+        "id": "SYBZ_Fill_3",
+        "type": "extract",
+        "label": "SYBZ_Fill_3"
+      },
+      {
+        "id": "SYBZ_Fill_4",
+        "type": "extract",
+        "label": "SYBZ_Fill_4"
+      },
+      {
+        "id": "SYBZ_Fill_5",
+        "type": "extract",
+        "label": "SYBZ_Fill_5"
+      },
+      {
+        "id": "YSSJDrawingAreaArea",
+        "type": "generated",
+        "label": "YSSJDrawingAreaArea"
+      },
+      {
+        "id": "K10-0",
+        "type": "extract",
+        "label": "K10-0"
+      },
+      {
+        "id": "K10-1",
+        "type": "extract",
+        "label": "K10-1"
+      },
+      {
+        "id": "K10-2",
+        "type": "extract",
+        "label": "K10-2"
+      },
+      {
+        "id": "K10-3",
+        "type": "extract",
+        "label": "K10-3"
+      },
+      {
+        "id": "K10-4",
+        "type": "extract",
+        "label": "K10-4"
+      },
+      {
+        "id": "K10-5",
+        "type": "extract",
+        "label": "K10-5"
+      },
+      {
+        "id": "K10-6",
+        "type": "extract",
+        "label": "K10-6"
+      },
+      {
+        "id": "K2",
+        "type": "computed",
+        "label": "K2"
+      },
+      {
+        "id": "K30-0",
+        "type": "extract",
+        "label": "K30-0"
+      },
+      {
+        "id": "K30-1",
+        "type": "extract",
+        "label": "K30-1"
+      },
+      {
+        "id": "K30-2",
+        "type": "extract",
+        "label": "K30-2"
+      },
+      {
+        "id": "K30-3",
+        "type": "extract",
+        "label": "K30-3"
+      },
+      {
+        "id": "K30-4",
+        "type": "extract",
+        "label": "K30-4"
+      },
+      {
+        "id": "K30-5",
+        "type": "extract",
+        "label": "K30-5"
+      },
+      {
+        "id": "K31-0",
+        "type": "extract",
+        "label": "K31-0"
+      },
+      {
+        "id": "K31-1",
+        "type": "extract",
+        "label": "K31-1"
+      },
+      {
+        "id": "K31-2",
+        "type": "extract",
+        "label": "K31-2"
+      },
+      {
+        "id": "K31-3",
+        "type": "extract",
+        "label": "K31-3"
+      },
+      {
+        "id": "K31-4",
+        "type": "extract",
+        "label": "K31-4"
+      },
+      {
+        "id": "K31-5",
+        "type": "extract",
+        "label": "K31-5"
+      },
+      {
+        "id": "K32-0",
+        "type": "extract",
+        "label": "K32-0"
+      },
+      {
+        "id": "K32-1",
+        "type": "extract",
+        "label": "K32-1"
+      },
+      {
+        "id": "K32-2",
+        "type": "extract",
+        "label": "K32-2"
+      },
+      {
+        "id": "K32-3",
+        "type": "extract",
+        "label": "K32-3"
+      },
+      {
+        "id": "K32-4",
+        "type": "extract",
+        "label": "K32-4"
+      },
+      {
+        "id": "K32-5",
+        "type": "extract",
+        "label": "K32-5"
+      },
+      {
+        "id": "K33-0",
+        "type": "extract",
+        "label": "K33-0"
+      },
+      {
+        "id": "K33-1",
+        "type": "extract",
+        "label": "K33-1"
+      },
+      {
+        "id": "K33-2",
+        "type": "extract",
+        "label": "K33-2"
+      },
+      {
+        "id": "K33-3",
+        "type": "extract",
+        "label": "K33-3"
+      },
+      {
+        "id": "K33-4",
+        "type": "extract",
+        "label": "K33-4"
+      },
+      {
+        "id": "K33-5",
+        "type": "extract",
+        "label": "K33-5"
+      },
+      {
+        "id": "K34-0",
+        "type": "extract",
+        "label": "K34-0"
+      },
+      {
+        "id": "K34-1",
+        "type": "extract",
+        "label": "K34-1"
+      },
+      {
+        "id": "K34-2",
+        "type": "extract",
+        "label": "K34-2"
+      },
+      {
+        "id": "K34-3",
+        "type": "extract",
+        "label": "K34-3"
+      },
+      {
+        "id": "K34-4",
+        "type": "extract",
+        "label": "K34-4"
+      },
+      {
+        "id": "K34-5",
+        "type": "extract",
+        "label": "K34-5"
+      },
+      {
+        "id": "K35-0",
+        "type": "extract",
+        "label": "K35-0"
+      },
+      {
+        "id": "K35-1",
+        "type": "extract",
+        "label": "K35-1"
+      },
+      {
+        "id": "K35-2",
+        "type": "extract",
+        "label": "K35-2"
+      },
+      {
+        "id": "K35-3",
+        "type": "extract",
+        "label": "K35-3"
+      },
+      {
+        "id": "K35-4",
+        "type": "extract",
+        "label": "K35-4"
+      },
+      {
+        "id": "K35-5",
+        "type": "extract",
+        "label": "K35-5"
+      },
+      {
+        "id": "K36-0",
+        "type": "extract",
+        "label": "K36-0"
+      },
+      {
+        "id": "K36-1",
+        "type": "extract",
+        "label": "K36-1"
+      },
+      {
+        "id": "K36-2",
+        "type": "extract",
+        "label": "K36-2"
+      },
+      {
+        "id": "K36-3",
+        "type": "extract",
+        "label": "K36-3"
+      },
+      {
+        "id": "K36-4",
+        "type": "extract",
+        "label": "K36-4"
+      },
+      {
+        "id": "K36-5",
+        "type": "extract",
+        "label": "K36-5"
+      },
+      {
+        "id": "K37-0",
+        "type": "extract",
+        "label": "K37-0"
+      },
+      {
+        "id": "K37-1",
+        "type": "extract",
+        "label": "K37-1"
+      },
+      {
+        "id": "K37-2",
+        "type": "extract",
+        "label": "K37-2"
+      },
+      {
+        "id": "K37-3",
+        "type": "extract",
+        "label": "K37-3"
+      },
+      {
+        "id": "K37-4",
+        "type": "extract",
+        "label": "K37-4"
+      },
+      {
+        "id": "K37-5",
+        "type": "extract",
+        "label": "K37-5"
+      },
+      {
+        "id": "K4",
+        "type": "computed",
+        "label": "K4"
+      },
+      {
+        "id": "K5",
+        "type": "computed",
+        "label": "K5"
+      },
+      {
+        "id": "skt0Area",
+        "type": "generated",
+        "label": "skt0Area"
+      }
+    ]
+  },
+  "ui": {
+    "fixedSections": [
+      {
+        "title": "实验目的",
+        "segments": [
+          "1. 用",
+          {
+            "nodeId": "SYMD_Fill_0",
+            "width": "50px"
+          },
+          "（A：绝热膨胀 B：绝热压缩）法测定空气的比热容比。2. 观测热力学过程中状态变化及基本物理规律。 3. 了解压力传感器和电流型集成温度传感器的使用方法及特性。 4. 实验仪器：FD-NCD型空气比热容比测定仪"
+        ]
+      },
+      {
+        "title": "实验原理",
+        "segments": [
+          "理想气体的压强P、体积V和温度T在准静态绝热过程中，遵守绝热过程方程：",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_air_heat_capacity_ratio_img_001.png",
+            "inline": true,
+            "width": "65.5423592030203px",
+            "height": "18.5761766725138px"
+          },
+          "其中γ是气体的",
+          {
+            "nodeId": "SYYL_Fill_0",
+            "width": "50px"
+          },
+          "（A：定压比热容和定容比热容之比 B：定容比热容和定压比热容之比），通常称",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_air_heat_capacity_ratio_img_002.png",
+            "inline": true,
+            "width": "68.3463103988715px",
+            "height": "16.122719376144px"
+          },
+          "为该气体的比热容比（亦称绝热指数）我们以贮气瓶内空气（近似为理想气体）作为研究的热学系统，试进行如下实验过程：",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_air_heat_capacity_ratio_img_003.png",
+            "inline": false,
+            "width": "325.258338718732px",
+            "height": "299.67228405659px"
+          },
+          "I→II是绝热过程，由绝热过程方程得",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_air_heat_capacity_ratio_img_004.png",
+            "inline": true,
+            "width": "90.0769321667178px",
+            "height": "23.4830912652533px"
+          },
+          "状态I和状态III的温度均为T₀，由气体状态方程得",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_air_heat_capacity_ratio_img_005.png",
+            "inline": true,
+            "width": "89.7264382672364px",
+            "height": "21.3801278683649px"
+          },
+          "合并上两式，消去V₁、V₂得",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_air_heat_capacity_ratio_img_006.png",
+            "inline": true,
+            "width": "108.337664329698px",
+            "height": "49.34954104698px"
+          },
+          "由上式可以看出，只要测得P₀，P₁，P₂，就可求得空气的绝热指数。"
+        ]
+      },
+      {
+        "title": "实验步骤",
+        "segments": [
+          "1. 连接好仪器，注意充气皮管需与机箱背后的“接容器瓶”相连。然后开启电源，预热20分钟。打开瓶口的活塞阀门（即将活塞旋转到导通状态）。使用调零旋钮将压力传感器的电压数值调到零。用手机app读取大气压数值。2. 关闭活塞阀门（即旋转到不导通状态），往瓶内压入气体，仔细观察机械压力表的指针，当指针分别为 2、3、4、5、6、7、8 kPa 时，记录压力传感器输出的电压值。直线拟合出Ui和Pi的关系图。由",
+          {
+            "nodeId": "SYBZ_Fill_0",
+            "width": "50px"
+          },
+          "（A:截距 B:斜率）便得到了压力传感器的灵敏度 k（即每千帕压力差对应多少mV的读数差）。从而完成对数字式压力传感器的标定。3. 打开活塞阀门，排出气体（注意听放气的声音特点），静置几分钟待温度稳定后（若此时发现压力传感器数值偏离零点，则再次调零），关闭活塞阀门，用打气球将空气压入瓶内，让瓶内气压比外界气压大出 1 - 4 kPa左右，将打气开关关闭（避免从打气球通道漏气），观察温度传感器和压力传感器的数值，当它们稳定后，记录它们的数值",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_air_heat_capacity_ratio_img_007.png",
+            "inline": true,
+            "width": "20.4337943397652px",
+            "height": "17.7349913137584px"
+          },
+          "和",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_air_heat_capacity_ratio_img_008.png",
+            "inline": true,
+            "width": "22.0811156673277px",
+            "height": "17.5246949740696px"
+          },
+          "，此时瓶内气体的位于状态 I。4. 迅速打开活塞阀门，使瓶内气体与大气相通，由于瓶内气压",
+          {
+            "nodeId": "SYBZ_Fill_1",
+            "width": "50px"
+          },
+          "（A:高于 B:低于）大气压，瓶内 ∆V 体积的气体将突然喷出,发出“嗤”的放气声音。当瓶内空气压强降至环境大气压强 P₀时（放气过程约零点几秒），在放气声刚结束时立刻关闭阀门，绝热膨胀过程结束，这时瓶内气体温度",
+          {
+            "nodeId": "SYBZ_Fill_2",
+            "width": "50px"
+          },
+          "（A:升高 B:降低），状态变为II。5. 绝热膨胀结束关闭阀门后，刚膨胀完的瓶内空气的温度由于",
+          {
+            "nodeId": "SYBZ_Fill_3",
+            "width": "50px"
+          },
+          "（ A:高于 B:低于）外界室温了，于是开始",
+          {
+            "nodeId": "SYBZ_Fill_4",
+            "width": "50px"
+          },
+          "（A:放出 B:吸收）外界热量，进入等体",
+          {
+            "nodeId": "SYBZ_Fill_5",
+            "width": "50px"
+          },
+          "（A:升温 B:降温）过程，当达到室温T 时，且压强稳定后，记下此时压力传感器和温度传感器的数值（",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_air_heat_capacity_ratio_img_009.png",
+            "inline": true,
+            "width": "21.3801278683649px",
+            "height": "21.3801278683649px"
+          },
+          "和",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_air_heat_capacity_ratio_img_010.png",
+            "inline": true,
+            "width": "22.0811156673277px",
+            "height": "17.5246949740696px"
+          },
+          "）此时瓶内气体近似为状态III（P₂ , T₀）6. 用压力传感器的数值算出状态I和状态III的压强，代入比热容比公式算出γ。7. 打开放气阀A,使贮气瓶与大气相通，进行下一次测量 ，共测量6次比热容比，计算平均值和这组结果的不确定度。"
+        ]
+      }
+    ],
+    "dataTables": [
+      {
+        "caption": "K1",
+        "rows": [
+          {
+            "isHeader": true,
+            "cells": [
+              {
+                "label": "Pᵢ/KPa"
+              },
+              {
+                "label": "2.00"
+              },
+              {
+                "label": "3.00"
+              },
+              {
+                "label": "4.00"
+              },
+              {
+                "label": "5.00"
+              },
+              {
+                "label": "6.00"
+              },
+              {
+                "label": "7.00"
+              },
+              {
+                "label": "8.00"
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "Uᵢ/mV"
+              },
+              {
+                "nodeId": "K10-0",
+                "label": ""
+              },
+              {
+                "nodeId": "K10-1",
+                "label": ""
+              },
+              {
+                "nodeId": "K10-2",
+                "label": ""
+              },
+              {
+                "nodeId": "K10-3",
+                "label": ""
+              },
+              {
+                "nodeId": "K10-4",
+                "label": ""
+              },
+              {
+                "nodeId": "K10-5",
+                "label": ""
+              },
+              {
+                "nodeId": "K10-6",
+                "label": ""
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "caption": "K3",
+        "rows": [
+          {
+            "isHeader": true,
+            "cells": [
+              {
+                "label": "参数/次数"
+              },
+              {
+                "label": "1"
+              },
+              {
+                "label": "2"
+              },
+              {
+                "label": "3"
+              },
+              {
+                "label": "4"
+              },
+              {
+                "label": "5"
+              },
+              {
+                "label": "6"
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "状态I：Uₚ₁/mV"
+              },
+              {
+                "nodeId": "K30-0",
+                "label": ""
+              },
+              {
+                "nodeId": "K30-1",
+                "label": ""
+              },
+              {
+                "nodeId": "K30-2",
+                "label": ""
+              },
+              {
+                "nodeId": "K30-3",
+                "label": ""
+              },
+              {
+                "nodeId": "K30-4",
+                "label": ""
+              },
+              {
+                "nodeId": "K30-5",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "状态I：UT/mV"
+              },
+              {
+                "nodeId": "K31-0",
+                "label": ""
+              },
+              {
+                "nodeId": "K31-1",
+                "label": ""
+              },
+              {
+                "nodeId": "K31-2",
+                "label": ""
+              },
+              {
+                "nodeId": "K31-3",
+                "label": ""
+              },
+              {
+                "nodeId": "K31-4",
+                "label": ""
+              },
+              {
+                "nodeId": "K31-5",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "状态III：Uₚ₂/mV"
+              },
+              {
+                "nodeId": "K32-0",
+                "label": ""
+              },
+              {
+                "nodeId": "K32-1",
+                "label": ""
+              },
+              {
+                "nodeId": "K32-2",
+                "label": ""
+              },
+              {
+                "nodeId": "K32-3",
+                "label": ""
+              },
+              {
+                "nodeId": "K32-4",
+                "label": ""
+              },
+              {
+                "nodeId": "K32-5",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "状态III：UT/mV"
+              },
+              {
+                "nodeId": "K33-0",
+                "label": ""
+              },
+              {
+                "nodeId": "K33-1",
+                "label": ""
+              },
+              {
+                "nodeId": "K33-2",
+                "label": ""
+              },
+              {
+                "nodeId": "K33-3",
+                "label": ""
+              },
+              {
+                "nodeId": "K33-4",
+                "label": ""
+              },
+              {
+                "nodeId": "K33-5",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "P₀/KPa"
+              },
+              {
+                "nodeId": "K34-0",
+                "label": ""
+              },
+              {
+                "nodeId": "K34-1",
+                "label": ""
+              },
+              {
+                "nodeId": "K34-2",
+                "label": ""
+              },
+              {
+                "nodeId": "K34-3",
+                "label": ""
+              },
+              {
+                "nodeId": "K34-4",
+                "label": ""
+              },
+              {
+                "nodeId": "K34-5",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "P₁/KPa"
+              },
+              {
+                "nodeId": "K35-0",
+                "label": ""
+              },
+              {
+                "nodeId": "K35-1",
+                "label": ""
+              },
+              {
+                "nodeId": "K35-2",
+                "label": ""
+              },
+              {
+                "nodeId": "K35-3",
+                "label": ""
+              },
+              {
+                "nodeId": "K35-4",
+                "label": ""
+              },
+              {
+                "nodeId": "K35-5",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "P₂/KPa"
+              },
+              {
+                "nodeId": "K36-0",
+                "label": ""
+              },
+              {
+                "nodeId": "K36-1",
+                "label": ""
+              },
+              {
+                "nodeId": "K36-2",
+                "label": ""
+              },
+              {
+                "nodeId": "K36-3",
+                "label": ""
+              },
+              {
+                "nodeId": "K36-4",
+                "label": ""
+              },
+              {
+                "nodeId": "K36-5",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "γ"
+              },
+              {
+                "nodeId": "K37-0",
+                "label": ""
+              },
+              {
+                "nodeId": "K37-1",
+                "label": ""
+              },
+              {
+                "nodeId": "K37-2",
+                "label": ""
+              },
+              {
+                "nodeId": "K37-3",
+                "label": ""
+              },
+              {
+                "nodeId": "K37-4",
+                "label": ""
+              },
+              {
+                "nodeId": "K37-5",
+                "label": ""
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "postDataSections": [
+      {
+        "title": "数据处理",
+        "segments": [
+          "实验内容：空气比热容比的测定签字原始数据上传Σ请输入文本……",
+          {
+            "nodeId": "YSSJDrawingAreaArea",
+            "width": "100px"
+          },
+          "1. 表1：标定压力传感器"
+        ]
+      },
+      {
+        "title": "数据处理",
+        "segments": [
+          "2. 用“村美小站”“在线拟合”网页直线拟合表1这组数，完成标定，通过在线拟合可得斜率k（mV/KPa）=",
+          {
+            "nodeId": "K2",
+            "width": "80px"
+          },
+          "3. 表2：计算空气比热容比"
+        ]
+      },
+      {
+        "title": "数据处理",
+        "segments": [
+          "4. 对比热容比6个结果计算它们的平均值作为最终测量值",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_air_heat_capacity_ratio_img_011.png",
+            "inline": true,
+            "width": "15.8072748666108px",
+            "height": "18.891621182047px"
+          },
+          "=",
+          {
+            "nodeId": "K4",
+            "width": "80px"
+          },
+          "5. 并计算它们的不确定度S（%）=",
+          {
+            "nodeId": "K5",
+            "width": "80px"
+          }
+        ]
+      },
+      {
+        "title": "实验分析与拓展",
+        "segments": [
+          "1. 大气压的数值采用手机app提供的数值，精确程度存疑，对最终比热容比的测量结果是否会造成明显误差？如果不会，那么这个实验的主要误差来源是哪里？Σ请输入文本……",
+          {
+            "nodeId": "skt0Area",
+            "width": "100px"
+          }
+        ]
+      }
+    ],
+    "questions": [
+      {
+        "nodeId": "skt0Area",
+        "title": "1. 大气压的数值采用手机app提供的数值，精确程度存疑，对最终比热容比的测量结果是否会造成明显误差？如果不会，那么这个实验的主要误差来源是哪里？Σ请输入文本……",
+        "rows": 5
+      }
+    ]
+  },
+  "ai": {
+    "recognition": {
+      "imageRef": "IMG_RAW_DATA",
+      "prompt": "提取空气比热容比的测定实验报告中的表格数据、填空和曲线读数"
+    },
+    "answerGeneration": {
+      "prompt": "基于空气比热容比的测定实验原理，用中文学术性语言回答实验分析与拓展题。"
+    }
+  },
+  "formulas": {}
+}

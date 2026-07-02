@@ -1,0 +1,78 @@
+{
+  "status": "login_navigation_observed",
+  "student_no_masked": "26A****0207",
+  "login_url": "http://10.25.77.60:8001/Login",
+  "out_dir": "backend/tmp/school_portal_probe/20260702_113637_26A****0207",
+  "artifacts": {
+    "login_screenshot": "backend/tmp/school_portal_probe/20260702_113637_26A****0207/01_login_page.png",
+    "login_html": "backend/tmp/school_portal_probe/20260702_113637_26A****0207/01_login_page.html",
+    "login_dom": "backend/tmp/school_portal_probe/20260702_113637_26A****0207/01_login_dom.json",
+    "captcha_image": "backend/tmp/school_portal_probe/20260702_113637_26A****0207/02_captcha.png",
+    "after_login_screenshot": "backend/tmp/school_portal_probe/20260702_113637_26A****0207/03_after_login.png",
+    "after_login_html": "backend/tmp/school_portal_probe/20260702_113637_26A****0207/03_after_login.html",
+    "after_login_dom": "backend/tmp/school_portal_probe/20260702_113637_26A****0207/03_after_login_dom.json"
+  },
+  "selectors": {
+    "username": "#userName",
+    "password": "#userPass",
+    "captcha": "#checkCode",
+    "captcha_image": "#imgCheckCode",
+    "submit": ".loginBut"
+  },
+  "captcha": {
+    "source": "none",
+    "recognized": true,
+    "provider": "manual_prompt"
+  },
+  "schoolReportList": [
+    {
+      "experimentName": "电表的改装",
+      "status": "未提交"
+    },
+    {
+      "experimentName": "落球法测粘滞系数",
+      "status": "未提交"
+    },
+    {
+      "experimentName": "液晶电光效应实验",
+      "status": "未提交"
+    },
+    {
+      "experimentName": "示波器的使用",
+      "status": "未提交"
+    },
+    {
+      "experimentName": "空气比热容比的测定",
+      "status": "未提交"
+    },
+    {
+      "experimentName": "三线摆和扭摆实验",
+      "status": "未提交"
+    },
+    {
+      "experimentName": "钢丝杨氏模量的测定",
+      "status": "未提交"
+    },
+    {
+      "experimentName": "声速的测量",
+      "status": "未提交"
+    },
+    {
+      "experimentName": "电位差计的原理和使用",
+      "status": "未提交"
+    },
+    {
+      "experimentName": "光电效应和普朗克常量的测定",
+      "status": "未提交"
+    }
+  ],
+  "schoolReportSummary": {
+    "total": 10,
+    "completed": 0,
+    "unsubmitted": 10
+  },
+  "messages": [],
+  "final_url": "http://10.25.77.60:8001/ReportStudent/CompleteReport/",
+  "final_title": "完成报告",
+  "real_name": "陈佳波"
+}

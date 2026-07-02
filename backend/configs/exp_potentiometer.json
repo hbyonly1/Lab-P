@@ -1,0 +1,561 @@
+{
+  "meta": {
+    "id": "exp_potentiometer",
+    "name": "电位差计的原理和使用",
+    "version": "2.0",
+    "sortOrder": 9,
+    "enabled": true
+  },
+  "inputs": {
+    "images": [
+      {
+        "id": "IMG_RAW_DATA",
+        "label": "原始实验记录与曲线图片"
+      }
+    ],
+    "fields": [
+      {
+        "id": "SYBZ_Fill_0",
+        "type": "extract",
+        "label": "SYBZ_Fill_0"
+      },
+      {
+        "id": "SYBZ_Fill_1",
+        "type": "extract",
+        "label": "SYBZ_Fill_1"
+      },
+      {
+        "id": "SYBZ_Fill_2",
+        "type": "extract",
+        "label": "SYBZ_Fill_2"
+      },
+      {
+        "id": "SYBZ_Fill_3",
+        "type": "extract",
+        "label": "SYBZ_Fill_3"
+      },
+      {
+        "id": "SYBZ_Fill_4",
+        "type": "extract",
+        "label": "SYBZ_Fill_4"
+      },
+      {
+        "id": "SYBZ_Fill_5",
+        "type": "extract",
+        "label": "SYBZ_Fill_5"
+      },
+      {
+        "id": "SYBZ_Fill_6",
+        "type": "extract",
+        "label": "SYBZ_Fill_6"
+      },
+      {
+        "id": "SYBZ_Fill_7",
+        "type": "extract",
+        "label": "SYBZ_Fill_7"
+      },
+      {
+        "id": "SYBZ_Fill_8",
+        "type": "extract",
+        "label": "SYBZ_Fill_8"
+      },
+      {
+        "id": "SYBZ_Fill_9",
+        "type": "extract",
+        "label": "SYBZ_Fill_9"
+      },
+      {
+        "id": "SYBZ_Fill_10",
+        "type": "extract",
+        "label": "SYBZ_Fill_10"
+      },
+      {
+        "id": "YSSJDrawingAreaArea",
+        "type": "generated",
+        "label": "YSSJDrawingAreaArea"
+      },
+      {
+        "id": "D1Area",
+        "type": "generated",
+        "label": "D1Area"
+      },
+      {
+        "id": "D2",
+        "type": "computed",
+        "label": "D2"
+      },
+      {
+        "id": "D30-0",
+        "type": "extract",
+        "label": "D30-0"
+      },
+      {
+        "id": "D30-1",
+        "type": "extract",
+        "label": "D30-1"
+      },
+      {
+        "id": "D30-2",
+        "type": "extract",
+        "label": "D30-2"
+      },
+      {
+        "id": "D30-3",
+        "type": "extract",
+        "label": "D30-3"
+      },
+      {
+        "id": "D30-4",
+        "type": "extract",
+        "label": "D30-4"
+      },
+      {
+        "id": "D30-5",
+        "type": "extract",
+        "label": "D30-5"
+      },
+      {
+        "id": "D31-0",
+        "type": "extract",
+        "label": "D31-0"
+      },
+      {
+        "id": "D31-1",
+        "type": "extract",
+        "label": "D31-1"
+      },
+      {
+        "id": "D31-2",
+        "type": "extract",
+        "label": "D31-2"
+      },
+      {
+        "id": "D31-3",
+        "type": "extract",
+        "label": "D31-3"
+      },
+      {
+        "id": "D31-4",
+        "type": "extract",
+        "label": "D31-4"
+      },
+      {
+        "id": "D31-5",
+        "type": "extract",
+        "label": "D31-5"
+      },
+      {
+        "id": "D7",
+        "type": "computed",
+        "label": "D7"
+      },
+      {
+        "id": "D11",
+        "type": "computed",
+        "label": "D11"
+      },
+      {
+        "id": "D12",
+        "type": "computed",
+        "label": "D12"
+      }
+    ]
+  },
+  "ui": {
+    "fixedSections": [
+      {
+        "title": "实验目的",
+        "segments": [
+          "1、掌握电位差计的原理和基本线路2、学会使用电位差计精确测量电池电动势与热电偶的温差电动势。实验仪器：电位差计、温控仪、热电偶、干电池、温度计"
+        ]
+      },
+      {
+        "title": "实验原理",
+        "segments": [
+          "1. 补偿法原理当一个电源与另一个电动势大小相等、方向相反的电源相连接时，电路中电流为零，此时两电源的电动势相互补偿。例如，用一个可调的电源（补偿电源）与待测电源相对接，调节补偿电源的电动势，使电路中电流为零，此时补偿电源的电动势就等于待测电源的电动势。2. 电位差计的工作原理电位差计采用补偿法原理，测量时无须从待测电路取出电流，不会干扰待测电路的工作状态，通过被测电压或电动势与恒定的标准电动势比较而实现精密的测量，是一种高精度测量电动势、电阻和电流的仪器。电位差计工作原理如下表左图（取自物理实验教材图8-1）所示。电位差计主要由工作电流回路、标准回路和测量回路组成。工作电流回路中，有一个稳定的工作电源 E 和一个可变电阻",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_001.png",
+            "inline": true,
+            "width": "18.799218244911px",
+            "height": "14.0197559792557px"
+          },
+          "。将开关 K 合向标准回路一侧，标准回路中接入已知电动势为",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_002.png",
+            "inline": true,
+            "width": "18.4805874272007px",
+            "height": "16.2501717032282px"
+          },
+          "的标准电池，取",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_003.png",
+            "inline": true,
+            "width": "20.0737415157525px",
+            "height": "14.338386796966px"
+          },
+          "为一预定值，调节",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_004.png",
+            "inline": true,
+            "width": "18.799218244911px",
+            "height": "14.0197559792557px"
+          },
+          "，使工作电流为",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_005.png",
+            "inline": true,
+            "width": "7.3285088073382px",
+            "height": "11.1520786198625px"
+          },
+          "，且满足",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_006.png",
+            "inline": true,
+            "width": "48.9639977575505px",
+            "height": "15.8072748666108px"
+          },
+          "，此时检流计的指针将指向0。那么可以得到",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_007.png",
+            "inline": true,
+            "width": "53.5905172307049px",
+            "height": "15.4217315771813px"
+          },
+          "。将开关K合向测量回路，调节Rₓ，使检流计的指针指向0，则有：",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_008.png",
+            "inline": true,
+            "width": "183.518605768457px",
+            "height": "18.120534603188px"
+          },
+          "。3. 热电偶（如下表右侧图所示） 自然界中，两种不同的金属导体（如铜和康铜）连接起来时，如果两外触点接触不同的温度，则在回路中将产生温差电动势，这种不同的导体组合在一起被称为热电偶。当组成热电偶的材料一定时，温差电动势Eₓ仅与两接点处的温度有关。通常将一个接点置于0℃处，另一接点置于待测温度t ℃处，用电位差计测出温差电动势Eₓ，进而就可以得到对应温度 t。",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_009.png",
+            "inline": false,
+            "width": "443.760326133391px",
+            "height": "171.566763796141px"
+          }
+        ]
+      },
+      {
+        "title": "实验步骤",
+        "segments": [
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_010.png",
+            "inline": false,
+            "width": "478.459222182049px",
+            "height": "322.699733252518px"
+          },
+          "图3中，未知电动势正负极接线柱对应序号为：",
+          {
+            "nodeId": "SYBZ_Fill_0",
+            "width": "50px"
+          },
+          "，检流计对应的序号为",
+          {
+            "nodeId": "SYBZ_Fill_1",
+            "width": "50px"
+          },
+          "，检流计机械调零旋钮对应的序号为",
+          {
+            "nodeId": "SYBZ_Fill_2",
+            "width": "50px"
+          },
+          "，双向开关对应的序号为",
+          {
+            "nodeId": "SYBZ_Fill_3",
+            "width": "50px"
+          },
+          "。倍率旋钮对应序号为",
+          {
+            "nodeId": "SYBZ_Fill_4",
+            "width": "50px"
+          },
+          "，设定倍率相当于调整上图8-1中的",
+          {
+            "nodeId": "SYBZ_Fill_5",
+            "width": "50px"
+          },
+          "（请填写答案序号：1、",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_011.png",
+            "inline": true,
+            "width": "20.01316661099756px",
+            "height": "16.93421790161332px"
+          },
+          "，2、",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_012.png",
+            "inline": true,
+            "width": "20.01316661099756px",
+            "height": "16.42105978338265px"
+          },
+          "，3、",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_013.png",
+            "inline": true,
+            "width": "22.57895720215113px",
+            "height": "16.42105978338265px"
+          },
+          "）。工作电流调节旋钮对应的序号为",
+          {
+            "nodeId": "SYBZ_Fill_6",
+            "width": "50px"
+          },
+          ", 调节工作电流调节旋钮相当于调节上图8-1中的",
+          {
+            "nodeId": "SYBZ_Fill_7",
+            "width": "50px"
+          },
+          "（请填写答案序号：1、",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_014.png",
+            "inline": true,
+            "width": "20.01316661099756px",
+            "height": "16.93421790161332px"
+          },
+          "，2、",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_015.png",
+            "inline": true,
+            "width": "20.01316661099756px",
+            "height": "16.42105978338265px"
+          },
+          "，3、",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_016.png",
+            "inline": true,
+            "width": "22.57895720215113px",
+            "height": "16.42105978338265px"
+          },
+          "）。调节电压读数盘相当于调节上图8-1中的",
+          {
+            "nodeId": "SYBZ_Fill_8",
+            "width": "50px"
+          },
+          "（请填写答案序号：1、",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_017.png",
+            "inline": true,
+            "width": "20.01316661099756px",
+            "height": "16.93421790161332px"
+          },
+          "，2、",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_018.png",
+            "inline": true,
+            "width": "20.01316661099756px",
+            "height": "16.42105978338265px"
+          },
+          "，3、",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_019.png",
+            "inline": true,
+            "width": "22.57895720215113px",
+            "height": "16.42105978338265px"
+          },
+          "）。具体实验步骤：1.将倍率旋钮从“断”旋到所需的倍率K，其中测量干电池电动势时，应选择×",
+          {
+            "nodeId": "SYBZ_Fill_9",
+            "width": "50px"
+          },
+          "的倍率，测量热电偶的温差电动势时，应选择×",
+          {
+            "nodeId": "SYBZ_Fill_10",
+            "width": "50px"
+          },
+          "的倍率。打开电位差计电源开关，预热3min，调节“调零旋钮”，使检流计指零。2.将双向开关转向“标准”，调节“工作电流调节”旋钮使检流计指零。3.将被测电压或电动势按极性接在“未知”的两个接线柱上。4.再将双向开关扳向“未知”，调节电压读数盘（R₁、R₂、R₃）旋钮，使检流计指零。此时，未知电压或电动势的值为测量示值乘以倍率，即",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_potentiometer_img_020.png",
+            "inline": true,
+            "width": "189.8685037453611px",
+            "height": "18.473692256305px"
+          },
+          "。"
+        ]
+      }
+    ],
+    "dataTables": [
+      {
+        "caption": "D3",
+        "rows": [
+          {
+            "isHeader": true,
+            "cells": [
+              {
+                "label": "n"
+              },
+              {
+                "label": "1"
+              },
+              {
+                "label": "2"
+              },
+              {
+                "label": "3"
+              },
+              {
+                "label": "4"
+              },
+              {
+                "label": "5"
+              },
+              {
+                "label": "6"
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "t（℃）"
+              },
+              {
+                "nodeId": "D30-0",
+                "label": ""
+              },
+              {
+                "nodeId": "D30-1",
+                "label": ""
+              },
+              {
+                "nodeId": "D30-2",
+                "label": ""
+              },
+              {
+                "nodeId": "D30-3",
+                "label": ""
+              },
+              {
+                "nodeId": "D30-4",
+                "label": ""
+              },
+              {
+                "nodeId": "D30-5",
+                "label": ""
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "label": "U（mV）"
+              },
+              {
+                "nodeId": "D31-0",
+                "label": ""
+              },
+              {
+                "nodeId": "D31-1",
+                "label": ""
+              },
+              {
+                "nodeId": "D31-2",
+                "label": ""
+              },
+              {
+                "nodeId": "D31-3",
+                "label": ""
+              },
+              {
+                "nodeId": "D31-4",
+                "label": ""
+              },
+              {
+                "nodeId": "D31-5",
+                "label": ""
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "postDataSections": [
+      {
+        "title": "数据处理",
+        "segments": [
+          "实验内容：电位差计的原理和使用签字原始数据上传Σ请输入文本……",
+          {
+            "nodeId": "YSSJDrawingAreaArea",
+            "width": "100px"
+          },
+          "1、测量干电池的电动势U①完成测量后，将电位差计表盘和各旋钮示数拍照并上传。Σ请输入文本……",
+          {
+            "nodeId": "D1Area",
+            "width": "100px"
+          },
+          "②读取示数，计算出干电池的电动势 U（V）=",
+          {
+            "nodeId": "D2",
+            "width": "80px"
+          },
+          "2、测量热电偶的温差电动势①调整控温试验仪，自选温度，进行6次测量，并记录数据"
+        ]
+      },
+      {
+        "title": "数据处理",
+        "segments": [
+          "②对测量数据进行线性拟合，拟合曲线截图并上传至下方。拟合函数表达式 U (mV) =k t (℃) + b其中k =",
+          {
+            "nodeId": "D7",
+            "width": "80px"
+          },
+          "③用温度计测量室温 t ' (℃) =",
+          {
+            "nodeId": "D11",
+            "width": "80px"
+          },
+          "根据得出的函数表达式，换算当冷端为0度时，函数的截距 b₀ =",
+          {
+            "nodeId": "D12",
+            "width": "80px"
+          }
+        ]
+      }
+    ],
+    "questions": [
+      {
+        "nodeId": "YSSJDrawingAreaArea",
+        "title": "实验问题 1",
+        "rows": 5
+      },
+      {
+        "nodeId": "D1Area",
+        "title": "实验问题 2",
+        "rows": 5
+      }
+    ]
+  },
+  "ai": {
+    "recognition": {
+      "imageRef": "IMG_RAW_DATA",
+      "prompt": "提取电位差计的原理和使用实验报告中的表格数据、填空和曲线读数"
+    },
+    "answerGeneration": {
+      "prompt": "基于电位差计的原理和使用实验原理，用中文学术性语言回答实验分析与拓展题。"
+    }
+  },
+  "formulas": {}
+}

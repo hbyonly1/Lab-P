@@ -7,6 +7,15 @@ import {
   ReloadOutlined,
   CameraOutlined
 } from '@ant-design/icons';
+import { apiClient } from '../../services/apiClient.js';
+
+const resolveImageUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('/')) {
+    return `${apiClient.defaults.baseURL || 'http://localhost:8000'}${url}`;
+  }
+  return url;
+};
 
 function RecognizeIcon() {
   return (
@@ -76,7 +85,7 @@ export function ExperimentImageUploader({ images, imageSlots, onImageUpload, onR
         >
           <img
             alt={activeImage.name}
-            src={activeImage.url}
+            src={resolveImageUrl(activeImage.url)}
             style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})` }}
             draggable={false}
           />
@@ -113,7 +122,7 @@ export function ExperimentImageUploader({ images, imageSlots, onImageUpload, onR
                 setOffset({ x: 0, y: 0 });
               }}
             >
-              <img src={img.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="thumb" />
+              <img src={resolveImageUrl(img.url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="thumb" />
               <div
                 style={{
                   position: 'absolute', top: 0, right: 0, background: 'rgba(0,0,0,0.45)',

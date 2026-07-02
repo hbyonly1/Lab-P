@@ -1,5 +1,47 @@
 # Decisions
 
+## 2026-07-02
+
+### 学生端保存页 HTML 批量转后端 V2 配置
+
+- 从 `assets/complete_saves_student` 的真实学校系统保存页抽取 8 个新增实验，生成 V2 JSON 配置，继续沿用 `meta / inputs / ui / ai / formulas` 结构。
+- 配置文件只保存在 `backend/configs` 并 upsert 到 `experiments.config_json`；前端通过后端实验 API 获取配置，不再保留构建期 JSON 副本。
+- 图片从 HTML 内联 base64 提取为 `frontend/public/assets/configs_images/*`，小公式图保留 `inline=true`，块级图按最大 400px 高度展示。
+- 当前阶段先保证填空、表格、图片插槽和实验回答区可加载、可编辑、可保存；复杂公式仍留在后端 `formulas`/DAG 后续补齐。
+
+### Admin 原始实验配置编辑
+
+- Admin 在实验预览页最左侧“原始配置”Tab 中维护单个实验的 V2 JSON，不在实验列表页另做一套编辑入口。
+- JSON 编辑器抽为公共组件，自动化配置和实验原始配置共用同一套格式化、保存确认、JSON object 校验和保存按钮交互。
+- 保存实验原始配置时，后端同时写回 `backend/configs/{experiment_id}.json` 和 `experiments.config_json`，确保源文件与运行态数据库一致。
+- 后端不接受前端传入文件路径，只根据 `experiment_id` 生成受控路径，并校验 `meta.id` 与路径参数一致。
+- 每次保存写入 `audit_logs`，记录 action、target_id、文件名和保存前后 hash，不把完整大 JSON 写入审计详情。
+- 实验配置列表区分 `updated_at` 和 `config_file_mtime`：前者只代表配置内容 hash 发生变化的时间，后者代表本地 JSON 文件修改时间。手动刷新时如果 hash 不变，不更新 `updated_at`。
+- 计算规则归属于实验配置源文件，Admin 保存“计算规则配置”时写回 `backend/configs/{experiment_id}.json` 的顶层 `formulas`，并同步数据库运行态。
+
+### 实验排序与启用状态
+
+- 实验显示顺序统一由 `backend/configs/{experiment_id}.json` 的 `meta.sortOrder` 控制，后端 `GET /api/v1/experiments` 按该字段排序后返回，Admin 实验配置页和学生实验页共用同一顺序来源。
+- 实验是否对学生开放统一由 `meta.enabled` 控制；缺失时默认视为启用，显式 `false` 时学生列表和学生详情接口都不可见。
+- 实验配置 `meta` 不保存学生维度状态，已删除 `meta.status`；某个学生的实验状态只由 `submissions` 产生并在学生页面合并展示。
+- Admin / Reviewer 仍可从实验列表和详情接口读取停用实验，便于配置、审核和恢复；前端隐藏不是权限边界，学生过滤必须在后端完成。
+
+### 自动化配置以 Admin JSON 文本维护
+
+- 学校系统基础选择器、入口 URL、验证码节点、提交按钮、反馈节点、重试策略和 Playwright 运行参数第一版统一保存到 `automation_engine_configs.config_json`。
+- Admin 页面只提供一个 JSON 文本配置入口，不为每个选择器单独设计设置栏，避免学校系统页面变化时频繁改表和改 UI。
+- 自动化配置仅 Admin 可见、可修改；保存前做 JSON 格式校验、必填路径校验和保存确认；保存后写入 `audit_logs`。
+- 配置 JSON 只保存选择器和运行参数，不保存具体 Playwright 脚本代码。具体脚本在 Worker 实现阶段单独设计。
+
+### 学校系统身份字段策略
+
+- 当前代码和 migration 中 `users` 表只有 `username`，没有 `name` 字段；`username` 是平台登录名，学生账号场景下曾被临时复用为学号。
+- 后续真实学校系统接入必须拆分语义：新增 `users.student_no` 保存学号，新增 `users.real_name` 保存学校系统同步到的真实姓名。
+- 登录学校系统时账号只使用 `student_no`，密码也按当前学校规则使用同一个 `student_no`。
+- `real_name` 只用于展示、学校系统同步后的核对和人工确认，不参与学校系统登录。
+- 不兼容旧数据；如果本地库里已有旧用户数据与新字段语义冲突，直接清表或重建数据库。
+- 因为学校密码可由学号派生，当前阶段不长期保存学校系统密码；如果未来规则变化，必须新增加密的任务级临时凭据字段并同步 API 契约。
+
 ## 2026-06-30
 
 ### 支付与订单防重复提交流程 (Duplicate Submission Prevention)

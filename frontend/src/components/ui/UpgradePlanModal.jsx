@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Modal, Button, Tag, Space } from 'antd';
+import { Modal, Button, Tag, Space, message } from 'antd';
 import { CheckOutlined, CloseOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { createOrder } from '../../services/ordersApi.js';
+import { PLAN_PRICES } from '../../constants/pricing.js';
 
 export function UpgradePlanModal({ open, onClose, plans = [], currentPlan }) {
   const [showQR, setShowQR] = useState(false);
@@ -10,9 +12,10 @@ export function UpgradePlanModal({ open, onClose, plans = [], currentPlan }) {
   React.useEffect(() => {
     if (open) {
       setShowQR(false);
-      setSelectedPlan('');
+      const defaultPlanObj = plans.find(p => p.key === currentPlan);
+      setSelectedPlan(defaultPlanObj ? defaultPlanObj.name : '');
     }
-  }, [open]);
+  }, [open, currentPlan, plans]);
 
   const handleUpgradeClick = (planName) => {
     setSelectedPlan(planName);
@@ -28,15 +31,8 @@ export function UpgradePlanModal({ open, onClose, plans = [], currentPlan }) {
   };
 
   const renderQRState = () => {
-    // 价格与层级映射 (重用)
-    const planMeta = {
-      free: { price: 0 },
-      pay_per_use: { price: 8 },
-      plus: { price: 30 },
-      pro: { price: 50 }
-    };
     const selectedPlanObj = plans.find(p => p.name === selectedPlan);
-    const price = selectedPlanObj ? planMeta[selectedPlanObj.key]?.price : 0;
+    const price = selectedPlanObj ? PLAN_PRICES[selectedPlanObj.key] : 0;
 
     return (
       <div style={{ textAlign: 'center', padding: '40px 20px', maxWidth: '500px', margin: '0 auto', background: '#fff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
@@ -58,9 +54,22 @@ export function UpgradePlanModal({ open, onClose, plans = [], currentPlan }) {
           <Button onClick={() => setShowQR(false)} size="large">
             返回套餐选择
           </Button>
-          <Button type="primary" onClick={() => {
-            onClose();
-            Modal.info({ title: '订单已挂起', content: '您的升级订单已提交并处于待付款挂起状态。请确保已扫码支付，管理员核实后，您的服务级别将自动更新。', okText: '知道了' });
+          <Button type="primary" onClick={async () => {
+            try {
+              await createOrder({ 
+                experiment_id: "UPGRADE_PLAN", 
+                plan: selectedPlan.toLowerCase() 
+              });
+              onClose();
+              Modal.info({ 
+                title: '订单已挂起', 
+                content: '您的升级订单已提交并处于待付款挂起状态。请确保已扫码支付，管理员核实后，您的服务级别将自动更新。', 
+                okText: '知道了',
+                onOk: () => window.location.reload()
+              });
+            } catch(e) {
+              message.error("创建订单失败：" + e.message);
+            }
           }} size="large" style={{ background: '#1677ff' }}>
             我已支付，下一步
           </Button>
@@ -72,10 +81,10 @@ export function UpgradePlanModal({ open, onClose, plans = [], currentPlan }) {
   const renderCardsState = () => {
     // 价格与层级映射
     const planMeta = {
-      free: { price: 0, level: 0 },
-      pay_per_use: { price: 8, level: 0 },
-      plus: { price: 30, level: 1 },
-      pro: { price: 50, level: 2 }
+      free: { level: 0 },
+      pay_per_use: { level: 0 },
+      plus: { level: 1 },
+      pro: { level: 2 }
     };
     const currentLevel = planMeta[currentPlan]?.level ?? 0;
 
@@ -84,7 +93,8 @@ export function UpgradePlanModal({ open, onClose, plans = [], currentPlan }) {
         {plans.map((plan) => {
           const isCurrent = plan.key === currentPlan;
           const isPro = plan.key === 'pro';
-          const meta = planMeta[plan.key] || { price: 0, level: 0 };
+          const meta = planMeta[plan.key] || { level: 0 };
+          const planPrice = PLAN_PRICES[plan.key] || 0;
           const isLowerLevel = meta.level < currentLevel;
 
           let btnText = `升级至 ${plan.name}`;
@@ -114,7 +124,7 @@ export function UpgradePlanModal({ open, onClose, plans = [], currentPlan }) {
                 )}
               </h3>
               <div className="price">
-                <span className="price-prefix">￥</span>{meta.price}<span>{plan.key === 'pay_per_use' ? '/次' : '/人'}</span>
+                <span className="price-prefix">￥</span>{planPrice}<span>{plan.key === 'pay_per_use' ? '/次' : '/人'}</span>
               </div>
               <div className="desc">
                 {plan.description}
