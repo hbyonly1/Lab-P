@@ -3,260 +3,214 @@
     "id": "exp_steel_wire_young_modulus",
     "name": "钢丝杨氏模量的测定",
     "version": "2.0",
-    "status": "not_started"
+    "sortOrder": 7,
+    "enabled": true
   },
   "inputs": {
     "images": [
       {
         "id": "IMG_RAW_DATA",
-        "label": "原始实验记录与曲线图片"
+        "title": "实验内容：拉伸法测杨氏模量 签字原始数据上传",
+        "targetNodeId": "YSSJDrawingAreaArea"
       }
     ],
     "fields": [
       {
         "id": "SYMD_Fill_0",
-        "type": "extract",
-        "label": "SYMD_Fill_0"
+        "type": "fixed"
       },
       {
         "id": "SYMD_Fill_1",
-        "type": "extract",
-        "label": "SYMD_Fill_1"
+        "type": "fixed"
       },
       {
         "id": "SYMD_Fill_2",
-        "type": "extract",
-        "label": "SYMD_Fill_2"
+        "type": "fixed"
       },
       {
         "id": "SYMD_Fill_3",
-        "type": "extract",
-        "label": "SYMD_Fill_3"
+        "type": "fixed"
       },
       {
         "id": "SYMD_Fill_4",
-        "type": "extract",
-        "label": "SYMD_Fill_4"
+        "type": "fixed"
       },
       {
         "id": "SYYL_Fill_0",
-        "type": "extract",
-        "label": "SYYL_Fill_0"
+        "type": "fixed"
       },
       {
         "id": "SYYL_Fill_1",
-        "type": "extract",
-        "label": "SYYL_Fill_1"
+        "type": "fixed"
       },
       {
         "id": "SYYL_Fill_2",
-        "type": "extract",
-        "label": "SYYL_Fill_2"
+        "type": "fixed"
       },
       {
         "id": "SYYL_Fill_3",
-        "type": "extract",
-        "label": "SYYL_Fill_3"
+        "type": "fixed"
       },
       {
         "id": "SYYL_Fill_4",
-        "type": "extract",
-        "label": "SYYL_Fill_4"
+        "type": "fixed"
       },
       {
         "id": "SYYL_Fill_5",
-        "type": "extract",
-        "label": "SYYL_Fill_5"
+        "type": "fixed"
       },
       {
         "id": "SYYL_Fill_6",
-        "type": "extract",
-        "label": "SYYL_Fill_6"
+        "type": "fixed"
       },
       {
         "id": "SYYL_Fill_7",
-        "type": "extract",
-        "label": "SYYL_Fill_7"
+        "type": "fixed"
       },
       {
         "id": "YSSJDrawingAreaArea",
-        "type": "generated",
-        "label": "YSSJDrawingAreaArea"
+        "type": "image_upload",
+        "imageSlotId": "IMG_RAW_DATA"
       },
       {
         "id": "L1",
-        "type": "computed",
-        "label": "L1"
+        "type": "computed"
       },
       {
         "id": "L2",
-        "type": "computed",
-        "label": "L2"
+        "type": "computed"
       },
       {
         "id": "L3",
-        "type": "computed",
-        "label": "L3"
+        "type": "computed"
       },
       {
         "id": "L4",
-        "type": "computed",
-        "label": "L4"
+        "type": "computed"
       },
       {
         "id": "L50-0",
-        "type": "extract",
-        "label": "L50-0"
+        "type": "ai_recognize"
       },
       {
         "id": "L50-1",
-        "type": "extract",
-        "label": "L50-1"
+        "type": "ai_recognize"
       },
       {
         "id": "L50-2",
-        "type": "extract",
-        "label": "L50-2"
+        "type": "ai_recognize"
       },
       {
         "id": "L51-0",
-        "type": "extract",
-        "label": "L51-0"
+        "type": "ai_recognize"
       },
       {
         "id": "L51-1",
-        "type": "extract",
-        "label": "L51-1"
+        "type": "ai_recognize"
       },
       {
         "id": "L51-2",
-        "type": "extract",
-        "label": "L51-2"
+        "type": "ai_recognize"
       },
       {
         "id": "L52-0",
-        "type": "extract",
-        "label": "L52-0"
+        "type": "ai_recognize"
       },
       {
         "id": "L52-1",
-        "type": "extract",
-        "label": "L52-1"
+        "type": "ai_recognize"
       },
       {
         "id": "L52-2",
-        "type": "extract",
-        "label": "L52-2"
+        "type": "ai_recognize"
       },
       {
         "id": "L53-0",
-        "type": "extract",
-        "label": "L53-0"
+        "type": "ai_recognize"
       },
       {
         "id": "L53-1",
-        "type": "extract",
-        "label": "L53-1"
+        "type": "ai_recognize"
       },
       {
         "id": "L53-2",
-        "type": "extract",
-        "label": "L53-2"
+        "type": "ai_recognize"
       },
       {
         "id": "L54-0",
-        "type": "extract",
-        "label": "L54-0"
+        "type": "ai_recognize"
       },
       {
         "id": "L54-1",
-        "type": "extract",
-        "label": "L54-1"
+        "type": "ai_recognize"
       },
       {
         "id": "L54-2",
-        "type": "extract",
-        "label": "L54-2"
+        "type": "ai_recognize"
       },
       {
         "id": "L55-0",
-        "type": "extract",
-        "label": "L55-0"
+        "type": "ai_recognize"
       },
       {
         "id": "L55-1",
-        "type": "extract",
-        "label": "L55-1"
+        "type": "ai_recognize"
       },
       {
         "id": "L55-2",
-        "type": "extract",
-        "label": "L55-2"
+        "type": "ai_recognize"
       },
       {
         "id": "L56-0",
-        "type": "extract",
-        "label": "L56-0"
+        "type": "ai_recognize"
       },
       {
         "id": "L56-1",
-        "type": "extract",
-        "label": "L56-1"
+        "type": "ai_recognize"
       },
       {
         "id": "L56-2",
-        "type": "extract",
-        "label": "L56-2"
+        "type": "ai_recognize"
       },
       {
         "id": "L57-0",
-        "type": "extract",
-        "label": "L57-0"
+        "type": "ai_recognize"
       },
       {
         "id": "L57-1",
-        "type": "extract",
-        "label": "L57-1"
+        "type": "ai_recognize"
       },
       {
         "id": "L57-2",
-        "type": "extract",
-        "label": "L57-2"
+        "type": "ai_recognize"
       },
       {
         "id": "L60-0",
-        "type": "extract",
-        "label": "L60-0"
+        "type": "ai_recognize"
       },
       {
         "id": "L61-0",
-        "type": "extract",
-        "label": "L61-0"
+        "type": "ai_recognize"
       },
       {
         "id": "L62-0",
-        "type": "extract",
-        "label": "L62-0"
+        "type": "ai_recognize"
       },
       {
         "id": "L63-0",
-        "type": "extract",
-        "label": "L63-0"
+        "type": "ai_recognize"
       },
       {
         "id": "L64-0",
-        "type": "extract",
-        "label": "L64-0"
+        "type": "ai_recognize"
       },
       {
         "id": "L7",
-        "type": "computed",
-        "label": "L7"
+        "type": "computed"
       },
       {
         "id": "L8",
-        "type": "computed",
-        "label": "L8"
+        "type": "computed"
       }
     ]
   },
@@ -265,27 +219,27 @@
       {
         "title": "实验目的",
         "segments": [
-          "实验目的：1. 掌握拉伸法测量金属的",
+          "1. 掌握拉伸法测量金属的",
           {
             "nodeId": "SYMD_Fill_0",
             "width": "80px"
           },
-          "。2. 掌握",
+          "。\n2. 掌握",
           {
             "nodeId": "SYMD_Fill_1",
             "width": "80px"
           },
-          "测量微小长度的原理和方法，会调节、使用望远镜。3. 学会",
+          "测量微小长度的原理和方法，会调节、使用望远镜。\n3. 学会",
           {
             "nodeId": "SYMD_Fill_2",
             "width": "80px"
           },
-          "处理数据。4. 了解运用",
+          "处理数据。\n4. 了解运用",
           {
             "nodeId": "SYMD_Fill_3",
             "width": "80px"
           },
-          "选择配套仪器的方法。5. 掌握间接测量结果的不确定度的计算方法。实验仪器：",
+          "选择配套仪器的方法。\n5. 掌握间接测量结果的不确定度的计算方法。 实验仪器：",
           {
             "nodeId": "SYMD_Fill_4",
             "width": "100px"
@@ -303,7 +257,7 @@
       {
         "title": "实验原理",
         "segments": [
-          "设一根粗细均匀金属棒长为L，横截面积为S，在受到沿长度方向的外力F作用下伸长(或缩短)量为∆L。根据Hooke定律，在弹性限度内，金属内部单位面积的力F/S (称为",
+          "设一根粗细均匀金属棒长为L，横截面积为S，在受到沿长度方向的外力F作用下伸长(或缩短)量为∆L。\n根据Hooke定律，在弹性限度内，金属内部单位面积的力F/S (称为",
           {
             "nodeId": "SYYL_Fill_0",
             "width": "60px"
@@ -313,17 +267,17 @@
             "nodeId": "SYYL_Fill_1",
             "width": "60px"
           },
-          ") 成正比，即F/S = E ΔL/L其中比例系数E就是该材料的杨氏弹性模量，简称",
+          ") 成正比，即 F/S = E ΔL/L 其中比例系数E就是该材料的杨氏弹性模量，简称",
           {
             "nodeId": "SYYL_Fill_2",
             "width": "80px"
           },
-          "，量纲是N•m⁻²或Pa。 即E=FL/SΔL由于∆L是微小形变量（数量级为10⁻²mm），无法用一般的长度测量仪器进行测量，因此实验中用",
+          "，量纲是N•m⁻²或Pa。\n即 E=FL/SΔL 由于∆L是微小形变量（数量级为10⁻²mm），无法用一般的长度测量仪器进行测量，因此实验中用",
           {
             "nodeId": "SYYL_Fill_3",
             "width": "80px"
           },
-          "放大原理进行测量。光杠杆放大原理",
+          "放大原理进行测量。\n光杠杆放大原理",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_steel_wire_young_modulus_img_002.png",
@@ -331,27 +285,27 @@
             "width": "243.516852469481px",
             "height": "392.799214136595px"
           },
-          "如实验示意图，设望远镜中两次读数之差（即标尺刻度差）为l=|r₁-r₀|，由几何关系可以得到tanθ=ΔL/b, tan2θ=l/D因为ΔL≪b，小角度下tanθ≈θ，于是得到ΔL=bl/2D若钢丝的直径d，则横截面积为S=πd²/4，最后得E=8FLD/πd²bl仪器与测量量F：砝码对钢丝所产生的重力(F=mg)L：钢丝的长度（用",
+          "如实验示意图，设望远镜中两次读数之差（即标尺刻度差）为l=|r₁-r₀|，由几何关系可以得到 tanθ=ΔL/b, tan2θ=l/D 因为ΔL≪b，小角度下tanθ≈θ，于是得到 ΔL=bl/2D 若钢丝的直径d，则横截面积为S=πd²/4，最后得 E=8FLD/πd²bl 仪器与测量量\nF：砝码对钢丝所产生的重力(F=mg)\nL：钢丝的长度（用",
           {
             "nodeId": "SYYL_Fill_4",
             "width": "60px"
           },
-          "测量）D：光杠杆镜面到标尺的垂直距离（用",
+          "测量）\nD：光杠杆镜面到标尺的垂直距离（用",
           {
             "nodeId": "SYYL_Fill_5",
             "width": "60px"
           },
-          "测量）d：钢丝的直径（用",
+          "测量）\nd：钢丝的直径（用",
           {
             "nodeId": "SYYL_Fill_6",
             "width": "100px"
           },
-          "测量）b：光杠杆前后足的垂直距离（用",
+          "测量）\nb：光杠杆前后足的垂直距离（用",
           {
             "nodeId": "SYYL_Fill_7",
             "width": "80px"
           },
-          "测量）l：增加拉力时望远镜中的标尺位置增量",
+          "测量）\nl：增加拉力时望远镜中的标尺位置增量",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_steel_wire_young_modulus_img_003.png",
@@ -364,22 +318,22 @@
     ],
     "dataTables": [
       {
-        "caption": "L5",
+        "caption": "（5）每增加1kg重量，记录标尺读数。超出7kg后再返回，每减少1kg重量，记录标尺读数。求出平均值。",
         "rows": [
           {
             "isHeader": true,
             "cells": [
               {
-                "label": "增重（kg）"
+                "text": "增重（kg）"
               },
               {
-                "label": "标尺读数rᵢ'（cm）"
+                "text": "标尺读数rᵢ'（cm）"
               },
               {
-                "label": "标尺读数rᵢ''（cm）"
+                "text": "标尺读数rᵢ''（cm）"
               },
               {
-                "label": "标尺均值rᵢ（cm）"
+                "text": "标尺均值rᵢ（cm）"
               }
             ]
           },
@@ -387,19 +341,16 @@
             "isHeader": false,
             "cells": [
               {
-                "label": "0"
+                "text": "0"
               },
               {
-                "nodeId": "L50-0",
-                "label": ""
+                "nodeId": "L50-0"
               },
               {
-                "nodeId": "L50-1",
-                "label": ""
+                "nodeId": "L50-1"
               },
               {
-                "nodeId": "L50-2",
-                "label": ""
+                "nodeId": "L50-2"
               }
             ]
           },
@@ -407,19 +358,16 @@
             "isHeader": false,
             "cells": [
               {
-                "label": "1"
+                "text": "1"
               },
               {
-                "nodeId": "L51-0",
-                "label": ""
+                "nodeId": "L51-0"
               },
               {
-                "nodeId": "L51-1",
-                "label": ""
+                "nodeId": "L51-1"
               },
               {
-                "nodeId": "L51-2",
-                "label": ""
+                "nodeId": "L51-2"
               }
             ]
           },
@@ -427,19 +375,16 @@
             "isHeader": false,
             "cells": [
               {
-                "label": "2"
+                "text": "2"
               },
               {
-                "nodeId": "L52-0",
-                "label": ""
+                "nodeId": "L52-0"
               },
               {
-                "nodeId": "L52-1",
-                "label": ""
+                "nodeId": "L52-1"
               },
               {
-                "nodeId": "L52-2",
-                "label": ""
+                "nodeId": "L52-2"
               }
             ]
           },
@@ -447,19 +392,16 @@
             "isHeader": false,
             "cells": [
               {
-                "label": "3"
+                "text": "3"
               },
               {
-                "nodeId": "L53-0",
-                "label": ""
+                "nodeId": "L53-0"
               },
               {
-                "nodeId": "L53-1",
-                "label": ""
+                "nodeId": "L53-1"
               },
               {
-                "nodeId": "L53-2",
-                "label": ""
+                "nodeId": "L53-2"
               }
             ]
           },
@@ -467,19 +409,16 @@
             "isHeader": false,
             "cells": [
               {
-                "label": "4"
+                "text": "4"
               },
               {
-                "nodeId": "L54-0",
-                "label": ""
+                "nodeId": "L54-0"
               },
               {
-                "nodeId": "L54-1",
-                "label": ""
+                "nodeId": "L54-1"
               },
               {
-                "nodeId": "L54-2",
-                "label": ""
+                "nodeId": "L54-2"
               }
             ]
           },
@@ -487,19 +426,16 @@
             "isHeader": false,
             "cells": [
               {
-                "label": "5"
+                "text": "5"
               },
               {
-                "nodeId": "L55-0",
-                "label": ""
+                "nodeId": "L55-0"
               },
               {
-                "nodeId": "L55-1",
-                "label": ""
+                "nodeId": "L55-1"
               },
               {
-                "nodeId": "L55-2",
-                "label": ""
+                "nodeId": "L55-2"
               }
             ]
           },
@@ -507,19 +443,16 @@
             "isHeader": false,
             "cells": [
               {
-                "label": "6"
+                "text": "6"
               },
               {
-                "nodeId": "L56-0",
-                "label": ""
+                "nodeId": "L56-0"
               },
               {
-                "nodeId": "L56-1",
-                "label": ""
+                "nodeId": "L56-1"
               },
               {
-                "nodeId": "L56-2",
-                "label": ""
+                "nodeId": "L56-2"
               }
             ]
           },
@@ -527,35 +460,32 @@
             "isHeader": false,
             "cells": [
               {
-                "label": "7"
+                "text": "7"
               },
               {
-                "nodeId": "L57-0",
-                "label": ""
+                "nodeId": "L57-0"
               },
               {
-                "nodeId": "L57-1",
-                "label": ""
+                "nodeId": "L57-1"
               },
               {
-                "nodeId": "L57-2",
-                "label": ""
+                "nodeId": "L57-2"
               }
             ]
           }
         ]
       },
       {
-        "caption": "L6",
+        "caption": "（6）逐差法，求出每增加4kg重量时标尺读数增量（即后4组数值对应减去前4组数值）。并求出4次增量的平均值。",
         "rows": [
           {
             "isHeader": true,
             "cells": [
               {
-                "label": "i"
+                "text": "i"
               },
               {
-                "label": "逐差读数lᵢ=rᵢ₊₄-rᵢ（cm）"
+                "text": "逐差读数lᵢ=rᵢ₊₄-rᵢ（cm）"
               }
             ]
           },
@@ -563,11 +493,10 @@
             "isHeader": false,
             "cells": [
               {
-                "label": "1"
+                "text": "1"
               },
               {
-                "nodeId": "L60-0",
-                "label": ""
+                "nodeId": "L60-0"
               }
             ]
           },
@@ -575,11 +504,10 @@
             "isHeader": false,
             "cells": [
               {
-                "label": "2"
+                "text": "2"
               },
               {
-                "nodeId": "L61-0",
-                "label": ""
+                "nodeId": "L61-0"
               }
             ]
           },
@@ -587,11 +515,10 @@
             "isHeader": false,
             "cells": [
               {
-                "label": "3"
+                "text": "3"
               },
               {
-                "nodeId": "L62-0",
-                "label": ""
+                "nodeId": "L62-0"
               }
             ]
           },
@@ -599,11 +526,10 @@
             "isHeader": false,
             "cells": [
               {
-                "label": "4"
+                "text": "4"
               },
               {
-                "nodeId": "L63-0",
-                "label": ""
+                "nodeId": "L63-0"
               }
             ]
           },
@@ -611,11 +537,10 @@
             "isHeader": false,
             "cells": [
               {
-                "label": "平均值lᵢ"
+                "text": "平均值lᵢ"
               },
               {
-                "nodeId": "L64-0",
-                "label": ""
+                "nodeId": "L64-0"
               }
             ]
           }
@@ -626,7 +551,7 @@
       {
         "title": "实验内容",
         "segments": [
-          "(一)、 测量L、D、d、b(1) L：从图示位置测量到台面",
+          "（一）、 测量L、D、d、b\n（1） L：从图示位置测量到台面",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_steel_wire_young_modulus_img_004.png",
@@ -634,7 +559,7 @@
             "width": "109.968937295492px",
             "height": "41.8929284935208px"
           },
-          "(2) D：从水平放置的镜面测量到标尺框上沿",
+          "\n（2） D：从水平放置的镜面测量到标尺框上沿",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_steel_wire_young_modulus_img_005.png",
@@ -642,7 +567,7 @@
             "width": "360.755288697369px",
             "height": "97.4846477202873px"
           },
-          "(3) d：测量仪器上端金属丝直径",
+          "\n（3） d：测量仪器上端金属丝直径",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_steel_wire_young_modulus_img_006.png",
@@ -650,7 +575,7 @@
             "width": "94.8782535020158px",
             "height": "61.1437633679658px"
           },
-          "(4) b：在白纸上按压出光杠杆前后足的痕迹，再画出直线测量其垂直距离",
+          "\n（4） b：在白纸上按压出光杠杆前后足的痕迹，再画出直线测量其垂直距离",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_steel_wire_young_modulus_img_007.png",
@@ -658,7 +583,7 @@
             "width": "253.780014834095px",
             "height": "169.342179016133px"
           },
-          "(二)、测量l̄ᵢ1. 装置调节1)首先将砝码旋转松弛状态，按一下数字拉力计的蓝色清零按钮，此时数值为零。",
+          "\n（二）、测量l̄ᵢ\n1. 装置调节\n1)首先将砝码旋转松弛状态，按一下数字拉力计的蓝色清零按钮，此时数值为零。",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_steel_wire_young_modulus_img_008.png",
@@ -666,7 +591,7 @@
             "width": "102.609074157736px",
             "height": "67.4689802681002px"
           },
-          "2)增加砝码，使得拉力计为1kg，再次清零。（这样做的目的是使金属丝拉直，并重新选择了零点，避开初始拉伸时的非线性关系。）",
+          "\n2)增加砝码，使得拉力计为1kg，再次清零。（这样做的目的是使金属丝拉直，并重新选择了零点，避开初始拉伸时的非线性关系。）",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_steel_wire_young_modulus_img_009.png",
@@ -674,7 +599,7 @@
             "width": "371.423845975385px",
             "height": "98.782937759411px"
           },
-          "3)调节反射镜和望远镜的位置，旋转皮桶调节焦距，使得在镜筒中看到清晰的尺读数。旋转物镜保证叉丝水平。",
+          "\n3)调节反射镜和望远镜的位置，旋转皮桶调节焦距，使得在镜筒中看到清晰的尺读数。旋转物镜保证叉丝水平。",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_steel_wire_young_modulus_img_010.png",
@@ -682,7 +607,7 @@
             "width": "384.350298973617px",
             "height": "148.400196211138px"
           },
-          "2. 测量每增加1kg和4kg时标尺的度数1)每增加1kg重量，记录标尺读数。超出7kg后再返回，每减少1kg重量，记录标尺读数。求出平均值。",
+          "\n2. 测量每增加1kg和4kg时标尺的度数 1)每增加1kg重量，记录标尺读数。超出7kg后再返回，每减少1kg重量，记录标尺读数。求出平均值。",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_steel_wire_young_modulus_img_011.png",
@@ -690,7 +615,7 @@
             "width": "511.461727757216px",
             "height": "216.71388298834px"
           },
-          "（注：此处不填写数据，具体数据请填写到“数据及处理” ）2)逐差法，求出每增加4kg重量时标尺读数增量（即后4组数值对应减去前4组数值）。并求出4次增量的平均值。",
+          "（注：此处不填写数据，具体数据请填写到“ 数据及处理 ” ） 2)逐差法，求出每增加4kg重量时标尺读数增量（即后4组数值对应减去前4组数值）。并求出4次增量的平均值。",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_steel_wire_young_modulus_img_012.png",
@@ -698,55 +623,41 @@
             "width": "511.885825375589px",
             "height": "116.626845052433px"
           },
-          "（注：此处不填写数据，具体数据请填写到“数据及处理” ）3. 注意事项实验时反光镜前足摆放在金属丝升降台面上！螺旋测微器在测量时应旋转尾部棘轮，不能转动中部大棘轮，过力旋转可能导致测微器损坏螺旋测微器需要进行零点校正，如果不会操作可以找任课老师。在增加拉力测量过程中，不可以移动装置之间的相对位置，否则光路改变，要重新测量。在一次顺序测量过程中，砝码旋钮不可在中途反向旋转，否则产生多余的螺距影响。完成实验后，关闭电源，整理好实验仪器。"
+          "（注：此处不填写数据，具体数据请填写到“ 数据及处理 ” ）\n3. 注意事项\n实验时反光镜前足摆放在金属丝升降台面上！\n螺旋测微器在测量时应旋转尾部棘轮，不能转动中部大棘轮，过力旋转可能导致测微器损坏\n螺旋测微器需要进行零点校正，如果不会操作可以找任课老师。\n在增加拉力测量过程中，不可以移动装置之间的相对位置，否则光路改变，要重新测量。\n在一次顺序测量过程中，砝码旋钮不可在中途反向旋转，否则产生多余的螺距影响。\n完成实验后，关闭电源，整理好实验仪器。"
         ]
       },
       {
         "title": "数据处理",
         "segments": [
-          "实验内容：拉伸法测杨氏模量签字原始数据上传Σ请输入文本……",
-          {
-            "nodeId": "YSSJDrawingAreaArea",
-            "width": "100px"
-          },
-          "1.原始数据（1）L（cm）=",
+          "实验内容：拉伸法测杨氏模量",
+          "\n1. 原始数据\n（1）L（cm）=",
           {
             "nodeId": "L1",
             "width": "80px"
           },
-          "（2）D（cm）=",
+          "\n（2）D（cm）=",
           {
             "nodeId": "L2",
             "width": "80px"
           },
-          "（3）d（mm）=",
+          "\n（3）d（mm）=",
           {
             "nodeId": "L3",
             "width": "80px"
           },
-          "（4）b（cm）=",
+          "\n（4）b（cm）=",
           {
             "nodeId": "L4",
             "width": "80px"
           },
-          "（5）每增加1kg重量，记录标尺读数。超出7kg后再返回，每减少1kg重量，记录标尺读数。求出平均值。"
-        ]
-      },
-      {
-        "title": "数据处理",
-        "segments": [
-          "（6）逐差法，求出每增加4kg重量时标尺读数增量（即后4组数值对应减去前4组数值）。并求出4次增量的平均值。"
-        ]
-      },
-      {
-        "title": "数据处理",
-        "segments": [
-          "2.计算杨氏模量E（注意逐差法每增加4kg重量，因此公式中的F=4×9.8N。）E（ ×10¹¹ Pa）=",
+          "\n（5）每增加1kg重量，记录标尺读数。超出7kg后再返回，每减少1kg重量，记录标尺读数。求出平均值。",
+          "（6）逐差法，求出每增加4kg重量时标尺读数增量（即后4组数值对应减去前4组数值）。并求出4次增量的平均值。",
+          "2. 计算杨氏模量E（注意逐差法每增加4kg重量，因此公式中的F=4×9.8N。） E（ ×10¹¹ Pa）=",
           {
             "nodeId": "L7",
             "width": "80px"
           },
-          "3.只考虑钢丝长度L和金属丝直径d的不确定度，取最小刻度的一半，即 ΔL=0.5mm, Δd=0.005mm。利用不确定度合成公式，写出化简公式，并计算杨氏模量的相对不确定度：",
+          "\n3. 只考虑钢丝长度L和金属丝直径d的不确定度，取最小刻度的一半，即 ΔL=0.5mm, Δd=0.005mm。 利用不确定度合成公式，写出化简公式，并计算杨氏模量的相对不确定度：",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_steel_wire_young_modulus_img_013.png",
@@ -762,21 +673,11 @@
         ]
       }
     ],
-    "questions": [
-      {
-        "nodeId": "YSSJDrawingAreaArea",
-        "title": "实验问题 1",
-        "rows": 5
-      }
-    ]
+    "questions": []
   },
   "ai": {
     "recognition": {
-      "imageRef": "IMG_RAW_DATA",
-      "prompt": "提取钢丝杨氏模量的测定实验报告中的表格数据、填空和曲线读数"
-    },
-    "answerGeneration": {
-      "prompt": "基于钢丝杨氏模量的测定实验原理，用中文学术性语言回答实验分析与拓展题。"
+      "imageRef": "IMG_RAW_DATA"
     }
   },
   "formulas": {}

@@ -552,6 +552,9 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
 
   const visibleQuestions = (experiment.ui.questions || [])
     .filter(q => experiment.metaInfo?.nodeMetaMap?.[q.nodeId]?.type !== 'image_upload');
+  const recognitionImageRef = experiment.ai?.recognition?.imageRef;
+  const recognitionImageSlots = (experiment.inputs?.images || [])
+    .filter(slot => slot.id === recognitionImageRef || (slot.purpose !== 'answer_image' && !slot.targetNodeId));
 
   return (
     <section className="experiment-detail-page">
@@ -613,13 +616,13 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
                   />
                 ))
               ) : (
-                <div style={{ color: '#696969' }}>此实验无需填写实验处理。</div>
+                <div style={{ color: '#696969' }}>此实验无需填写表格。</div>
               )}
             </div>
 
             {/* 右侧：图片插槽与 AI */}
             <ExperimentImageUploader
-              images={(experiment.inputs?.images || []).filter(slot => slot.purpose !== 'answer_image' && !slot.targetNodeId)}
+              images={recognitionImageSlots}
               imageSlots={imageSlots}
               onImageUpload={handleImageUpload}
               onRecognize={handleRecognize}

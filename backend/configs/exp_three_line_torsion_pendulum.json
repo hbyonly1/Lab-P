@@ -9,13 +9,16 @@
   "inputs": {
     "images": [
       {
-        "id": "IMG_RAW_DATA"
+        "id": "IMG_RAW_DATA",
+        "title": "三、数据记录 上传原始数据（教师签字盖章版本）",
+        "targetNodeId": "YSSJDrawingAreaArea"
       }
     ],
     "fields": [
       {
         "id": "YSSJDrawingAreaArea",
-        "type": "generated"
+        "type": "image_upload",
+        "imageSlotId": "IMG_RAW_DATA"
       },
       {
         "id": "S10-0",
@@ -147,51 +150,51 @@
       },
       {
         "id": "OP1_Fill_0",
-        "type": "ai_recognize"
+        "type": "fixed"
       },
       {
         "id": "OP2_Fill_0",
-        "type": "ai_recognize"
+        "type": "fixed"
       },
       {
         "id": "OP3_Fill_0",
-        "type": "ai_recognize"
+        "type": "fixed"
       },
       {
         "id": "OP4_Fill_0",
-        "type": "ai_recognize"
+        "type": "fixed"
       },
       {
         "id": "OP5_Fill_0",
-        "type": "ai_recognize"
+        "type": "fixed"
       },
       {
         "id": "OP6_Fill_0",
-        "type": "ai_recognize"
+        "type": "fixed"
       },
       {
         "id": "OP7_Fill_0",
-        "type": "ai_recognize"
+        "type": "fixed"
       },
       {
         "id": "OP8_Fill_0",
-        "type": "ai_recognize"
+        "type": "fixed"
       },
       {
         "id": "OP9_Fill_0",
-        "type": "ai_recognize"
+        "type": "fixed"
       },
       {
         "id": "OP11_Fill_0",
-        "type": "ai_recognize"
+        "type": "fixed"
       },
       {
         "id": "OP22_Fill_0",
-        "type": "ai_recognize"
+        "type": "fixed"
       },
       {
         "id": "OP33_Fill_0",
-        "type": "ai_recognize"
+        "type": "fixed"
       }
     ]
   },
@@ -200,13 +203,13 @@
       {
         "title": "一、实验目的",
         "segments": [
-          "1. 掌握用三线摆和扭摆测量转动惯量的原理和方法。2. 掌握扭摆法测量材料切变模量的原理，了解测量材料切变模量的基本方法。3. 掌握基本长度测量和时间测量仪器的正确使用方法。实验仪器三线摆，扭摆，螺旋测微计。"
+          "1. 掌握用三线摆和扭摆测量转动惯量的原理和方法。\n2. 掌握扭摆法测量材料切变模量的原理，了解测量材料切变模量的基本方法。\n3. 掌握基本长度测量和时间测量仪器的正确使用方法。 实验仪器 三线摆，扭摆，螺旋测微计。"
         ]
       },
       {
         "title": "二、实验原理",
         "segments": [
-          "1.三线摆：如图一，上、下圆盘均处于水平，悬挂在横梁上。横梁由立柱和底座支承着，三根对称分布的等长悬线将两个圆盘相连。上圆盘可以固定不动。拧动旋钮就可以使得下圆盘绕中心轴OO’作扭摆运动。当下圆盘的摆角很小且忽略空气阻力和悬线扭力影响时，可推出下圆盘绕中心轴OO’的转动惯量为：",
+          "1.三线摆： 如图一，上、下圆盘均处于水平，悬挂在横梁上。横梁由立柱和底座支承着，三根对称分布的等长悬线将两个圆盘相连。上圆盘可以固定不动。拧动旋钮就可以使得下圆盘绕中心轴OO’作扭摆运动。当下圆盘的摆角很小且忽略空气阻力和悬线扭力影响时，可推出下圆盘绕中心轴OO’的转动惯量为：",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_001.png",
@@ -214,7 +217,7 @@
             "width": "98.69908209396px",
             "height": "36.6266124958055px"
           },
-          "其中，m₀是下圆盘质量，g取",
+          "\n其中，m₀ 是下圆盘质量，g 取",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_002.png",
@@ -222,7 +225,7 @@
             "width": "64.7712726241613px",
             "height": "18.891621182047px"
           },
-          "，r为上圆盘半径，R为下圆盘半径，H为平衡时上下圆盘的垂直距离，T₀为下圆盘摆动周期。",
+          "，r 为上圆盘半径，R 为下圆盘半径，H 为平衡时上下圆盘的垂直距离，T₀ 为下圆盘摆动周期。\n",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_003.png",
@@ -230,7 +233,7 @@
             "width": "121.831679459732px",
             "height": "220.145218264262px"
           },
-          "将质量为m的待测刚体放在下圆盘上，并使它的质心位于中心轴OO’上，测出此时的摆动周期T和上下圆盘之间的垂直距离H₁，则待测刚体和下圆盘对于中心轴OO’的总转动惯量J₁为：",
+          "\n将质量为m的待测刚体放在下圆盘上，并使它的质心位于中心轴OO’上，测出此时的摆动周期T和上下圆盘之间的垂直距离 H ₁， 则待测刚体和下圆盘对于中心轴OO’的总转动惯量 J₁为：",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_004.png",
@@ -238,7 +241,7 @@
             "width": "136.867867747484px",
             "height": "47.4218245998324px"
           },
-          "且待测刚体对于中心轴OO’的转动惯量",
+          "\n且待测刚体对于中心轴OO’的转动惯量",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_005.png",
@@ -246,7 +249,7 @@
             "width": "70.9399652550338px",
             "height": "20.4337943397652px"
           },
-          "。2.扭摆：实验中使用的扭摆结构如右图（图2），根据刚体转动定理有：",
+          "。\n2.扭摆： 实验中使用的扭摆结构如右图（图2），根据刚体转动定理有：",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_006.png",
@@ -254,7 +257,7 @@
             "width": "67.8556189395975px",
             "height": "23.9036839446309px"
           },
-          "其中，M是悬线因扭转产生的弹性恢复力矩，J₀为刚体对于悬线轴的转动惯量，",
+          "\n其中，M 是悬线因扭转产生的弹性恢复力矩，J₀ 为刚体对于悬线轴的转动惯量，",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_007.png",
@@ -262,7 +265,7 @@
             "width": "15.8072748666108px",
             "height": "14.6506449983222px"
           },
-          "为角加速度。弹性恢复力矩M与转角",
+          "为角加速度。弹性恢复力矩 M 与转角",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_008.png",
@@ -285,7 +288,7 @@
             "width": "104.482231435403px",
             "height": "161.542638270974px"
           },
-          "其中，K为扭转模量，它与悬线长度L，悬线直径d及悬线材料的切变模量G有如下关系：",
+          "\n其中， K 为扭转模量，它与悬线长度 L ，悬线直径 d 及悬线材料的切变模量 G 有如下关系：",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_011.png",
@@ -293,7 +296,7 @@
             "width": "74.02431157047px",
             "height": "39.7109588112417px"
           },
-          "扭摆运动的微分方程为：",
+          "\n扭摆运动的微分方程为：",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_012.png",
@@ -301,7 +304,7 @@
             "width": "74.02431157047px",
             "height": "40.0965021006713px"
           },
-          "可见，圆盘作简谐运动，其周期为：",
+          "\n可见，圆盘作简谐运动，其周期为：",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_013.png",
@@ -309,7 +312,7 @@
             "width": "81.3496340696311px",
             "height": "45.8796514421142px"
           },
-          "本实验中K未知，所以用一个对质心轴转动惯量为J₁的附加物体加到盘上，并使其质心位于扭摆悬线上，组成复合体。此复合体对于悬线轴的转动惯量为",
+          "\n本实验中 K 未知，所以用一个对质心轴转动惯量为 J ₁的附加物体加到盘上，并使其质心位于扭摆悬线上，组成复合体。此复合体对于悬线轴的转动惯量为",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_014.png",
@@ -325,7 +328,7 @@
             "width": "105.253318014262px",
             "height": "45.8796514421142px"
           },
-          "因此得到：",
+          "\n因此得到：",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_016.png",
@@ -340,25 +343,31 @@
             "width": "97.5424522256714px",
             "height": "44.7230215738256px"
           },
-          "测出T₀和T后就可以计算盘的转动惯量J₀和悬线的切变模量G。"
+          "测出 T₀ 和 T 后就可以计算盘的转动惯量 J₀ 和悬线的切变模量 G 。"
         ]
       }
     ],
     "dataTables": [
       {
-        "caption": "S1",
+        "caption": "表1，有关长度测量的实验数据表（注意规范读数）",
         "rows": [
           {
             "isHeader": true,
             "cells": [
-              {},
-              {}
+              {
+                "text": "待测物理量"
+              },
+              {
+                "text": "数值"
+              }
             ]
           },
           {
             "isHeader": false,
             "cells": [
-              {},
+              {
+                "text": "三线摆实验：上圆盘与悬盘之间的垂直距离H/mm"
+              },
               {
                 "nodeId": "S10-0"
               }
@@ -367,7 +376,9 @@
           {
             "isHeader": false,
             "cells": [
-              {},
+              {
+                "text": "三线摆实验：下圆盘悬孔到转轴距离R/mm"
+              },
               {
                 "nodeId": "S11-0"
               }
@@ -376,7 +387,9 @@
           {
             "isHeader": false,
             "cells": [
-              {},
+              {
+                "text": "扭摆实验：钢丝长度L/mm"
+              },
               {
                 "nodeId": "S12-0"
               }
@@ -385,7 +398,9 @@
           {
             "isHeader": false,
             "cells": [
-              {},
+              {
+                "text": "扭摆实验：钢丝直径d₁/mm"
+              },
               {
                 "nodeId": "S13-0"
               }
@@ -394,7 +409,9 @@
           {
             "isHeader": false,
             "cells": [
-              {},
+              {
+                "text": "扭摆实验：钢丝直径d₂/mm"
+              },
               {
                 "nodeId": "S14-0"
               }
@@ -403,7 +420,9 @@
           {
             "isHeader": false,
             "cells": [
-              {},
+              {
+                "text": "扭摆实验：钢丝直径d₃/mm"
+              },
               {
                 "nodeId": "S15-0"
               }
@@ -412,7 +431,9 @@
           {
             "isHeader": false,
             "cells": [
-              {},
+              {
+                "text": "扭摆实验：钢丝直径d₄/mm"
+              },
               {
                 "nodeId": "S16-0"
               }
@@ -421,7 +442,9 @@
           {
             "isHeader": false,
             "cells": [
-              {},
+              {
+                "text": "扭摆实验：钢丝直径d₅/mm"
+              },
               {
                 "nodeId": "S17-0"
               }
@@ -430,20 +453,28 @@
         ]
       },
       {
-        "caption": "S2",
+        "caption": "表2，累积法测摆动30个周期所需的时间 三线摆：",
         "rows": [
           {
             "isHeader": true,
             "cells": [
-              {},
-              {},
-              {}
+              {
+                "text": "测量次数"
+              },
+              {
+                "text": "悬盘t₀"
+              },
+              {
+                "text": "悬盘加圆环t₁"
+              }
             ]
           },
           {
             "isHeader": false,
             "cells": [
-              {},
+              {
+                "text": "第1次/s"
+              },
               {
                 "nodeId": "S20-0"
               },
@@ -455,7 +486,9 @@
           {
             "isHeader": false,
             "cells": [
-              {},
+              {
+                "text": "第2次/s"
+              },
               {
                 "nodeId": "S21-0"
               },
@@ -467,7 +500,9 @@
           {
             "isHeader": false,
             "cells": [
-              {},
+              {
+                "text": "第3次/s"
+              },
               {
                 "nodeId": "S22-0"
               },
@@ -479,7 +514,9 @@
           {
             "isHeader": false,
             "cells": [
-              {},
+              {
+                "text": "平均值/s"
+              },
               {
                 "nodeId": "S23-0"
               },
@@ -491,7 +528,9 @@
           {
             "isHeader": false,
             "cells": [
-              {},
+              {
+                "text": "单次摆动周期Ti/s"
+              },
               {
                 "nodeId": "S24-0"
               },
@@ -503,20 +542,28 @@
         ]
       },
       {
-        "caption": "S222",
+        "caption": "扭摆：",
         "rows": [
           {
             "isHeader": true,
             "cells": [
-              {},
-              {},
-              {}
+              {
+                "text": "测量次数"
+              },
+              {
+                "text": "悬盘t₀"
+              },
+              {
+                "text": "悬盘加圆环t₁"
+              }
             ]
           },
           {
             "isHeader": false,
             "cells": [
-              {},
+              {
+                "text": "第1次/s"
+              },
               {
                 "nodeId": "S2220-0"
               },
@@ -528,7 +575,9 @@
           {
             "isHeader": false,
             "cells": [
-              {},
+              {
+                "text": "第2次/s"
+              },
               {
                 "nodeId": "S2221-0"
               },
@@ -540,7 +589,9 @@
           {
             "isHeader": false,
             "cells": [
-              {},
+              {
+                "text": "第3次/s"
+              },
               {
                 "nodeId": "S2222-0"
               },
@@ -552,7 +603,9 @@
           {
             "isHeader": false,
             "cells": [
-              {},
+              {
+                "text": "平均值/s"
+              },
               {
                 "nodeId": "S2223-0"
               },
@@ -564,7 +617,9 @@
           {
             "isHeader": false,
             "cells": [
-              {},
+              {
+                "text": "单次摆动周期Ti/s"
+              },
               {
                 "nodeId": "S2224-0"
               },
@@ -580,30 +635,11 @@
       {
         "title": "数据处理",
         "segments": [
-          "实验内容：三线摆和扭摆实验三、数据记录上传原始数据（教师签字盖章版本）Σ请输入文本……",
-          {
-            "nodeId": "YSSJDrawingAreaArea",
-            "width": "100px"
-          },
-          "表1，有关长度测量的实验数据表 （注意规范读数）"
-        ]
-      },
-      {
-        "title": "数据处理",
-        "segments": [
-          "表2，累积法测摆动30个周期所需的时间三线摆："
-        ]
-      },
-      {
-        "title": "数据处理",
-        "segments": [
-          "扭摆："
-        ]
-      },
-      {
-        "title": "数据处理",
-        "segments": [
-          "四、计算处理三线摆实验1.求悬盘绕中心轴的转动惯量",
+          "实验内容：三线摆和扭摆实验\n三、数据记录 上传原始数据（教师签字盖章版本）",
+          "表1，有关长度测量的实验数据表 （注意规范读数）",
+          "表2，累积法测摆动30个周期所需的时间 三线摆：",
+          "扭摆：",
+          "四、计算处理\n三线摆实验\n1. 求悬盘绕中心轴的转动惯量",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_018.png",
@@ -624,7 +660,7 @@
             "nodeId": "S4",
             "width": "80px"
           },
-          "2.悬盘加圆环绕中心轴的转动惯量",
+          "\n2. 悬盘加圆环绕中心轴的转动惯量",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_020.png",
@@ -645,7 +681,7 @@
             "nodeId": "S5",
             "width": "80px"
           },
-          "3.圆环绕中心轴的转动惯量",
+          "\n3. 圆环绕中心轴的转动惯量",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_022.png",
@@ -666,72 +702,72 @@
             "nodeId": "S6",
             "width": "80px"
           },
-          "扭摆实验钢丝样品材料的切变模量G（×10¹⁰pa，保留3位有效数字，标准单位）=",
+          "\n扭摆实验 钢丝样品材料的切变模量G（×10¹⁰pa，保留3位有效数字，标准单位）=",
           {
             "nodeId": "S7",
             "width": "80px"
           },
-          "五、实验测验（一）单项选择题1. 根据三线摆实验原理，圆盘的转动惯量计算公式推导基于哪个物理定律",
+          "\n五、实验测验\n（一）单项选择题\n1. 根据三线摆实验原理，圆盘的转动惯量计算公式推导基于哪个物理定律",
           {
             "nodeId": "OP1_Fill_0",
             "width": "50px"
           },
-          "A. 胡克定律 B. 机械能守恒定律 C. 动量守恒定律 D. 角动量守恒定律 2. 根据转动理论，三线摆实验中，加上重物（不一定是实验中的圆环）后的转动周期一定比不加时",
+          "\nA. 胡克定律\nB. 机械能守恒定律\nC. 动量守恒定律\nD. 角动量守恒定律\n2. 根据转动理论，三线摆实验中，加上重物（不一定是实验中的圆环）后的转动周期一定比不加时",
           {
             "nodeId": "OP2_Fill_0",
             "width": "50px"
           },
-          "A. 增大 B. 减小 C.不变 D.视具体情况而定 3. 三线摆实验中，为减小周期测量误差，实验标准操作是",
+          "\nA. 增大\nB. 减小\nC. 不变\nD. 视具体情况而定\n3. 三线摆实验中，为减小周期测量误差，实验标准操作是",
           {
             "nodeId": "OP3_Fill_0",
             "width": "50px"
           },
-          "A. 只测量1次周期 B. 连续测量10次全振动时间求平均周期 C. 摆动过程中用手扶正圆盘 D. 摆角大小随意，无需控制 4.扭摆实验测量金属丝切变模量，核心利用的物理规律是",
+          "\nA. 只测量1次周期\nB. 连续测量10次全振动时间求平均周期\nC. 摆动过程中用手扶正圆盘\nD. 摆角大小随意，无需控制\n4. 扭摆实验测量金属丝切变模量，核心利用的物理规律是",
           {
             "nodeId": "OP4_Fill_0",
             "width": "50px"
           },
-          "A. 简谐振动规律与扭转胡克定律 B. 热力学定律 C. 电磁感应定律 D. 流体力学规律 5. 三线摆实验中，放置待测圆环时的正确操作是",
+          "\nA. 简谐振动规律与扭转胡克定律\nB. 热力学定律\nC. 电磁感应定律\nD. 流体力学规律\n5. 三线摆实验中，放置待测圆环时的正确操作是",
           {
             "nodeId": "OP5_Fill_0",
             "width": "50px"
           },
-          "A. 随意放在摆盘任意位置 B. 圆环中心与摆盘中心重合，同轴放置 C. 倾斜放置在摆盘上 D. 叠加偏移放置 6. 扭摆实验中，测量振动周期时，扭摆的最大扭转角度应控制在",
+          "\nA. 随意放在摆盘任意位置\nB. 圆环中心与摆盘中心重合，同轴放置\nC. 倾斜放置在摆盘上\nD. 叠加偏移放置\n6. 扭摆实验中，测量振动周期时，扭摆的最大扭转角度应控制在",
           {
             "nodeId": "OP6_Fill_0",
             "width": "50px"
           },
-          "A. 任意角度 B. 小角度（简谐振动区间） C. 大于45° D. 越大测量越精准 7. 三线摆实验中，下列哪项**不会**引起实验系统误差",
+          "\nA. 任意角度\nB. 小角度（简谐振动区间）\nC. 大于45°\nD. 越大测量越精准\n7. 三线摆实验中，下列哪项**不会**引起实验系统误差",
           {
             "nodeId": "OP7_Fill_0",
             "width": "50px"
           },
-          "A. 三线摆悬线长度不等 B. 摆盘不水平 C. 多次测量取平均值 D. 摆角过大超出小角度近似条件 8. 切变模量是表征材料什么性能的物理量",
+          "\nA. 三线摆悬线长度不等\nB. 摆盘不水平\nC. 多次测量取平均值\nD. 摆角过大超出小角度近似条件\n8. 切变模量是表征材料什么性能的物理量",
           {
             "nodeId": "OP8_Fill_0",
             "width": "50px"
           },
-          "A. 材料抗拉伸形变能力 B. 材料抗剪切弹性形变能力C. 材料抗压形变能力 D. 材料硬度大小 9. 对比三线摆和扭摆实验，下列说法错误的是",
+          "\nA. 材料抗拉伸形变能力\nB. 材料抗剪切弹性形变能力\nC. 材料抗压形变能力\nD. 材料硬度大小\n9. 对比三线摆和扭摆实验，下列说法错误的是",
           {
             "nodeId": "OP9_Fill_0",
             "width": "50px"
           },
-          "A. 两个实验均利用了简谐振动周期公式 B. 三线摆测平动+转动惯量，扭摆测材料弹性参数 C. 两个实验都无需控制摆动角度 D. 两个实验都需要多次测量周期减小误差 （二）多项选择题1. 三线摆测转动惯量实验中，保证实验精度的必要操作有",
+          "\nA. 两个实验均利用了简谐振动周期公式\nB. 三线摆测平动+转动惯量，扭摆测材料弹性参数\nC. 两个实验都无需控制摆动角度\nD. 两个实验都需要多次测量周期减小误差\n（二）多项选择题\n1. 三线摆测转动惯量实验中，保证实验精度的必要操作有",
           {
             "nodeId": "OP11_Fill_0",
             "width": "80px"
           },
-          "A. 调节三脚架底座水平，保证摆盘水平 B. 三根悬线长度严格相等 C. 控制摆动摆角小于5°，做小角度摆动 D. 摆动时避免圆盘出现自旋、扭转晃动 2. 下列关于刚体转动惯量的说法正确的有",
+          "\nA. 调节三脚架底座水平，保证摆盘水平\nB. 三根悬线长度严格相等\nC. 控制摆动摆角小于5°，做小角度摆动\nD. 摆动时避免圆盘出现自旋、扭转晃动\n2. 下列关于刚体转动惯量的说法正确的有",
           {
             "nodeId": "OP22_Fill_0",
             "width": "80px"
           },
-          "A. 转动惯量与刚体质量分布有关 B. 转动惯量与转轴位置有关 C. 质量相同的刚体，外形不同转动惯量可能不同 D. 转动惯量是标量，无物理方向 3. 扭摆测切变模量实验中，需要直接测量的物理量有",
+          "\nA. 转动惯量与刚体质量分布有关\nB. 转动惯量与转轴位置有关\nC. 质量相同的刚体，外形不同转动惯量可能不同\nD. 转动惯量是标量，无物理方向\n3. 扭摆测切变模量实验中，需要直接测量的物理量有",
           {
             "nodeId": "OP33_Fill_0",
             "width": "80px"
           },
-          "A. 金属丝的有效长度 B. 金属丝的直径 C. 扭摆振动周期 D. 金属丝的质量 六、阅读：实验拓展思考题1.三线摆在摆动过程中受空气阻尼，振幅会越来越小，周期是否会随时间变化？答：振幅反映出谐振的强度，周期反映的是谐振的频率，这是两个意义不同的物理量。阻尼振动的周期",
+          "\nA. 金属丝的有效长度\nB. 金属丝的直径\nC. 扭摆振动周期\nD. 金属丝的质量\n六、阅读：实验拓展思考题\n1. 三线摆在摆动过程中受空气阻尼，振幅会越来越小，周期是否会随时间变化？ 答：振幅反映出谐振的强度，周期反映的是谐振的频率，这是两个意义不同的物理量。阻尼振动的周期",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_024.png",
@@ -739,7 +775,7 @@
             "width": "92.144846173658px",
             "height": "45.4941081526847px"
           },
-          "，阻尼系数β是常数，所以周期不随时间而变化。2.在三线摆下圆盘上加上待测物体后的摆动周期是否一定比不加时的周期大？答：不一定。由",
+          "，阻尼系数β是常数，所以周期不随时间而变化。\n2. 在三线摆下圆盘上加上待测物体后的摆动周期是否一定比不加时的周期大？ 答：不一定。由",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_025.png",
@@ -763,7 +799,7 @@
             "width": "123.37385261745px",
             "height": "53.5905172307049px"
           },
-          "。而由于",
+          "。 而由于",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_028.png",
@@ -779,7 +815,7 @@
             "width": "16.5783614454698px",
             "height": "41.6386752583894px"
           },
-          "大于1还是小于1.所以在三线摆下圆盘上加上待测物体后的摆动周期不一定比不加时的周期大。3.证明三线摆转动惯量公式",
+          "大于1还是小于\n1. 所以在三线摆下圆盘上加上待测物体后的摆动周期不一定比不加时的周期大。\n3. 证明三线摆转动惯量公式",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_030.png",
@@ -787,7 +823,7 @@
             "width": "96.0002790679533px",
             "height": "37.3976990746646px"
           },
-          "。证明：如下图3，,设某时刻下圆盘在摆动过程中转动一角度",
+          "。 证明：如下图3，,设某时刻下圆盘在摆动过程中转动一角度",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_three_line_torsion_pendulum_img_031.png",
@@ -951,13 +987,7 @@
         ]
       }
     ],
-    "questions": [
-      {
-        "nodeId": "YSSJDrawingAreaArea",
-        "title": "实验问题 1",
-        "rows": 5
-      }
-    ]
+    "questions": []
   },
   "ai": {
     "recognition": {

@@ -186,6 +186,7 @@
 
 - 新增 `tools/extract_student_experiment_configs.mjs`，从 `assets/complete_saves_student` 的真实保存页抽取填空、表格、图片和实验回答区。
 - 新增 8 个 V2 配置：三线摆和扭摆、光电效应和普朗克常量、声速、液晶电光效应0625、电位差计、示波器、空气比热容比、落球法测粘滞系数。
+- 补齐 `assets/complete_saves_student/钢丝杨氏模量的测定.html` 对应的 `exp_steel_wire_young_modulus` 后端配置和 13 张配置图片资源，当前按 `sortOrder=7` 接入实验列表。
 - 生成配置只写入 `backend/configs`；新增 `backend/services/experiment_seed.py`，FastAPI 启动或实验 API 请求时 upsert 到 `experiments.config_json`。
 - 前端实验列表、学生/审核员/管理员实验详情和 Prompt 节点选择均改为通过 `GET /api/v1/experiments`、`GET /api/v1/experiments/{id}` 从后端读取配置；`frontend/src/assets/configs` 不再保存实验 JSON。
 - 新增 `PATCH /api/v1/submissions/{submission_id}/correction`，学生可保存自己的页面填空、表格值、实验回答和图片路径到 `submissions.corrected_json`，并写入审计日志。
@@ -275,3 +276,19 @@
 - 液晶电光效应实验 `YSSJDrawingAreaArea`、`Y2Area` 改为图片上传节点，分别绑定签字原始数据照片和“平均透射率-电压”曲线截图；主识别图片区仍只使用 `IMG_RAW_DATA`。
 - 液晶实验补齐 `Y1` 表格的电压行与透射率列名，并清理数据处理段落中的富文本工具栏乱码，避免预览页中图片上传节点被渲染成普通短输入框。
 - 液晶实验新增 `Y5Area`、`Y7Area` 图片上传节点，分别绑定透光率下降/上升响应曲线照片，补齐学校系统后半段图片上传项的配置结构。
+
+### 学校保存页抽取脚本数据处理区修复
+
+- 重写 `tools/extract_student_experiment_configs.mjs` 的面板抽取逻辑，改为按成对 `div` 解析顶层 `panel` 和嵌套 `opAll/op` 数据处理区，避免富文本编辑器工具条、预览内容和真实节点混在一起。
+- 抽取时会剥离 `wysiwyg-toolbar`、`wysiwyg-editor`、评分按钮和“请输入文本……”等学校编辑器噪声；`Area/DrawingArea/YSSJDrawing` 类 textarea 在数据处理区统一生成为 `image_upload` 节点和独立图片槽。
+- `SYMD*`、`SYYL*` 节点统一生成 `fixed` 类型；脚本会保留已有配置里的非空 `formulas`、fixed 节点 `value` 和 `meta.enabled`，避免重生成时冲掉手工维护内容。
+- 为保护已手工修好的前 4 个实验，脚本无参数时只生成序号 5 之后的实验；若显式传入前 4 个实验 ID 会拒绝执行，除非额外传入 `--allow-manual`。
+- 已重生成序号 5 之后的实验配置：空气比热容比、三线摆和扭摆、钢丝杨氏模量、声速、电位差计、光电效应和普朗克常量。
+- 验证：`node tools/extract_student_experiment_configs.mjs` 成功生成后半段配置；噪声扫描未发现富文本工具栏乱码；所有 `SYMD*` / `SYYL*` 节点均校验为 `fixed`。
+- 示波器配置单独复核：`YSSJDrawingAreaArea` 改为绑定主识别图片槽 `IMG_RAW_DATA`，不再在数据处理区重复生成上传卡；数据处理区编号文本在编号前换行，保留 `（1.2）` 等小节号且不误切 `0、π/4`。
+- 学生实验详情页左侧空表格文案改为“此实验无需填写表格。”；主识别图片区允许显示带 `targetNodeId` 的识别图片槽，上传后可回填到目标节点。
+- 修复抽取脚本 token 正则误吞跨节点 HTML 的问题；示波器数据处理区已恢复 `S2Area/S6Area/S7Area/S8Area/S9Area/S10Area` 等图片上传节点，李萨如图形照片 1-5 的标题和节点映射重新生成到 `exp_oscilloscope.json`。
+- 示波器图片上传节点标题进一步清理：控件标题只保留最近的小题标题，不再拼入大章节说明；上传卡空态改为通用上传提示，避免标题和卡片内部文案重复。
+- 使用修复后的抽取脚本重新生成序号 5 之后的实验配置：空气比热容比、三线摆和扭摆、钢丝杨氏模量、声速、电位差计、光电效应和普朗克常量；后续配置通过 JSON 校验、富文本噪声扫描和 `SYMD/SYYL` fixed 类型校验。
+- 修复后续实验表格抽取：生成器现在识别 `divtab*` 包裹表格和裸 `<table>`，避免空气比热容比等实验把整张表格抽成普通混排节点；已重新生成序号 5 之后配置并确认各实验 `ui.dataTables` 非空。
+- 三线摆和扭摆实验数据处理区整理：生成器按 panel 标题合并同名 `postDataSections`，避免页面出现多个“数据处理”和多个“一键计算数据”按钮；选项题 `A/B/C/D` 与中文大标题自动换行，已仅重新生成序号 6 及之后配置。

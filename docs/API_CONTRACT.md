@@ -287,14 +287,15 @@
 
 ```text
 exp_meter_modification          电表的改装
-exp_three_line_torsion_pendulum 三线摆和扭摆实验
-exp_photoelectric_planck        光电效应和普朗克常量的测定
-exp_sound_velocity              声速的测量
+exp_falling_ball_viscosity      落球法测粘滞系数
 exp_liquid_crystal_0625         液晶电光效应实验0625
-exp_potentiometer               电位差计的原理和使用
 exp_oscilloscope                示波器的使用
 exp_air_heat_capacity_ratio     空气比热容比的测定
-exp_falling_ball_viscosity      落球法测粘滞系数
+exp_three_line_torsion_pendulum 三线摆和扭摆实验
+exp_steel_wire_young_modulus    钢丝杨氏模量的测定
+exp_sound_velocity              声速的测量
+exp_potentiometer               电位差计的原理和使用
+exp_photoelectric_planck        光电效应和普朗克常量的测定
 ```
 
 ### 5.4 Admin 读取与保存实验原始配置

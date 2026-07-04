@@ -9,7 +9,58 @@
   "inputs": {
     "images": [
       {
-        "id": "IMG_RAW_DATA"
+        "id": "IMG_RAW_DATA",
+        "title": "实验内容：示波器的使用 签字原始数据上传",
+        "targetNodeId": "YSSJDrawingAreaArea"
+      },
+      {
+        "id": "IMG_S1Area",
+        "targetNodeId": "S1Area",
+        "title": "（1）上传正弦波照片",
+        "purpose": "answer_image",
+        "maxCount": 1
+      },
+      {
+        "id": "IMG_S2Area",
+        "targetNodeId": "S2Area",
+        "title": "（1） 上传“拍”现象照片",
+        "purpose": "answer_image",
+        "maxCount": 1
+      },
+      {
+        "id": "IMG_S6Area",
+        "targetNodeId": "S6Area",
+        "title": "（1.1）李萨如图形照片1：请上传与下面李萨如图形满足相同频率比的照片",
+        "purpose": "answer_image",
+        "maxCount": 1
+      },
+      {
+        "id": "IMG_S7Area",
+        "targetNodeId": "S7Area",
+        "title": "（2.1）李萨如图形照片2：请上传与下面李萨如图形满足相同频率比的照片",
+        "purpose": "answer_image",
+        "maxCount": 1
+      },
+      {
+        "id": "IMG_S8Area",
+        "targetNodeId": "S8Area",
+        "title": "（3.1）李萨如图形照片3：请上传与下面李萨如图形满足相同频率比的照片",
+        "purpose": "answer_image",
+        "maxCount": 1
+      },
+      {
+        "id": "IMG_S9Area",
+        "targetNodeId": "S9Area",
+        "title": "（4.1）李萨如图形照片4：请上传与下面李萨如图形满足相同频率比的照片",
+        "purpose": "answer_image",
+        "maxCount": 1
+      },
+      {
+        "id": "IMG_S10Area",
+        "targetNodeId": "S10Area",
+        "title": "（5.1）李萨如图形照片5：请上传与下面李萨如图形满足相同频率比的照片",
+        "purpose": "answer_image",
+        "maxCount": 1
       }
     ],
     "fields": [
@@ -39,55 +90,107 @@
       },
       {
         "id": "SYBZ_Fill_0",
-        "type": "ai_recognize"
+        "type": "fixed"
       },
       {
         "id": "SYBZ_Fill_1",
-        "type": "ai_recognize"
+        "type": "fixed"
       },
       {
         "id": "SYBZ_Fill_2",
-        "type": "ai_recognize"
+        "type": "fixed"
       },
       {
         "id": "SYBZ_Fill_3",
-        "type": "ai_recognize"
+        "type": "fixed"
       },
       {
         "id": "YSSJDrawingAreaArea",
-        "type": "generated"
+        "type": "image_upload",
+        "imageSlotId": "IMG_RAW_DATA"
       },
       {
         "id": "S1Area",
-        "type": "generated"
+        "type": "image_upload",
+        "imageSlotId": "IMG_S1Area"
       },
       {
         "id": "OP_Fill_0",
         "type": "ai_recognize"
       },
       {
+        "id": "OP_Fill_1",
+        "type": "ai_recognize"
+      },
+      {
+        "id": "OP1_Fill_0",
+        "type": "fixed"
+      },
+      {
+        "id": "OP1_Fill_1",
+        "type": "fixed"
+      },
+      {
+        "id": "S2Area",
+        "type": "image_upload",
+        "imageSlotId": "IMG_S2Area"
+      },
+      {
         "id": "S3",
         "type": "computed"
       },
       {
-        "id": "OP2_Fill_0",
+        "id": "S4",
+        "type": "computed"
+      },
+      {
+        "id": "S5",
         "type": "ai_recognize"
+      },
+      {
+        "id": "S6Area",
+        "type": "image_upload",
+        "imageSlotId": "IMG_S6Area"
+      },
+      {
+        "id": "OP2_Fill_0",
+        "type": "fixed"
+      },
+      {
+        "id": "S7Area",
+        "type": "image_upload",
+        "imageSlotId": "IMG_S7Area"
       },
       {
         "id": "OP3_Fill_0",
-        "type": "ai_recognize"
+        "type": "fixed"
+      },
+      {
+        "id": "S8Area",
+        "type": "image_upload",
+        "imageSlotId": "IMG_S8Area"
       },
       {
         "id": "OP4_Fill_0",
-        "type": "ai_recognize"
+        "type": "fixed"
+      },
+      {
+        "id": "S9Area",
+        "type": "image_upload",
+        "imageSlotId": "IMG_S9Area"
       },
       {
         "id": "OP5_Fill_0",
-        "type": "ai_recognize"
+        "type": "fixed"
+      },
+      {
+        "id": "S10Area",
+        "type": "image_upload",
+        "imageSlotId": "IMG_S10Area"
       },
       {
         "id": "OP6_Fill_0",
-        "type": "ai_recognize"
+        "type": "fixed"
       }
     ]
   },
@@ -96,13 +199,13 @@
       {
         "title": "实验目的",
         "segments": [
-          "1、了解示波器的工作原理和使用方法2、掌握用示波器观察电信号波形的方法3、学会使用函数信号发生器4、学习使用示波器测量交流电的电压、周期和频率的方法5、学习用示波器通过李萨如图形测量频率的方法实验仪器：函数信号发生器、双踪示波器"
+          "1、了解示波器的工作原理和使用方法\n2、掌握用示波器观察电信号波形的方法\n3、学会使用函数信号发生器\n4、学习使用示波器测量交流电的电压、周期和频率的方法\n5、学习用示波器通过李萨如图形测量频率的方法 实验仪器： 函数信号发生器、双踪示波器"
         ]
       },
       {
         "title": "实验原理",
         "segments": [
-          "示波器是一种多用途的现代测量工具，它可直接观察电信号的波形，也能测定电压信号的幅度、周期和频率等参数。双踪示波器不仅能独立观察两种信号的波形，以便对它们进行对比、分析和研究，还能测量两个信号之间的时间差和相位差。一切可以转化为电压的其他电学量（如电流、电功率、阻抗、位相等）和非电学量（如温度、位移、压强、磁场、频率等）都可以用示波器来进行观测。其基本结构与工作原理如下：1、示波器的基本结构与显示波形的基本原理示波器的基本结构可分为示波管（CRT）、扫描同步系统、放大与衰减系统、电源系统四个部分。 “示波管（CRT）”是示波器的核心部件。如图1所示，示波管可细分为电子枪，偏转系统和荧光屏三部分。",
+          "示波器是一种多用途的现代测量工具，它可直接观察电信号的波形，也能测定电压信号的幅度、周期和频率等参数。双踪示波器不仅能独立观察两种信号的波形，以便对它们进行对比、分析和研究，还能测量两个信号之间的时间差和相位差。一切可以转化为电压的其他电学量（如电流、电功率、阻抗、位相等）和非电学量（如温度、位移、压强、磁场、频率等）都可以用示波器来进行观测。其基本结构与工作原理如下：\n1、示波器的基本结构与显示波形的基本原理 示波器的基本结构可分为示波管（CRT）、扫描同步系统、放大与衰减系统、电源系统四个部分。 “示波管（CRT）”是示波器的核心部件。如图1所示，示波管可细分为电子枪，偏转系统和荧光屏三部分。",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_oscilloscope_img_001.png",
@@ -110,7 +213,7 @@
             "width": "616.4055316187244px",
             "height": "238.9264198482168px"
           },
-          "（1）电子枪电子枪包括灯丝F，阴极K，控制栅极G，第一阳极A1，第二阳极A2等。阴极被灯丝加热后，可沿轴向发射电子。控制栅极的电位比阴极",
+          "\n（1）电子枪 电子枪包括灯丝F，阴极K，控制栅极G，第一阳极A1，第二阳极A2等。阴极被灯丝加热后，可沿轴向发射电子。控制栅极的电位比阴极",
           {
             "nodeId": "SYYL_Fill_0",
             "width": "50px"
@@ -120,12 +223,12 @@
             "nodeId": "SYYL_Fill_1",
             "width": "50px"
           },
-          "（请填写“加速”或“减速”），并具有静电透镜的作用，能把电子束会聚成一点。（2）偏转系统偏转系统由两对互相垂直的金属偏转板x和y组成，分别控制电子束在水平方向和竖直方向的偏转。从电子枪射出的电子束若不受横向电场的作用，将沿轴线前进并在荧光屏的中心呈现静止的光点。若受到横向电场的作用，电子束的运动方向就会偏离轴线，屏上光点的位置就会移动。x偏转板之间的横向电场用来控制光点在水平方向的位移，y偏转板用来控制光点在竖直方向的位移。容易证明，光点在荧光屏上偏移的距离与偏转板上所加的电压成",
+          "（请填写“加速”或“减速”），并具有静电透镜的作用，能把电子束会聚成一点。\n（2）偏转系统 偏转系统由两对互相垂直的金属偏转板x和y组成，分别控制电子束在水平方向和竖直方向的偏转。从电子枪射出的电子束若不受横向电场的作用，将沿轴线前进并在荧光屏的中心呈现静止的光点。若受到横向电场的作用，电子束的运动方向就会偏离轴线，屏上光点的位置就会移动。x偏转板之间的横向电场用来控制光点在水平方向的位移，y偏转板用来控制光点在竖直方向的位移。容易证明，光点在荧光屏上偏移的距离与偏转板上所加的电压成",
           {
             "nodeId": "SYYL_Fill_2",
             "width": "50px"
           },
-          "（请填写“正比”或“反比”），因此可将电压的测量转化为屏上的光斑偏离距离的测量，这就是示波器测量电压的原理。（3）波形显示的原理",
+          "（请填写“正比”或“反比”），因此可将电压的测量转化为屏上的光斑偏离距离的测量，这就是示波器测量电压的原理。\n（3）波形显示的原理",
           {
             "type": "image",
             "src": "/assets/configs_images/exp_oscilloscope_img_002.png",
@@ -143,7 +246,7 @@
             "nodeId": "SYYL_Fill_4",
             "width": "50px"
           },
-          "（请填写“大于”或“小于”或“等于”）正弦电压的变化周期，在荧光屏上将显示出一个稳定的正弦电压波形图，如图4所示。当波形信号的频率等于锯齿波频率的",
+          "（请填写“大于”或“小于”或“等于”）正弦电压的变化周期，在荧光屏上将显示出一个稳定的正弦电压波形图，如图4所示。 当波形信号的频率等于锯齿波频率的",
           {
             "nodeId": "SYYL_Fill_5",
             "width": "50px"
@@ -161,12 +264,12 @@
             "width": "486.16680408080833px",
             "height": "213.52918902637248px"
           },
-          "1、用示波器观察单波信号信号发生器的输出端接示波器的“CH1输入”端，观察正弦、方波、三角波等的波形。其中，MODE键需拨至",
+          "\n1、用示波器观察单波信号 信号发生器的输出端接示波器的“CH1输入”端，观察正弦、方波、三角波等的波形。其中，MODE键需拨至",
           {
             "nodeId": "SYBZ_Fill_0",
             "width": "50px"
           },
-          "位置（请填写“CH1”或“CH2”或“DUAL”或“ADD”），调整正弦波使其稳定、清晰定位于荧光屏的中央，拍摄清晰的正弦波波形图，根据屏幕的坐标刻度，读出并记录被测正弦信号的周期和振幅。2、用示波器观察两种信号的同向叠加利用示波器观察“拍”现象，其中，MODE键需拨至",
+          "位置（请填写“CH1”或“CH2”或“DUAL”或“ADD”），调整正弦波使其稳定、清晰定位于荧光屏的中央，拍摄清晰的正弦波波形图，根据屏幕的坐标刻度，读出并记录被测正弦信号的周期和振幅。\n2、用示波器观察两种信号的同向叠加 利用示波器观察“拍”现象，其中，MODE键需拨至",
           {
             "nodeId": "SYBZ_Fill_1",
             "width": "50px"
@@ -176,12 +279,12 @@
             "nodeId": "SYBZ_Fill_2",
             "width": "50px"
           },
-          "（请填写“CH1”或“CH2”或“LINE”或“EXT”）。记录两个信号的频率f₁ ,f₂，根据图形读取振幅的变化周期T，将1/T和两个信号的频率差Δf 进行对比，记录并分析结果。3、用示波器观察两种信号的垂直叠加将示波器的TIME/DIV旋钮调至",
+          "（请填写“CH1”或“CH2”或“LINE”或“EXT”）。记录两个信号的频率f₁ ,f₂，根据图形读取振幅的变化周期T，将1/T和两个信号的频率差Δf 进行对比，记录并分析结果。\n3、用示波器观察两种信号的垂直叠加 将示波器的TIME/DIV旋钮调至",
           {
             "nodeId": "SYBZ_Fill_3",
             "width": "50px"
           },
-          "档(请填写“CH1”或“CH2”或“X-Y”) ，显示两种信号的垂直叠加。（1）观察频率比为fy : fx=1:2和1:3的李萨如图形，并用手机拍摄清晰的李萨如图形照片。（2）用示波器观察输入正弦信号频率比为1:1，相位差(相移)为0、π/4和π/2时的李萨如图形，并用手机拍摄清晰的照片。"
+          "档(请填写“CH1”或“CH2”或“X-Y”) ，显示两种信号的垂直叠加。\n（1）观察频率比为fy : fx=1:2和1:3的李萨如图形，并用手机拍摄清晰的李萨如图形照片。\n（2）用示波器观察输入正弦信号频率比为1:1，相位差(相移)为0、π/4和π/2时的李萨如图形，并用手机拍摄清晰的照片。"
         ]
       }
     ],
@@ -190,47 +293,154 @@
       {
         "title": "数据处理",
         "segments": [
-          "实验内容：示波器的使用签字原始数据上传Σ请输入文本……",
-          {
-            "nodeId": "YSSJDrawingAreaArea",
-            "width": "100px"
-          },
-          "1、用示波器观察单波信号（1）上传正弦波照片；Σ请输入文本……",
+          "1、用示波器观察单波信号",
           {
             "nodeId": "S1Area",
-            "width": "100px"
+            "title": "（1）上传正弦波照片",
+            "emptyTitle": "拖动文件到这里上传图片",
+            "emptyHint": "支持多图片，可拖动上传或点击选择"
           },
-          "（2）该正弦波周期为",
+          "\n（2）该正弦波周期为",
           {
             "nodeId": "OP_Fill_0",
             "width": "60px"
           },
-          "（2）用于合成“拍”现象的两个正弦信号频率分别为f1（Hz）=",
+          "ms，振幅为",
+          {
+            "nodeId": "OP_Fill_1",
+            "width": "60px"
+          },
+          "V ；\n（3）若调整示波器得到的正弦波形如下图所示，则通过示波器可以读出该正弦波周期为",
+          {
+            "nodeId": "OP1_Fill_0",
+            "width": "50px"
+          },
+          "ms ， 振幅为",
+          {
+            "nodeId": "OP1_Fill_1",
+            "width": "50px"
+          },
+          "V。",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_oscilloscope_img_004.png",
+            "inline": false,
+            "width": "436.1890909090908px",
+            "height": "283.8109090909092px"
+          },
+          "\n2、用示波器观察两种信号的同向叠加",
+          {
+            "nodeId": "S2Area",
+            "title": "（1） 上传“拍”现象照片",
+            "emptyTitle": "拖动文件到这里上传图片",
+            "emptyHint": "支持多图片，可拖动上传或点击选择"
+          },
+          "\n（2）用于合成“拍”现象的两个正弦信号频率分别为f1 （Hz）=",
           {
             "nodeId": "S3",
             "width": "80px"
           },
-          "（1.2）fy : fx=1:1，B路信号相移为",
+          "\n（3）f2（Hz）=",
+          {
+            "nodeId": "S4",
+            "width": "80px"
+          },
+          "\n（4）根据图形读取振幅的变化周期T（s）=",
+          {
+            "nodeId": "S5",
+            "width": "80px"
+          },
+          "\n3、用示波器观察两种信号的垂直叠加（其中第1、2、3张图片还需满足相位差相同）\n（1.1）李萨如图形照片1：请上传与下面李萨如图形满足相同频率比的照片 ；",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_oscilloscope_img_005.png",
+            "inline": true,
+            "width": "121.06452362258px",
+            "height": "115.476930224614px"
+          },
+          {
+            "nodeId": "S6Area",
+            "title": "（1.1）李萨如图形照片1",
+            "emptyTitle": "拖动文件到这里上传图片",
+            "emptyHint": "支持多图片，可拖动上传或点击选择"
+          },
+          "\n（1.2） fy : fx=1:1 ， B路信号相移为",
           {
             "nodeId": "OP2_Fill_0",
             "width": "50px"
           },
-          "（2.2）fy : fx=1:1，B路信号相移为",
+          "°\n（2.1）李萨如图形照片 2 ：请上传与下面李萨如图形满足相同频率比的照片 ；",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_oscilloscope_img_006.png",
+            "inline": true,
+            "width": "117.960305068154px",
+            "height": "110.510180537534px"
+          },
+          {
+            "nodeId": "S7Area",
+            "title": "（2.1）李萨如图形照片 2",
+            "emptyTitle": "拖动文件到这里上传图片",
+            "emptyHint": "支持多图片，可拖动上传或点击选择"
+          },
+          "\n（2.2） fy : fx=1:1 ， B路信号相移为",
           {
             "nodeId": "OP3_Fill_0",
             "width": "50px"
           },
-          "（3.2）fy : fx=1:1，B路信号相移为",
+          "°\n（3.1）李萨如图形照片 3 ：请上传与下面李萨如图形满足相同频率比的照片 ；",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_oscilloscope_img_007.png",
+            "inline": true,
+            "width": "117.960305068154px",
+            "height": "109.268493115764px"
+          },
+          {
+            "nodeId": "S8Area",
+            "title": "（3.1）李萨如图形照片 3",
+            "emptyTitle": "拖动文件到这里上传图片",
+            "emptyHint": "支持多图片，可拖动上传或点击选择"
+          },
+          "\n（3.2） fy : fx=1:1 ， B路信号相移为",
           {
             "nodeId": "OP4_Fill_0",
             "width": "50px"
           },
-          "（4.2）（需填写整数）fx : fy=1:",
+          "°\n（4.1）李萨如图形照片 4 ：请上传与下面李萨如图形满足相同频率比的照片",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_oscilloscope_img_008.png",
+            "inline": true,
+            "width": "117.85538290806811px",
+            "height": "104.63145214869799px"
+          },
+          {
+            "nodeId": "S9Area",
+            "title": "（4.1）李萨如图形照片 4",
+            "emptyTitle": "拖动文件到这里上传图片",
+            "emptyHint": "支持多图片，可拖动上传或点击选择"
+          },
+          "\n（4.2）（需填写整数） fx : fy =1:",
           {
             "nodeId": "OP5_Fill_0",
             "width": "50px"
           },
-          "（5.2）（需填写整数）fx : fy=1:",
+          "\n（5.1）李萨如图形照片 5 ：请上传与下面李萨如图形满足相同频率比的照片",
+          {
+            "type": "image",
+            "src": "/assets/configs_images/exp_oscilloscope_img_009.png",
+            "inline": true,
+            "width": "117.62338412281592px",
+            "height": "105.32744850445457px"
+          },
+          {
+            "nodeId": "S10Area",
+            "title": "（5.1）李萨如图形照片 5",
+            "emptyTitle": "拖动文件到这里上传图片",
+            "emptyHint": "支持多图片，可拖动上传或点击选择"
+          },
+          "\n（5.2）（需填写整数） fx : fy =1:",
           {
             "nodeId": "OP6_Fill_0",
             "width": "50px"
@@ -238,18 +448,7 @@
         ]
       }
     ],
-    "questions": [
-      {
-        "nodeId": "YSSJDrawingAreaArea",
-        "title": "实验问题 1",
-        "rows": 5
-      },
-      {
-        "nodeId": "S1Area",
-        "title": "实验问题 2",
-        "rows": 5
-      }
-    ]
+    "questions": []
   },
   "ai": {
     "recognition": {
