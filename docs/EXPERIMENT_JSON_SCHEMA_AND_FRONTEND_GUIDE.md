@@ -20,12 +20,13 @@
 
 ### 2.2 图文混排与 AI 视觉 (`inputs` & `ai`)
 从旧版实验报告提取的图片分为两类：
-- **行内公式图 (`inline: true`)**：前端渲染必须应用 `vertical-align: middle` 和 `margin: 0 4px`，按原生尺寸或缩放后尺寸无缝嵌入段落。
-- **块级大图 (`inline: false/undefined`)**：取消原有的高度限制，允许最大高度 `400px`，独立占行居中展示（确保等效电路图清晰可辨）。
+- **行内公式图 (`inline: true`)**：前端渲染必须应用 `vertical-align: middle` 和 `margin: 0 4px`，按原生比例嵌入段落。配置里的 `width` / `height` 只作为 `maxWidth` / `maxHeight` 缩放边界，不强制改变图片比例或生成额外占位盒子。
+- **块级大图 (`inline: false/undefined`)**：独立占行居中展示，默认最大高度 `400px`。配置里的 `width` / `height` 同样只作为最大边界，缩小图片时不改变原始宽高比。
 - **AI 挂载**：在 `inputs.images` 中定义槽位（如 `IMG_RAW`），并在 `ai.recognition.imageRef` 中绑定，前端据此唤起智能解析组件。
+- **图片答案节点**：当学校系统某个 DOM 节点需要单独上传图片时，在 `inputs.fields` 中声明 `{ "id": "节点名", "type": "image_upload", "imageSlotId": "图片槽位" }`，并在 `inputs.images` 中为该槽位补充 `targetNodeId`。前端会在段落位置渲染独立上传卡，上传成功后把图片 URL 写回该 `nodeId`，不再把它当普通文本输入框或生成式回答文本框。
 
 ### 2.3 动态数据表格 (`ui.dataTable`)
-用于生成底部实验处理区。必须按行 (`rows`)、列 (`cells`) 提供标准数据，前端解析器会自动处理跨行或 LaTeX 公式表头（如带有下标的 $I_x$）。
+用于生成底部实验处理区。必须按行 (`rows`)、列 (`cells`) 提供标准数据，前端解析器会自动处理跨行或 LaTeX 公式表头（如带有下标的 $I_x$）。表头、行名、固定刻度必须写入 `cell.text`，不要用空 `{}` 占位导致页面只剩输入框和节点标记。
 
 ## 3. 前端组件复用与排版规范
 开发新实验详情页时，**严禁重新造轮子**，直接拼装以下基建组件：

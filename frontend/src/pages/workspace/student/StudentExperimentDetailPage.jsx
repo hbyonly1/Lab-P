@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Input, Upload, message, Spin } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -16,7 +16,7 @@ import {
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { buildExperimentConfig, initFixedValues } from '../../../services/experimentConfigStore.js';
 import { GoldButton, StatusBadge } from '../../../components/ui/index.js';
-import { SectionShell, ExperimentDataTable, ExperimentImageUploader, ProSubmitModal } from '../../../components/experiment/index.js';
+import { SectionShell, ExperimentDataTable, ExperimentImageUploader, SingleImageUploadNode, ProSubmitModal } from '../../../components/experiment/index.js';
 
 import { saveSubmissionCorrection, submitExperiment } from '../../../services/submissionsApi.js';
 import { uploadFile } from '../../../services/uploadApi.js';
@@ -25,6 +25,7 @@ import { recognizeDirect, generateAnswerDirect, getFixedFillDirect, getTaskStatu
 import { auditApi } from '../../../services/auditApi.js';
 import { experimentsApi } from '../../../services/experimentsApi.js';
 import * as submissionsApi from '../../../services/submissionsApi.js';
+import { ReviewerNodeHint } from '../../../components/experiment/ReviewerNodeHint.jsx';
 
 // Extracted components are imported from components/experiment/index.js
 
@@ -83,7 +84,7 @@ export default function StudentExperimentDetailPage() {
   );
 }
 
-export function ExperimentDetailView({ experiment, onBack, isReviewer = false, initialImagePaths = [], initialFormValues = null }) {
+export function ExperimentDetailView({ experiment, onBack, isReviewer = false, showNodeInspector = false, initialImagePaths = [], initialFormValues = null }) {
 
   // 核心状态：所有的节点值都在这个 formValues 里
   const [formValues, setFormValues] = useState(() => initialFormValues || initFixedValues(experiment.inputs?.fields || []));
@@ -146,9 +147,52 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, i
   });
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [submitTargets, setSubmitTargets] = useState([]);
+  const [computeMissingNodeIds, setComputeMissingNodeIds] = useState(() => new Set());
+
+  useEffect(() => {
+    if (computeMissingNodeIds.size === 0) return;
+    const firstNodeId = Array.from(computeMissingNodeIds)[0];
+    const escapedNodeId = window.CSS?.escape ? window.CSS.escape(firstNodeId) : firstNodeId.replace(/["\\]/g, '\\$&');
+    window.setTimeout(() => {
+      const target = document.querySelector(`[data-node-id="${escapedNodeId}"]`);
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    }, 0);
+  }, [computeMissingNodeIds]);
 
   const handleFieldChange = (nodeId, value) => {
     setFormValues(prev => ({ ...prev, [nodeId]: value }));
+    setComputeMissingNodeIds(prev => {
+      if (!prev.has(nodeId)) return prev;
+      const next = new Set(prev);
+      next.delete(nodeId);
+      return next;
+    });
+  };
+
+  const getImageSlotForNode = (nodeId) => {
+    const fieldMeta = experiment.metaInfo?.nodeMetaMap?.[nodeId];
+    const explicitSlotId = fieldMeta?.imageSlotId;
+    const imageSlotsDef = experiment.inputs?.images || [];
+    return imageSlotsDef.find(slot => slot.id === explicitSlotId)
+      || imageSlotsDef.find(slot => slot.targetNodeId === nodeId)
+      || null;
+  };
+
+  const removeImageFromSlot = (slotId, uid) => {
+    const slotDef = (experiment.inputs?.images || []).find(s => s.id === slotId);
+    setImageSlots(prev => {
+      const nextSlotFiles = (prev[slotId] || []).filter(f => f.uid !== uid);
+      if (slotDef?.targetNodeId) {
+        setFormValues(current => ({
+          ...current,
+          [slotDef.targetNodeId]: nextSlotFiles.map(file => file.url).filter(Boolean).join(','),
+        }));
+      }
+      return {
+        ...prev,
+        [slotId]: nextSlotFiles,
+      };
+    });
   };
 
   const segmentSizeStyle = (seg = {}) => ({
@@ -158,14 +202,20 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, i
     ...(seg.height ? { height: seg.height } : {}),
   });
 
+  const segmentImageStyle = (seg = {}) => ({
+    ...(seg.style || {}),
+    ...(seg.width ? { maxWidth: seg.width } : {}),
+    ...(seg.height ? { maxHeight: seg.height } : {}),
+    width: 'auto',
+    height: 'auto',
+    objectFit: 'contain',
+  });
+
   const renderFixedSegment = (seg, sIdx, defaultWidth = '60px') => {
     if (typeof seg === 'string') return <span key={sIdx} style={{ whiteSpace: 'pre-wrap' }}>{seg}</span>;
 
     if (seg.type === 'image') {
-      const imageStyle = {
-        ...segmentSizeStyle(seg),
-        objectFit: 'contain',
-      };
+      const imageStyle = segmentImageStyle(seg);
       if (seg.inline) {
         return (
           <img
@@ -194,21 +244,51 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, i
     }
 
     const nodeId = seg.nodeId;
+    const nodeType = experiment.metaInfo?.nodeMetaMap?.[nodeId]?.type;
+    const imageSlotDef = nodeType === 'image_upload' ? getImageSlotForNode(nodeId) : null;
+
+    if (imageSlotDef) {
+      return (
+        <SingleImageUploadNode
+          key={sIdx}
+          nodeId={nodeId}
+          imageSlot={imageSlotDef}
+          imageSlots={imageSlots}
+          onImageUpload={handleImageUpload}
+          onRemoveImage={(slotId, uid) => removeImageFromSlot(slotId, uid)}
+          title={seg.title}
+          emptyTitle={seg.emptyTitle}
+          emptyHint={seg.emptyHint}
+          showNodeInspector={showNodeInspector}
+          nodeMeta={experiment.metaInfo?.nodeMetaMap?.[nodeId]}
+          value={formValues[nodeId]}
+        />
+      );
+    }
+
     const isComputed = experiment.metaInfo?.computedIds?.has(nodeId);
     const isAsync = experiment.metaInfo?.asyncIds?.has(nodeId);
     const isFixed = experiment.metaInfo?.fixedIds?.has(nodeId);
-
-    return (
+    const isCalcMissing = computeMissingNodeIds.has(nodeId);
+    const input = (
       <input
-        key={sIdx}
-        className={`fixed-inline-input ${isComputed ? 'is-computed' : ''} ${isAsync ? 'is-async' : ''} ${isFixed ? 'is-fixed' : ''}`}
+        data-node-id={nodeId}
+        className={`fixed-inline-input ${isComputed ? 'is-computed' : ''} ${isAsync ? 'is-async' : ''} ${isFixed ? 'is-fixed' : ''} ${isCalcMissing ? 'is-calc-missing' : ''}`}
         style={{ width: defaultWidth, margin: '0 8px', ...segmentSizeStyle(seg) }}
-        readOnly={isFixed}
         placeholder={isComputed ? '待计算' : ''}
         value={formValues[nodeId] ?? ''}
         onChange={e => handleFieldChange(nodeId, e.target.value)}
-        title={`节点: ${nodeId}`}
+        title={showNodeInspector ? `节点: ${nodeId}` : undefined}
       />
+    );
+
+    if (!showNodeInspector) return React.cloneElement(input, { key: sIdx });
+
+    return (
+      <span key={sIdx} className="reviewer-inline-node-wrap">
+        {input}
+        <ReviewerNodeHint nodeId={nodeId} meta={experiment.metaInfo?.nodeMetaMap?.[nodeId]} value={formValues[nodeId]} />
+      </span>
     );
   };
 
@@ -219,13 +299,22 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, i
       setImageSlots(prev => {
         const currentSlotFiles = prev[slotId] || [];
         const slotDef = (experiment.inputs?.images || []).find(s => s.id === slotId);
-        if (slotDef?.maxCount && currentSlotFiles.length >= slotDef.maxCount) {
+        if (slotDef?.maxCount && currentSlotFiles.length >= slotDef.maxCount && slotDef.maxCount !== 1) {
           message.warning(`该区域最多上传 ${slotDef.maxCount} 张图片`);
           return prev;
         }
+        const nextSlotFiles = slotDef?.maxCount === 1
+          ? [{ ...file, url: res.url }]
+          : [...currentSlotFiles, { ...file, url: res.url }];
+        if (slotDef?.targetNodeId) {
+          setFormValues(current => ({
+            ...current,
+            [slotDef.targetNodeId]: nextSlotFiles.map(item => item.url).filter(Boolean).join(','),
+          }));
+        }
         return {
           ...prev,
-          [slotId]: [...currentSlotFiles, { ...file, url: res.url }]
+          [slotId]: nextSlotFiles
         };
       });
       message.success({ content: '上传成功', key: 'upload' });
@@ -238,6 +327,7 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, i
   // --- 后端计算通用接口 ---
   const handleCompute = async () => {
     setIsComputing(true);
+    setComputeMissingNodeIds(new Set());
     message.loading({ content: '正在请求计算，请耐心等待...', key: 'compute' });
     try {
       const res = await experimentsApi.computeExperimentData(experiment.meta.id, formValues);
@@ -246,7 +336,13 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, i
       message.success({ content: '数据计算完成！', key: 'compute' });
     } catch (e) {
       setIsComputing(false);
-      message.error({ content: `计算失败: ${e.response?.data?.detail || e.message}`, key: 'compute' });
+      const detail = e.response?.data?.detail;
+      if (detail?.code === 'FORMULA_INPUT_INCOMPLETE') {
+        setComputeMissingNodeIds(new Set(detail.missing_node_ids || []));
+        message.error({ content: '填写不完整，无法计算', key: 'compute' });
+        return;
+      }
+      message.error({ content: '计算失败，请检查已填写数据', key: 'compute' });
     }
   };
 
@@ -343,7 +439,7 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, i
   // --- AI 自动生成解答 ---
   const handleGenerateAnswers = async () => {
     const questions = (experiment.ui.questions || [])
-      .filter((q) => q.nodeId)
+      .filter((q) => q.nodeId && experiment.metaInfo?.nodeMetaMap?.[q.nodeId]?.type !== 'image_upload')
       .map((q, idx) => ({
         index: idx + 1,
         nodeId: q.nodeId,
@@ -454,6 +550,9 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, i
     }
   };
 
+  const visibleQuestions = (experiment.ui.questions || [])
+    .filter(q => experiment.metaInfo?.nodeMetaMap?.[q.nodeId]?.type !== 'image_upload');
+
   return (
     <section className="experiment-detail-page">
       <header className="experiment-detail-toolbar">
@@ -509,6 +608,8 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, i
                     formValues={formValues}
                     onFieldChange={handleFieldChange}
                     metaInfo={experiment.metaInfo}
+                    showNodeHints={showNodeInspector}
+                    highlightedNodeIds={computeMissingNodeIds}
                   />
                 ))
               ) : (
@@ -517,23 +618,16 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, i
             </div>
 
             {/* 右侧：图片插槽与 AI */}
-            <div className="experiment-image-panel">
-              <ExperimentImageUploader
-                images={experiment.inputs?.images || []}
-                imageSlots={imageSlots}
-                onImageUpload={handleImageUpload}
-                onRecognize={handleRecognize}
-                isRecognizing={isRecognizing}
-                canUseRecognition={true}
-                recognitionDef={experiment.ai?.recognition}
-                onRemoveImage={(slotId, uid) => {
-                  setImageSlots(prev => ({
-                    ...prev,
-                    [slotId]: prev[slotId].filter(f => f.uid !== uid)
-                  }));
-                }}
-              />
-            </div>
+            <ExperimentImageUploader
+              images={(experiment.inputs?.images || []).filter(slot => slot.purpose !== 'answer_image' && !slot.targetNodeId)}
+              imageSlots={imageSlots}
+              onImageUpload={handleImageUpload}
+              onRecognize={handleRecognize}
+              isRecognizing={isRecognizing}
+              canUseRecognition={true}
+              recognitionDef={experiment.ai?.recognition}
+              onRemoveImage={(slotId, uid) => removeImageFromSlot(slotId, uid)}
+            />
           </div>
 
           {/* 底部附加的计算或推导板块 */}
@@ -577,9 +671,21 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, i
           }
         >
           <div className="experiment-questions-section" style={{ background: '#fff', border: '1px solid #e1e7f0', borderRadius: '12px', padding: '24px' }}>
-            {experiment.ui.questions?.map(q => (
-              <div key={q.nodeId} className="question-item" style={{ marginBottom: '24px' }}>
-                <h4 style={{ fontSize: '15px', marginBottom: '12px', color: '#141413' }}>{q.title}</h4>
+            {visibleQuestions.map(q => {
+              const qMeta = experiment.metaInfo?.nodeMetaMap?.[q.nodeId];
+              const questionContent = (
+                <div className={`question-item ${showNodeInspector ? 'reviewer-question-node-shell' : ''}`} style={{ marginBottom: '24px' }}>
+                <div className="reviewer-question-title-row">
+                  <h4 style={{ fontSize: '15px', marginBottom: '12px', color: '#141413' }}>{q.title}</h4>
+                </div>
+                {showNodeInspector && (
+                  <div className="reviewer-question-node-strip">
+                    <span>节点</span>
+                    <code>{q.nodeId}</code>
+                    <span>{qMeta?.type || 'generated'}</span>
+                    {qMeta?.formula && <code>{qMeta.formula}</code>}
+                  </div>
+                )}
                 <Input.TextArea
                   className="question-textarea"
                   rows={q.rows || 4}
@@ -589,8 +695,22 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, i
                   style={{ marginBottom: '12px', backgroundColor: '#fff' }}
                 />
               </div>
-            ))}
-            {(!experiment.ui.questions || experiment.ui.questions.length === 0) && (
+              );
+
+              if (!showNodeInspector) return <div key={q.nodeId}>{questionContent}</div>;
+
+              return (
+                <ReviewerNodeHint
+                  key={q.nodeId}
+                  nodeId={q.nodeId}
+                  meta={qMeta}
+                  value={formValues[q.nodeId]}
+                >
+                  {questionContent}
+                </ReviewerNodeHint>
+              );
+            })}
+            {visibleQuestions.length === 0 && (
               <span style={{ color: '#696969' }}>此实验无需填写实验分析与拓展。</span>
             )}
           </div>

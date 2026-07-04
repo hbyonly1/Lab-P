@@ -17,3 +17,11 @@ def get_experiment_config(experiment_id: str) -> Optional[dict]:
     except Exception as e:
         print(f"Error reading config for {experiment_id}: {e}")
         return None
+
+def collect_ai_recognition_node_ids(exp_config: dict) -> list[str]:
+    fields = exp_config.get("inputs", {}).get("fields", [])
+    return [
+        field.get("id")
+        for field in fields
+        if field.get("type") == "ai_recognize" and field.get("id")
+    ]

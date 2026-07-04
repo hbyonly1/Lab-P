@@ -229,8 +229,8 @@ def preview_prompt_template(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_admin)
 ):
-    from services.experimentConfigStore import get_experiment_config
-    from core.ai_prompts import build_recognition_prompt, build_generation_prompt
+    from services.experimentConfigStore import get_experiment_config, collect_ai_recognition_node_ids
+    from core.ai_prompts import build_recognition_prompt, build_generation_answers_prompt
     
     exp_config = get_experiment_config(experiment_id)
     if not exp_config:
@@ -246,32 +246,25 @@ def preview_prompt_template(
         generation_data_nodes=req.generation_data_nodes
     )
     
-    # 提取 OCR 节点 (same logic as in ai_service.py)
-    extract_node_ids = []
-    for field in exp_config.get("inputs", {}).get("fields", []):
-        if field.get("type") == "extract":
-            extract_node_ids.append(field.get("id"))
-            
-    data_table = exp_config.get("ui", {}).get("dataTable")
-    if data_table and data_table.get("rows"):
-        rows = data_table.get("rows")
-        cols = data_table.get("columns", [])
-        for r_idx in range(rows):
-            for c_idx, col in enumerate(cols):
-                if not col.get("computed"):
-                    node_id = data_table.get("nodePattern", "").replace("{r}", str(r_idx)).replace("{c}", str(c_idx))
-                    if node_id:
-                        extract_node_ids.append(node_id)
+    recognition_node_ids = collect_ai_recognition_node_ids(exp_config)
                         
-    recognition_prompt = build_recognition_prompt(exp_config, extract_node_ids, db_template)
+    recognition_prompt = build_recognition_prompt(exp_config, recognition_node_ids, db_template)
     
     # Mock data for generation preview
     mock_form_values = {}
-    for nid in extract_node_ids:
+    for nid in recognition_node_ids:
         mock_form_values[nid] = "【填入的数据】"
         
-    mock_question = "【此处将被动态替换为学生当前请求解答的具体思考题题目】"
-    generation_prompt = build_generation_prompt(mock_question, mock_form_values, exp_config, db_template)
+    questions = [
+        {
+            "index": idx + 1,
+            "nodeId": q.get("nodeId"),
+            "title": q.get("title") or "",
+        }
+        for idx, q in enumerate(exp_config.get("ui", {}).get("questions", []))
+        if q.get("nodeId")
+    ]
+    generation_prompt = build_generation_answers_prompt(questions, mock_form_values, exp_config, db_template)
     
     return PreviewPromptResponse(
         recognition_prompt=recognition_prompt,

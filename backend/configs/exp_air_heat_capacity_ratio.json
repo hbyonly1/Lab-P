@@ -9,350 +9,281 @@
   "inputs": {
     "images": [
       {
-        "id": "IMG_RAW_DATA",
-        "label": "原始实验记录与曲线图片"
+        "id": "IMG_RAW_DATA"
       }
     ],
     "fields": [
       {
         "id": "SYMD_Fill_0",
-        "type": "extract",
-        "label": "SYMD_Fill_0"
+        "type": "fixed"
       },
       {
         "id": "SYYL_Fill_0",
-        "type": "extract",
-        "label": "SYYL_Fill_0"
+        "type": "fixed"
       },
       {
         "id": "SYBZ_Fill_0",
-        "type": "extract",
-        "label": "SYBZ_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "SYBZ_Fill_1",
-        "type": "extract",
-        "label": "SYBZ_Fill_1"
+        "type": "ai_recognize"
       },
       {
         "id": "SYBZ_Fill_2",
-        "type": "extract",
-        "label": "SYBZ_Fill_2"
+        "type": "ai_recognize"
       },
       {
         "id": "SYBZ_Fill_3",
-        "type": "extract",
-        "label": "SYBZ_Fill_3"
+        "type": "ai_recognize"
       },
       {
         "id": "SYBZ_Fill_4",
-        "type": "extract",
-        "label": "SYBZ_Fill_4"
+        "type": "ai_recognize"
       },
       {
         "id": "SYBZ_Fill_5",
-        "type": "extract",
-        "label": "SYBZ_Fill_5"
+        "type": "ai_recognize"
       },
       {
         "id": "YSSJDrawingAreaArea",
-        "type": "generated",
-        "label": "YSSJDrawingAreaArea"
+        "type": "generated"
       },
       {
         "id": "K10-0",
-        "type": "extract",
-        "label": "K10-0"
+        "type": "ai_recognize"
       },
       {
         "id": "K10-1",
-        "type": "extract",
-        "label": "K10-1"
+        "type": "ai_recognize"
       },
       {
         "id": "K10-2",
-        "type": "extract",
-        "label": "K10-2"
+        "type": "ai_recognize"
       },
       {
         "id": "K10-3",
-        "type": "extract",
-        "label": "K10-3"
+        "type": "ai_recognize"
       },
       {
         "id": "K10-4",
-        "type": "extract",
-        "label": "K10-4"
+        "type": "ai_recognize"
       },
       {
         "id": "K10-5",
-        "type": "extract",
-        "label": "K10-5"
+        "type": "ai_recognize"
       },
       {
         "id": "K10-6",
-        "type": "extract",
-        "label": "K10-6"
+        "type": "ai_recognize"
       },
       {
         "id": "K2",
-        "type": "computed",
-        "label": "K2"
+        "type": "computed"
       },
       {
         "id": "K30-0",
-        "type": "extract",
-        "label": "K30-0"
+        "type": "ai_recognize"
       },
       {
         "id": "K30-1",
-        "type": "extract",
-        "label": "K30-1"
+        "type": "ai_recognize"
       },
       {
         "id": "K30-2",
-        "type": "extract",
-        "label": "K30-2"
+        "type": "ai_recognize"
       },
       {
         "id": "K30-3",
-        "type": "extract",
-        "label": "K30-3"
+        "type": "ai_recognize"
       },
       {
         "id": "K30-4",
-        "type": "extract",
-        "label": "K30-4"
+        "type": "ai_recognize"
       },
       {
         "id": "K30-5",
-        "type": "extract",
-        "label": "K30-5"
+        "type": "ai_recognize"
       },
       {
         "id": "K31-0",
-        "type": "extract",
-        "label": "K31-0"
+        "type": "ai_recognize"
       },
       {
         "id": "K31-1",
-        "type": "extract",
-        "label": "K31-1"
+        "type": "ai_recognize"
       },
       {
         "id": "K31-2",
-        "type": "extract",
-        "label": "K31-2"
+        "type": "ai_recognize"
       },
       {
         "id": "K31-3",
-        "type": "extract",
-        "label": "K31-3"
+        "type": "ai_recognize"
       },
       {
         "id": "K31-4",
-        "type": "extract",
-        "label": "K31-4"
+        "type": "ai_recognize"
       },
       {
         "id": "K31-5",
-        "type": "extract",
-        "label": "K31-5"
+        "type": "ai_recognize"
       },
       {
         "id": "K32-0",
-        "type": "extract",
-        "label": "K32-0"
+        "type": "ai_recognize"
       },
       {
         "id": "K32-1",
-        "type": "extract",
-        "label": "K32-1"
+        "type": "ai_recognize"
       },
       {
         "id": "K32-2",
-        "type": "extract",
-        "label": "K32-2"
+        "type": "ai_recognize"
       },
       {
         "id": "K32-3",
-        "type": "extract",
-        "label": "K32-3"
+        "type": "ai_recognize"
       },
       {
         "id": "K32-4",
-        "type": "extract",
-        "label": "K32-4"
+        "type": "ai_recognize"
       },
       {
         "id": "K32-5",
-        "type": "extract",
-        "label": "K32-5"
+        "type": "ai_recognize"
       },
       {
         "id": "K33-0",
-        "type": "extract",
-        "label": "K33-0"
+        "type": "ai_recognize"
       },
       {
         "id": "K33-1",
-        "type": "extract",
-        "label": "K33-1"
+        "type": "ai_recognize"
       },
       {
         "id": "K33-2",
-        "type": "extract",
-        "label": "K33-2"
+        "type": "ai_recognize"
       },
       {
         "id": "K33-3",
-        "type": "extract",
-        "label": "K33-3"
+        "type": "ai_recognize"
       },
       {
         "id": "K33-4",
-        "type": "extract",
-        "label": "K33-4"
+        "type": "ai_recognize"
       },
       {
         "id": "K33-5",
-        "type": "extract",
-        "label": "K33-5"
+        "type": "ai_recognize"
       },
       {
         "id": "K34-0",
-        "type": "extract",
-        "label": "K34-0"
+        "type": "ai_recognize"
       },
       {
         "id": "K34-1",
-        "type": "extract",
-        "label": "K34-1"
+        "type": "ai_recognize"
       },
       {
         "id": "K34-2",
-        "type": "extract",
-        "label": "K34-2"
+        "type": "ai_recognize"
       },
       {
         "id": "K34-3",
-        "type": "extract",
-        "label": "K34-3"
+        "type": "ai_recognize"
       },
       {
         "id": "K34-4",
-        "type": "extract",
-        "label": "K34-4"
+        "type": "ai_recognize"
       },
       {
         "id": "K34-5",
-        "type": "extract",
-        "label": "K34-5"
+        "type": "ai_recognize"
       },
       {
         "id": "K35-0",
-        "type": "extract",
-        "label": "K35-0"
+        "type": "ai_recognize"
       },
       {
         "id": "K35-1",
-        "type": "extract",
-        "label": "K35-1"
+        "type": "ai_recognize"
       },
       {
         "id": "K35-2",
-        "type": "extract",
-        "label": "K35-2"
+        "type": "ai_recognize"
       },
       {
         "id": "K35-3",
-        "type": "extract",
-        "label": "K35-3"
+        "type": "ai_recognize"
       },
       {
         "id": "K35-4",
-        "type": "extract",
-        "label": "K35-4"
+        "type": "ai_recognize"
       },
       {
         "id": "K35-5",
-        "type": "extract",
-        "label": "K35-5"
+        "type": "ai_recognize"
       },
       {
         "id": "K36-0",
-        "type": "extract",
-        "label": "K36-0"
+        "type": "ai_recognize"
       },
       {
         "id": "K36-1",
-        "type": "extract",
-        "label": "K36-1"
+        "type": "ai_recognize"
       },
       {
         "id": "K36-2",
-        "type": "extract",
-        "label": "K36-2"
+        "type": "ai_recognize"
       },
       {
         "id": "K36-3",
-        "type": "extract",
-        "label": "K36-3"
+        "type": "ai_recognize"
       },
       {
         "id": "K36-4",
-        "type": "extract",
-        "label": "K36-4"
+        "type": "ai_recognize"
       },
       {
         "id": "K36-5",
-        "type": "extract",
-        "label": "K36-5"
+        "type": "ai_recognize"
       },
       {
         "id": "K37-0",
-        "type": "extract",
-        "label": "K37-0"
+        "type": "ai_recognize"
       },
       {
         "id": "K37-1",
-        "type": "extract",
-        "label": "K37-1"
+        "type": "ai_recognize"
       },
       {
         "id": "K37-2",
-        "type": "extract",
-        "label": "K37-2"
+        "type": "ai_recognize"
       },
       {
         "id": "K37-3",
-        "type": "extract",
-        "label": "K37-3"
+        "type": "ai_recognize"
       },
       {
         "id": "K37-4",
-        "type": "extract",
-        "label": "K37-4"
+        "type": "ai_recognize"
       },
       {
         "id": "K37-5",
-        "type": "extract",
-        "label": "K37-5"
+        "type": "ai_recognize"
       },
       {
         "id": "K4",
-        "type": "computed",
-        "label": "K4"
+        "type": "computed"
       },
       {
         "id": "K5",
-        "type": "computed",
-        "label": "K5"
+        "type": "computed"
       },
       {
         "id": "skt0Area",
-        "type": "generated",
-        "label": "skt0Area"
+        "type": "generated"
       }
     ]
   },
@@ -504,65 +435,40 @@
           {
             "isHeader": true,
             "cells": [
-              {
-                "label": "Pᵢ/KPa"
-              },
-              {
-                "label": "2.00"
-              },
-              {
-                "label": "3.00"
-              },
-              {
-                "label": "4.00"
-              },
-              {
-                "label": "5.00"
-              },
-              {
-                "label": "6.00"
-              },
-              {
-                "label": "7.00"
-              },
-              {
-                "label": "8.00"
-              }
+              {},
+              {},
+              {},
+              {},
+              {},
+              {},
+              {},
+              {}
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "Uᵢ/mV"
+                "nodeId": "K10-0"
               },
               {
-                "nodeId": "K10-0",
-                "label": ""
+                "nodeId": "K10-1"
               },
               {
-                "nodeId": "K10-1",
-                "label": ""
+                "nodeId": "K10-2"
               },
               {
-                "nodeId": "K10-2",
-                "label": ""
+                "nodeId": "K10-3"
               },
               {
-                "nodeId": "K10-3",
-                "label": ""
+                "nodeId": "K10-4"
               },
               {
-                "nodeId": "K10-4",
-                "label": ""
+                "nodeId": "K10-5"
               },
               {
-                "nodeId": "K10-5",
-                "label": ""
-              },
-              {
-                "nodeId": "K10-6",
-                "label": ""
+                "nodeId": "K10-6"
               }
             ]
           }
@@ -574,282 +480,204 @@
           {
             "isHeader": true,
             "cells": [
+              {},
+              {},
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {},
               {
-                "label": "参数/次数"
+                "nodeId": "K30-0"
               },
               {
-                "label": "1"
+                "nodeId": "K30-1"
               },
               {
-                "label": "2"
+                "nodeId": "K30-2"
               },
               {
-                "label": "3"
+                "nodeId": "K30-3"
               },
               {
-                "label": "4"
+                "nodeId": "K30-4"
               },
               {
-                "label": "5"
-              },
-              {
-                "label": "6"
+                "nodeId": "K30-5"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "状态I：Uₚ₁/mV"
+                "nodeId": "K31-0"
               },
               {
-                "nodeId": "K30-0",
-                "label": ""
+                "nodeId": "K31-1"
               },
               {
-                "nodeId": "K30-1",
-                "label": ""
+                "nodeId": "K31-2"
               },
               {
-                "nodeId": "K30-2",
-                "label": ""
+                "nodeId": "K31-3"
               },
               {
-                "nodeId": "K30-3",
-                "label": ""
+                "nodeId": "K31-4"
               },
               {
-                "nodeId": "K30-4",
-                "label": ""
-              },
-              {
-                "nodeId": "K30-5",
-                "label": ""
+                "nodeId": "K31-5"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "状态I：UT/mV"
+                "nodeId": "K32-0"
               },
               {
-                "nodeId": "K31-0",
-                "label": ""
+                "nodeId": "K32-1"
               },
               {
-                "nodeId": "K31-1",
-                "label": ""
+                "nodeId": "K32-2"
               },
               {
-                "nodeId": "K31-2",
-                "label": ""
+                "nodeId": "K32-3"
               },
               {
-                "nodeId": "K31-3",
-                "label": ""
+                "nodeId": "K32-4"
               },
               {
-                "nodeId": "K31-4",
-                "label": ""
-              },
-              {
-                "nodeId": "K31-5",
-                "label": ""
+                "nodeId": "K32-5"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "状态III：Uₚ₂/mV"
+                "nodeId": "K33-0"
               },
               {
-                "nodeId": "K32-0",
-                "label": ""
+                "nodeId": "K33-1"
               },
               {
-                "nodeId": "K32-1",
-                "label": ""
+                "nodeId": "K33-2"
               },
               {
-                "nodeId": "K32-2",
-                "label": ""
+                "nodeId": "K33-3"
               },
               {
-                "nodeId": "K32-3",
-                "label": ""
+                "nodeId": "K33-4"
               },
               {
-                "nodeId": "K32-4",
-                "label": ""
-              },
-              {
-                "nodeId": "K32-5",
-                "label": ""
+                "nodeId": "K33-5"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "状态III：UT/mV"
+                "nodeId": "K34-0"
               },
               {
-                "nodeId": "K33-0",
-                "label": ""
+                "nodeId": "K34-1"
               },
               {
-                "nodeId": "K33-1",
-                "label": ""
+                "nodeId": "K34-2"
               },
               {
-                "nodeId": "K33-2",
-                "label": ""
+                "nodeId": "K34-3"
               },
               {
-                "nodeId": "K33-3",
-                "label": ""
+                "nodeId": "K34-4"
               },
               {
-                "nodeId": "K33-4",
-                "label": ""
-              },
-              {
-                "nodeId": "K33-5",
-                "label": ""
+                "nodeId": "K34-5"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "P₀/KPa"
+                "nodeId": "K35-0"
               },
               {
-                "nodeId": "K34-0",
-                "label": ""
+                "nodeId": "K35-1"
               },
               {
-                "nodeId": "K34-1",
-                "label": ""
+                "nodeId": "K35-2"
               },
               {
-                "nodeId": "K34-2",
-                "label": ""
+                "nodeId": "K35-3"
               },
               {
-                "nodeId": "K34-3",
-                "label": ""
+                "nodeId": "K35-4"
               },
               {
-                "nodeId": "K34-4",
-                "label": ""
-              },
-              {
-                "nodeId": "K34-5",
-                "label": ""
+                "nodeId": "K35-5"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "P₁/KPa"
+                "nodeId": "K36-0"
               },
               {
-                "nodeId": "K35-0",
-                "label": ""
+                "nodeId": "K36-1"
               },
               {
-                "nodeId": "K35-1",
-                "label": ""
+                "nodeId": "K36-2"
               },
               {
-                "nodeId": "K35-2",
-                "label": ""
+                "nodeId": "K36-3"
               },
               {
-                "nodeId": "K35-3",
-                "label": ""
+                "nodeId": "K36-4"
               },
               {
-                "nodeId": "K35-4",
-                "label": ""
-              },
-              {
-                "nodeId": "K35-5",
-                "label": ""
+                "nodeId": "K36-5"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "P₂/KPa"
+                "nodeId": "K37-0"
               },
               {
-                "nodeId": "K36-0",
-                "label": ""
+                "nodeId": "K37-1"
               },
               {
-                "nodeId": "K36-1",
-                "label": ""
+                "nodeId": "K37-2"
               },
               {
-                "nodeId": "K36-2",
-                "label": ""
+                "nodeId": "K37-3"
               },
               {
-                "nodeId": "K36-3",
-                "label": ""
+                "nodeId": "K37-4"
               },
               {
-                "nodeId": "K36-4",
-                "label": ""
-              },
-              {
-                "nodeId": "K36-5",
-                "label": ""
-              }
-            ]
-          },
-          {
-            "isHeader": false,
-            "cells": [
-              {
-                "label": "γ"
-              },
-              {
-                "nodeId": "K37-0",
-                "label": ""
-              },
-              {
-                "nodeId": "K37-1",
-                "label": ""
-              },
-              {
-                "nodeId": "K37-2",
-                "label": ""
-              },
-              {
-                "nodeId": "K37-3",
-                "label": ""
-              },
-              {
-                "nodeId": "K37-4",
-                "label": ""
-              },
-              {
-                "nodeId": "K37-5",
-                "label": ""
+                "nodeId": "K37-5"
               }
             ]
           }
@@ -923,11 +751,7 @@
   },
   "ai": {
     "recognition": {
-      "imageRef": "IMG_RAW_DATA",
-      "prompt": "提取空气比热容比的测定实验报告中的表格数据、填空和曲线读数"
-    },
-    "answerGeneration": {
-      "prompt": "基于空气比热容比的测定实验原理，用中文学术性语言回答实验分析与拓展题。"
+      "imageRef": "IMG_RAW_DATA"
     }
   },
   "formulas": {}

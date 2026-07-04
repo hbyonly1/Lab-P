@@ -119,7 +119,7 @@ created_at
 
 - Admin 能通过 JSON 文本配置自动化引擎基础选择器和 Playwright 运行参数。
 - Admin 能管理实验配置、DOM 节点表、Prompt、订单和任务。
-- Admin 高风险动作必须二次确认，并写入审计日志。
+- Admin 高风险动作必须二次确认，并写入审计日志；普通 JSON 配置保存不再弹出二次确认框，保存成功后依赖后端校验和审计日志追踪。
 - Admin 能查看自动化任务日志、失败原因、截图和重试记录。
 
 ## 3. 数据模型补充
@@ -191,7 +191,7 @@ updated_at
 - `config_json` 中只能保存选择器、运行参数、重试策略和学校系统入口等配置。
 - `config_json` 不保存具体 Playwright 脚本代码。
 - `passwordPolicy: same_as_student_no` 表示学校系统密码由 `student_no` 派生；`real_name` 只用于展示和同步核对。
-- Admin 页面应提供 JSON 格式校验和保存前二次确认，保存后写入 `audit_logs`。
+- Admin 页面应提供 JSON 格式校验，保存后写入 `audit_logs`；保存配置按钮直接提交，不再弹出二次确认框。
 
 ### 3.2 submission_versions
 
@@ -356,7 +356,7 @@ GET  /api/v1/submissions/{id}/automation-jobs
 - 不为登录按钮、验证码、提交按钮等每个选择器单独做一个设置栏。
 - 选择器与 Playwright 配置信息仅 Admin 可见、可设置。
 - 保存前做 JSON 格式校验、必填路径校验和敏感字段检查。
-- 保存时二次确认。
+- 保存时先做 JSON 格式校验，校验通过后直接提交保存。
 - 暂不提供“测试登录”按钮，避免在计划阶段提前绑定具体 Playwright 脚本；后续如实现 `validate-login`，再补充对应按钮。
 - 显示最近一次配置修改人、修改时间和审计日志入口。
 
@@ -364,7 +364,7 @@ UI 要求：
 
 - Modal 结构参考已完成的 `ProSubmitModal`、`PaywallModal`、`UpgradePlanModal`：使用 Ant Design `Modal`，宽度按内容控制，不自造弹窗框架。
 - 表单使用 Ant Design `Form`、`Input.TextArea`、`Button`，按钮和输入控件遵守控件规范里的 8px 圆角、统一 hover/focus 和禁用 loading 态。
-- 保存确认、危险提示和成功提示优先使用现有 Modal / message 模式；不要新增大面积自定义 CSS。
+- 配置保存成功提示优先使用现有 message 模式；危险操作仍按需使用现有 Modal，不新增大面积自定义 CSS。
 - 主操作按钮优先复用现有 `GoldButton` 或项目内已经使用的 primary button 样式，普通操作使用 AntD `Button` 或现有 `OutlineButton`。
 
 ### 5.2 实验详情页版本冲突 Modal

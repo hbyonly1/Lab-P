@@ -11,34 +11,36 @@ DEFAULT_GENERATION_SYSTEM = """
 你是一名物理实验助教。用中文学术性语言回答实验思考题，每次视角和侧重点不同。
 """
 
-def resolve(db_val: str, json_val: str, default_val: str) -> str:
-    """Prompt 降级: DB → JSON → 系统默认"""
-    return db_val or json_val or default_val
+def resolve(db_val: str, default_val: str) -> str:
+    """Prompt 降级: DB → 系统默认"""
+    return db_val or default_val
 
-def build_recognition_prompt(exp_config: dict, extract_node_ids: List[str], db_template=None) -> str:
+def format_generation_data_values(form_values: Dict[str, Any], allowed_nodes=None) -> str:
+    values = []
+    for k, v in form_values.items():
+        if v and (allowed_nodes is None or k in allowed_nodes):
+            values.append(str(v))
+    return "，".join(values)
+
+def build_recognition_prompt(exp_config: dict, recognition_node_ids: List[str], db_template=None) -> str:
     """
     3 段拼接，第3段为自动生成的空 JSON Schema
     """
-    json_config = exp_config.get("ai", {}).get("recognition", {})
-    
     system = resolve(
         db_template.recognition_system_prompt if db_template else None,
-        json_config.get("system_prompt"),
         DEFAULT_RECOGNITION_SYSTEM
     )
     
     extra = resolve(
         db_template.recognition_extra_prompt if db_template else None,
-        json_config.get("extra_prompt"),
         ""
     )
     
-    # 将所有需提取的节点序列化为空 JSON Schema
-    schema_str = "{\n" + ",\n".join(f'  "{nid}": ""' for nid in extract_node_ids) + "\n}"
+    schema_str = "{\n" + ",\n".join(f'  "{nid}": ""' for nid in recognition_node_ids) + "\n}"
     
     prompt = f"{system.strip()}\n\n"
     prompt += f"实验名称：{exp_config.get('meta', {}).get('name', '未知')}\n\n"
-    prompt += f"请从图片中提取数据，按以下 JSON 格式返回，不得输出其他内容：\n{schema_str}\n\n"
+    prompt += f"返回格式如下：\n{schema_str}\n\n"
     if extra:
         prompt += f"{extra.strip()}"
         
@@ -48,35 +50,35 @@ def build_generation_prompt(question: str, form_values: Dict[str, Any], exp_conf
     """
     3 段拼接，注入真实数据
     """
-    json_config = exp_config.get("ai", {}).get("generation", {})
-    
     system = resolve(
         db_template.generation_system_prompt if db_template else None,
-        json_config.get("system_prompt"),
         DEFAULT_GENERATION_SYSTEM
     )
     
     extra = resolve(
         db_template.generation_extra_prompt if db_template else None,
-        json_config.get("extra_prompt"),
         ""
     )
     
-    allowed_nodes = None
+    recognition_nodes = {
+        field.get("id")
+        for field in exp_config.get("inputs", {}).get("fields", [])
+        if field.get("type") == "ai_recognize" and field.get("id")
+    }
+    allowed_nodes = recognition_nodes
     if db_template and db_template.generation_data_nodes:
-        allowed_nodes = [n.strip() for n in db_template.generation_data_nodes.split(",") if n.strip()]
+        allowed_nodes = {
+            n.strip()
+            for n in db_template.generation_data_nodes.split(",")
+            if n.strip() in recognition_nodes
+        }
         
-    filtered_values = {}
-    for k, v in form_values.items():
-        if v and (allowed_nodes is None or k in allowed_nodes):
-            filtered_values[k] = v
-            
-    data_lines = "\n".join(f"- {k} = {v}" for k, v in filtered_values.items())
+    data_values = format_generation_data_values(form_values, allowed_nodes)
     
     prompt = f"{system.strip()}\n\n"
     prompt += f"实验名称：{exp_config.get('meta', {}).get('name', '未知')}\n"
-    if data_lines:
-        prompt += f"本次实验关键数据：\n{data_lines}\n\n"
+    if data_values:
+        prompt += f"本次实验关键数据：{data_values}\n\n"
     prompt += f"问题：\n{question}\n\n"
     if extra:
         prompt += f"附加说明：\n{extra.strip()}"
@@ -89,51 +91,49 @@ def build_generation_answers_prompt(questions: List[Dict[str, Any]], form_values
     still follows the same DB -> JSON -> default precedence as the single-answer
     flow did.
     """
-    json_config = exp_config.get("ai", {}).get("generation", {})
-
     system = resolve(
         db_template.generation_system_prompt if db_template else None,
-        json_config.get("system_prompt"),
         DEFAULT_GENERATION_SYSTEM
     )
 
     extra = resolve(
         db_template.generation_extra_prompt if db_template else None,
-        json_config.get("extra_prompt"),
         ""
     )
 
-    allowed_nodes = None
+    recognition_nodes = {
+        field.get("id")
+        for field in exp_config.get("inputs", {}).get("fields", [])
+        if field.get("type") == "ai_recognize" and field.get("id")
+    }
+    allowed_nodes = recognition_nodes
     if db_template and db_template.generation_data_nodes:
-        allowed_nodes = [n.strip() for n in db_template.generation_data_nodes.split(",") if n.strip()]
+        allowed_nodes = {
+            n.strip()
+            for n in db_template.generation_data_nodes.split(",")
+            if n.strip() in recognition_nodes
+        }
 
-    filtered_values = {}
-    for k, v in form_values.items():
-        if v and (allowed_nodes is None or k in allowed_nodes):
-            filtered_values[k] = v
-
-    data_lines = "\n".join(f"- {k} = {v}" for k, v in filtered_values.items())
+    data_values = format_generation_data_values(form_values, allowed_nodes)
     question_lines = "\n".join(
         f"{q.get('index')}. [{q.get('nodeId')}] {q.get('title') or ''}"
         for q in questions
-    )
+    ) or "当前实验配置中暂无实验分析与拓展问题。"
 
     schema_lines = ",\n".join(
-        f'    {{"index": {q.get("index")}, "answer": ""}}'
+        f'  "{q.get("index")}": ""'
         for q in questions
-    )
+    ) or '  "1": ""'
 
     prompt = f"{system.strip()}\n\n"
     prompt += f"实验名称：{exp_config.get('meta', {}).get('name', '未知')}\n"
-    if data_lines:
-        prompt += f"本次实验关键数据：\n{data_lines}\n\n"
-    prompt += f"请一次性回答以下全部实验分析与拓展问题：\n{question_lines}\n\n"
-    prompt += "必须按题号对应回答，不要合并题目，不要改变题号。\n"
-    prompt += "只返回 JSON object，不输出其他文字。格式如下：\n"
+    if data_values:
+        prompt += f"{data_values}\n\n"
+    prompt += f"请回答以下实验分析与拓展问题：\n{question_lines}\n\n"
+    prompt += "只返回 JSON object。格式如下：\n"
     prompt += "{\n"
-    prompt += '  "answers": [\n'
     prompt += schema_lines
-    prompt += "\n  ]\n}\n\n"
+    prompt += "\n}\n\n"
     if extra:
         prompt += f"附加说明：\n{extra.strip()}"
 

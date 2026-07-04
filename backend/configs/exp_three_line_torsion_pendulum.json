@@ -9,235 +9,189 @@
   "inputs": {
     "images": [
       {
-        "id": "IMG_RAW_DATA",
-        "label": "原始实验记录与曲线图片"
+        "id": "IMG_RAW_DATA"
       }
     ],
     "fields": [
       {
         "id": "YSSJDrawingAreaArea",
-        "type": "generated",
-        "label": "YSSJDrawingAreaArea"
+        "type": "generated"
       },
       {
         "id": "S10-0",
-        "type": "extract",
-        "label": "S10-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S11-0",
-        "type": "extract",
-        "label": "S11-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S12-0",
-        "type": "extract",
-        "label": "S12-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S13-0",
-        "type": "extract",
-        "label": "S13-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S14-0",
-        "type": "extract",
-        "label": "S14-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S15-0",
-        "type": "extract",
-        "label": "S15-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S16-0",
-        "type": "extract",
-        "label": "S16-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S17-0",
-        "type": "extract",
-        "label": "S17-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S20-0",
-        "type": "extract",
-        "label": "S20-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S20-1",
-        "type": "extract",
-        "label": "S20-1"
+        "type": "ai_recognize"
       },
       {
         "id": "S21-0",
-        "type": "extract",
-        "label": "S21-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S21-1",
-        "type": "extract",
-        "label": "S21-1"
+        "type": "ai_recognize"
       },
       {
         "id": "S22-0",
-        "type": "extract",
-        "label": "S22-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S22-1",
-        "type": "extract",
-        "label": "S22-1"
+        "type": "ai_recognize"
       },
       {
         "id": "S23-0",
-        "type": "extract",
-        "label": "S23-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S23-1",
-        "type": "extract",
-        "label": "S23-1"
+        "type": "ai_recognize"
       },
       {
         "id": "S24-0",
-        "type": "extract",
-        "label": "S24-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S24-1",
-        "type": "extract",
-        "label": "S24-1"
+        "type": "ai_recognize"
       },
       {
         "id": "S2220-0",
-        "type": "extract",
-        "label": "S2220-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S2220-1",
-        "type": "extract",
-        "label": "S2220-1"
+        "type": "ai_recognize"
       },
       {
         "id": "S2221-0",
-        "type": "extract",
-        "label": "S2221-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S2221-1",
-        "type": "extract",
-        "label": "S2221-1"
+        "type": "ai_recognize"
       },
       {
         "id": "S2222-0",
-        "type": "extract",
-        "label": "S2222-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S2222-1",
-        "type": "extract",
-        "label": "S2222-1"
+        "type": "ai_recognize"
       },
       {
         "id": "S2223-0",
-        "type": "extract",
-        "label": "S2223-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S2223-1",
-        "type": "extract",
-        "label": "S2223-1"
+        "type": "ai_recognize"
       },
       {
         "id": "S2224-0",
-        "type": "extract",
-        "label": "S2224-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S2224-1",
-        "type": "extract",
-        "label": "S2224-1"
+        "type": "ai_recognize"
       },
       {
         "id": "S4",
-        "type": "computed",
-        "label": "S4"
+        "type": "computed"
       },
       {
         "id": "S5",
-        "type": "computed",
-        "label": "S5"
+        "type": "computed"
       },
       {
         "id": "S6",
-        "type": "computed",
-        "label": "S6"
+        "type": "computed"
       },
       {
         "id": "S7",
-        "type": "computed",
-        "label": "S7"
+        "type": "computed"
       },
       {
         "id": "OP1_Fill_0",
-        "type": "extract",
-        "label": "OP1_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "OP2_Fill_0",
-        "type": "extract",
-        "label": "OP2_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "OP3_Fill_0",
-        "type": "extract",
-        "label": "OP3_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "OP4_Fill_0",
-        "type": "extract",
-        "label": "OP4_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "OP5_Fill_0",
-        "type": "extract",
-        "label": "OP5_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "OP6_Fill_0",
-        "type": "extract",
-        "label": "OP6_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "OP7_Fill_0",
-        "type": "extract",
-        "label": "OP7_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "OP8_Fill_0",
-        "type": "extract",
-        "label": "OP8_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "OP9_Fill_0",
-        "type": "extract",
-        "label": "OP9_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "OP11_Fill_0",
-        "type": "extract",
-        "label": "OP11_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "OP22_Fill_0",
-        "type": "extract",
-        "label": "OP22_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "OP33_Fill_0",
-        "type": "extract",
-        "label": "OP33_Fill_0"
+        "type": "ai_recognize"
       }
     ]
   },
@@ -397,107 +351,79 @@
           {
             "isHeader": true,
             "cells": [
+              {},
+              {}
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {},
               {
-                "label": "待测物理量"
-              },
-              {
-                "label": "数值"
+                "nodeId": "S10-0"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "三线摆实验：上圆盘与悬盘之间的垂直距离H/mm"
-              },
-              {
-                "nodeId": "S10-0",
-                "label": ""
+                "nodeId": "S11-0"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "三线摆实验：下圆盘悬孔到转轴距离R/mm"
-              },
-              {
-                "nodeId": "S11-0",
-                "label": ""
+                "nodeId": "S12-0"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "扭摆实验：钢丝长度L/mm"
-              },
-              {
-                "nodeId": "S12-0",
-                "label": ""
+                "nodeId": "S13-0"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "扭摆实验：钢丝直径d₁/mm"
-              },
-              {
-                "nodeId": "S13-0",
-                "label": ""
+                "nodeId": "S14-0"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "扭摆实验：钢丝直径d₂/mm"
-              },
-              {
-                "nodeId": "S14-0",
-                "label": ""
+                "nodeId": "S15-0"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "扭摆实验：钢丝直径d₃/mm"
-              },
-              {
-                "nodeId": "S15-0",
-                "label": ""
+                "nodeId": "S16-0"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "扭摆实验：钢丝直径d₄/mm"
-              },
-              {
-                "nodeId": "S16-0",
-                "label": ""
-              }
-            ]
-          },
-          {
-            "isHeader": false,
-            "cells": [
-              {
-                "label": "扭摆实验：钢丝直径d₅/mm"
-              },
-              {
-                "nodeId": "S17-0",
-                "label": ""
+                "nodeId": "S17-0"
               }
             ]
           }
@@ -509,94 +435,68 @@
           {
             "isHeader": true,
             "cells": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {},
               {
-                "label": "测量次数"
+                "nodeId": "S20-0"
               },
               {
-                "label": "悬盘t₀"
-              },
-              {
-                "label": "悬盘加圆环t₁"
+                "nodeId": "S20-1"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "第1次/s"
+                "nodeId": "S21-0"
               },
               {
-                "nodeId": "S20-0",
-                "label": ""
-              },
-              {
-                "nodeId": "S20-1",
-                "label": ""
+                "nodeId": "S21-1"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "第2次/s"
+                "nodeId": "S22-0"
               },
               {
-                "nodeId": "S21-0",
-                "label": ""
-              },
-              {
-                "nodeId": "S21-1",
-                "label": ""
+                "nodeId": "S22-1"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "第3次/s"
+                "nodeId": "S23-0"
               },
               {
-                "nodeId": "S22-0",
-                "label": ""
-              },
-              {
-                "nodeId": "S22-1",
-                "label": ""
+                "nodeId": "S23-1"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "平均值/s"
+                "nodeId": "S24-0"
               },
               {
-                "nodeId": "S23-0",
-                "label": ""
-              },
-              {
-                "nodeId": "S23-1",
-                "label": ""
-              }
-            ]
-          },
-          {
-            "isHeader": false,
-            "cells": [
-              {
-                "label": "单次摆动周期Ti/s"
-              },
-              {
-                "nodeId": "S24-0",
-                "label": ""
-              },
-              {
-                "nodeId": "S24-1",
-                "label": ""
+                "nodeId": "S24-1"
               }
             ]
           }
@@ -608,94 +508,68 @@
           {
             "isHeader": true,
             "cells": [
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {},
               {
-                "label": "测量次数"
+                "nodeId": "S2220-0"
               },
               {
-                "label": "悬盘t₀"
-              },
-              {
-                "label": "悬盘加圆环t₁"
+                "nodeId": "S2220-1"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "第1次/s"
+                "nodeId": "S2221-0"
               },
               {
-                "nodeId": "S2220-0",
-                "label": ""
-              },
-              {
-                "nodeId": "S2220-1",
-                "label": ""
+                "nodeId": "S2221-1"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "第2次/s"
+                "nodeId": "S2222-0"
               },
               {
-                "nodeId": "S2221-0",
-                "label": ""
-              },
-              {
-                "nodeId": "S2221-1",
-                "label": ""
+                "nodeId": "S2222-1"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "第3次/s"
+                "nodeId": "S2223-0"
               },
               {
-                "nodeId": "S2222-0",
-                "label": ""
-              },
-              {
-                "nodeId": "S2222-1",
-                "label": ""
+                "nodeId": "S2223-1"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "平均值/s"
+                "nodeId": "S2224-0"
               },
               {
-                "nodeId": "S2223-0",
-                "label": ""
-              },
-              {
-                "nodeId": "S2223-1",
-                "label": ""
-              }
-            ]
-          },
-          {
-            "isHeader": false,
-            "cells": [
-              {
-                "label": "单次摆动周期Ti/s"
-              },
-              {
-                "nodeId": "S2224-0",
-                "label": ""
-              },
-              {
-                "nodeId": "S2224-1",
-                "label": ""
+                "nodeId": "S2224-1"
               }
             ]
           }
@@ -1087,11 +961,7 @@
   },
   "ai": {
     "recognition": {
-      "imageRef": "IMG_RAW_DATA",
-      "prompt": "提取三线摆和扭摆实验实验报告中的表格数据、填空和曲线读数"
-    },
-    "answerGeneration": {
-      "prompt": "基于三线摆和扭摆实验实验原理，用中文学术性语言回答实验分析与拓展题。"
+      "imageRef": "IMG_RAW_DATA"
     }
   },
   "formulas": {}

@@ -7,6 +7,7 @@ from services.experiment_seed import seed_experiment_configs
 from services.experiment_seed import CONFIG_DIR
 from services.experiment_seed import stable_json_hash
 from services.experiment_seed import file_mtime_datetime
+from services.experiment_formulas import FormulaInputError, build_formula_functions
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 from datetime import datetime
@@ -327,8 +328,7 @@ def compute_experiment_data(
                 names[k] = v
         evaluator.names = names
         
-        # Allow accessing via vals['key'] for complex node ids like "N10-0"
-        evaluator.names['vals'] = names
+        evaluator.functions.update(build_formula_functions(names))
         
         for target_node, formula_str in formulas.items():
             if not formula_str:
@@ -344,9 +344,27 @@ def compute_experiment_data(
                 if form_values.get(target_node) != result_str:
                     form_values[target_node] = result_str
                     changed = True
+            except FormulaInputError as e:
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "code": "FORMULA_INPUT_INCOMPLETE",
+                        "message": "填写不完整，无法计算",
+                        "missing_node_ids": e.missing_node_ids,
+                    },
+                )
+            except KeyError as e:
+                missing_node = str(e.args[0]) if e.args else ""
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "code": "FORMULA_INPUT_INCOMPLETE",
+                        "message": "填写不完整，无法计算",
+                        "missing_node_ids": [missing_node] if missing_node else [],
+                    },
+                )
             except Exception as e:
-                # print(f"Formula evaluation failed for {target_node}: {e}")
-                pass
+                raise HTTPException(status_code=400, detail="公式计算失败，请检查已填写数据")
                 
     # Record audit log
     original_values = dict(req.current_form_values)

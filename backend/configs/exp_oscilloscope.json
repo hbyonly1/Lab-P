@@ -9,105 +9,85 @@
   "inputs": {
     "images": [
       {
-        "id": "IMG_RAW_DATA",
-        "label": "原始实验记录与曲线图片"
+        "id": "IMG_RAW_DATA"
       }
     ],
     "fields": [
       {
         "id": "SYYL_Fill_0",
-        "type": "extract",
-        "label": "SYYL_Fill_0"
+        "type": "fixed"
       },
       {
         "id": "SYYL_Fill_1",
-        "type": "extract",
-        "label": "SYYL_Fill_1"
+        "type": "fixed"
       },
       {
         "id": "SYYL_Fill_2",
-        "type": "extract",
-        "label": "SYYL_Fill_2"
+        "type": "fixed"
       },
       {
         "id": "SYYL_Fill_3",
-        "type": "extract",
-        "label": "SYYL_Fill_3"
+        "type": "fixed"
       },
       {
         "id": "SYYL_Fill_4",
-        "type": "extract",
-        "label": "SYYL_Fill_4"
+        "type": "fixed"
       },
       {
         "id": "SYYL_Fill_5",
-        "type": "extract",
-        "label": "SYYL_Fill_5"
+        "type": "fixed"
       },
       {
         "id": "SYBZ_Fill_0",
-        "type": "extract",
-        "label": "SYBZ_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "SYBZ_Fill_1",
-        "type": "extract",
-        "label": "SYBZ_Fill_1"
+        "type": "ai_recognize"
       },
       {
         "id": "SYBZ_Fill_2",
-        "type": "extract",
-        "label": "SYBZ_Fill_2"
+        "type": "ai_recognize"
       },
       {
         "id": "SYBZ_Fill_3",
-        "type": "extract",
-        "label": "SYBZ_Fill_3"
+        "type": "ai_recognize"
       },
       {
         "id": "YSSJDrawingAreaArea",
-        "type": "generated",
-        "label": "YSSJDrawingAreaArea"
+        "type": "generated"
       },
       {
         "id": "S1Area",
-        "type": "generated",
-        "label": "S1Area"
+        "type": "generated"
       },
       {
         "id": "OP_Fill_0",
-        "type": "extract",
-        "label": "OP_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "S3",
-        "type": "computed",
-        "label": "S3"
+        "type": "computed"
       },
       {
         "id": "OP2_Fill_0",
-        "type": "extract",
-        "label": "OP2_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "OP3_Fill_0",
-        "type": "extract",
-        "label": "OP3_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "OP4_Fill_0",
-        "type": "extract",
-        "label": "OP4_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "OP5_Fill_0",
-        "type": "extract",
-        "label": "OP5_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "OP6_Fill_0",
-        "type": "extract",
-        "label": "OP6_Fill_0"
+        "type": "ai_recognize"
       }
     ]
   },
@@ -273,11 +253,7 @@
   },
   "ai": {
     "recognition": {
-      "imageRef": "IMG_RAW_DATA",
-      "prompt": "提取示波器的使用实验报告中的表格数据、填空和曲线读数"
-    },
-    "answerGeneration": {
-      "prompt": "基于示波器的使用实验原理，用中文学术性语言回答实验分析与拓展题。"
+      "imageRef": "IMG_RAW_DATA"
     }
   },
   "formulas": {}

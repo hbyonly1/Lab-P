@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Editor from '@monaco-editor/react';
-import { Button, Modal, message } from 'antd';
+import { Button, message } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
 
 export function JsonConfigEditor({
@@ -9,8 +9,6 @@ export function JsonConfigEditor({
   saveText,
   saving,
   onSave,
-  confirmTitle,
-  confirmContent,
   successMessage,
   className = 'settings-panel settings-automation-panel',
   rows = 24,
@@ -49,17 +47,9 @@ export function JsonConfigEditor({
       return;
     }
 
-    Modal.confirm({
-      title: confirmTitle,
-      content: confirmContent,
-      okText: '确认保存',
-      cancelText: '取消',
-      onOk: async () => {
-        const savedConfig = await onSave(parsedConfig);
-        setEditorText(JSON.stringify(savedConfig || parsedConfig, null, 2));
-        message.success(successMessage);
-      },
-    });
+    const savedConfig = await onSave(parsedConfig);
+    setEditorText(JSON.stringify(savedConfig || parsedConfig, null, 2));
+    message.success(successMessage);
   };
 
   return (

@@ -29,7 +29,20 @@ function RecognizeIcon() {
   );
 }
 
-export function ExperimentImageUploader({ images, imageSlots, onImageUpload, onRecognize, isRecognizing, canUseRecognition, recognitionDef, onRemoveImage }) {
+export function ExperimentImageUploader({
+  images,
+  imageSlots,
+  onImageUpload,
+  onRecognize,
+  isRecognizing,
+  canUseRecognition,
+  recognitionDef,
+  onRemoveImage,
+  title = '签字原始数据上传',
+  emptyTitle = '拖动文件到这里上传签字原始数据图片',
+  emptyHint = '支持多张图片，可拖动或用鼠标滚轮缩放来对比信息',
+  className = '',
+}) {
   const allImages = images?.flatMap(slot =>
     (imageSlots[slot.id] || []).map(file => ({ ...file, slotId: slot.id, slotLabel: slot.label }))
   ) || [];
@@ -65,9 +78,9 @@ export function ExperimentImageUploader({ images, imageSlots, onImageUpload, onR
   };
 
   return (
-    <div className="experiment-image-panel">
+    <div className={`experiment-image-panel ${className}`.trim()}>
       <div className="experiment-image-head">
-        <h3>对应图片</h3>
+        <h3>{title}</h3>
         <div className="image-toolbar">
           <Button icon={<ZoomInOutlined />} style={{ background: '#fff' }} onClick={() => setScale(s => Math.min(s + 0.15, 2.4))}>放大</Button>
           <Button icon={<ZoomOutOutlined />} style={{ background: '#fff' }} onClick={() => setScale(s => Math.max(s - 0.15, 0.7))}>缩小</Button>
@@ -99,8 +112,8 @@ export function ExperimentImageUploader({ images, imageSlots, onImageUpload, onR
         >
           <div className="image-upload-empty">
             <CloudUploadOutlined />
-            <strong>拖动文件到这里上传实验图片</strong>
-            <span>支持多张图片，可拖动或用鼠标滚轮缩放来对比信息</span>
+            <strong>{emptyTitle}</strong>
+            <span>{emptyHint}</span>
           </div>
         </Upload.Dragger>
       )}

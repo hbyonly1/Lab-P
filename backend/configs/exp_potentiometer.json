@@ -9,155 +9,125 @@
   "inputs": {
     "images": [
       {
-        "id": "IMG_RAW_DATA",
-        "label": "原始实验记录与曲线图片"
+        "id": "IMG_RAW_DATA"
       }
     ],
     "fields": [
       {
         "id": "SYBZ_Fill_0",
-        "type": "extract",
-        "label": "SYBZ_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "SYBZ_Fill_1",
-        "type": "extract",
-        "label": "SYBZ_Fill_1"
+        "type": "ai_recognize"
       },
       {
         "id": "SYBZ_Fill_2",
-        "type": "extract",
-        "label": "SYBZ_Fill_2"
+        "type": "ai_recognize"
       },
       {
         "id": "SYBZ_Fill_3",
-        "type": "extract",
-        "label": "SYBZ_Fill_3"
+        "type": "ai_recognize"
       },
       {
         "id": "SYBZ_Fill_4",
-        "type": "extract",
-        "label": "SYBZ_Fill_4"
+        "type": "ai_recognize"
       },
       {
         "id": "SYBZ_Fill_5",
-        "type": "extract",
-        "label": "SYBZ_Fill_5"
+        "type": "ai_recognize"
       },
       {
         "id": "SYBZ_Fill_6",
-        "type": "extract",
-        "label": "SYBZ_Fill_6"
+        "type": "ai_recognize"
       },
       {
         "id": "SYBZ_Fill_7",
-        "type": "extract",
-        "label": "SYBZ_Fill_7"
+        "type": "ai_recognize"
       },
       {
         "id": "SYBZ_Fill_8",
-        "type": "extract",
-        "label": "SYBZ_Fill_8"
+        "type": "ai_recognize"
       },
       {
         "id": "SYBZ_Fill_9",
-        "type": "extract",
-        "label": "SYBZ_Fill_9"
+        "type": "ai_recognize"
       },
       {
         "id": "SYBZ_Fill_10",
-        "type": "extract",
-        "label": "SYBZ_Fill_10"
+        "type": "ai_recognize"
       },
       {
         "id": "YSSJDrawingAreaArea",
-        "type": "generated",
-        "label": "YSSJDrawingAreaArea"
+        "type": "generated"
       },
       {
         "id": "D1Area",
-        "type": "generated",
-        "label": "D1Area"
+        "type": "generated"
       },
       {
         "id": "D2",
-        "type": "computed",
-        "label": "D2"
+        "type": "computed"
       },
       {
         "id": "D30-0",
-        "type": "extract",
-        "label": "D30-0"
+        "type": "ai_recognize"
       },
       {
         "id": "D30-1",
-        "type": "extract",
-        "label": "D30-1"
+        "type": "ai_recognize"
       },
       {
         "id": "D30-2",
-        "type": "extract",
-        "label": "D30-2"
+        "type": "ai_recognize"
       },
       {
         "id": "D30-3",
-        "type": "extract",
-        "label": "D30-3"
+        "type": "ai_recognize"
       },
       {
         "id": "D30-4",
-        "type": "extract",
-        "label": "D30-4"
+        "type": "ai_recognize"
       },
       {
         "id": "D30-5",
-        "type": "extract",
-        "label": "D30-5"
+        "type": "ai_recognize"
       },
       {
         "id": "D31-0",
-        "type": "extract",
-        "label": "D31-0"
+        "type": "ai_recognize"
       },
       {
         "id": "D31-1",
-        "type": "extract",
-        "label": "D31-1"
+        "type": "ai_recognize"
       },
       {
         "id": "D31-2",
-        "type": "extract",
-        "label": "D31-2"
+        "type": "ai_recognize"
       },
       {
         "id": "D31-3",
-        "type": "extract",
-        "label": "D31-3"
+        "type": "ai_recognize"
       },
       {
         "id": "D31-4",
-        "type": "extract",
-        "label": "D31-4"
+        "type": "ai_recognize"
       },
       {
         "id": "D31-5",
-        "type": "extract",
-        "label": "D31-5"
+        "type": "ai_recognize"
       },
       {
         "id": "D7",
-        "type": "computed",
-        "label": "D7"
+        "type": "computed"
       },
       {
         "id": "D11",
-        "type": "computed",
-        "label": "D11"
+        "type": "computed"
       },
       {
         "id": "D12",
-        "type": "computed",
-        "label": "D12"
+        "type": "computed"
       }
     ]
   },
@@ -402,90 +372,60 @@
           {
             "isHeader": true,
             "cells": [
+              {},
+              {},
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {},
               {
-                "label": "n"
+                "nodeId": "D30-0"
               },
               {
-                "label": "1"
+                "nodeId": "D30-1"
               },
               {
-                "label": "2"
+                "nodeId": "D30-2"
               },
               {
-                "label": "3"
+                "nodeId": "D30-3"
               },
               {
-                "label": "4"
+                "nodeId": "D30-4"
               },
               {
-                "label": "5"
-              },
-              {
-                "label": "6"
+                "nodeId": "D30-5"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "t（℃）"
+                "nodeId": "D31-0"
               },
               {
-                "nodeId": "D30-0",
-                "label": ""
+                "nodeId": "D31-1"
               },
               {
-                "nodeId": "D30-1",
-                "label": ""
+                "nodeId": "D31-2"
               },
               {
-                "nodeId": "D30-2",
-                "label": ""
+                "nodeId": "D31-3"
               },
               {
-                "nodeId": "D30-3",
-                "label": ""
+                "nodeId": "D31-4"
               },
               {
-                "nodeId": "D30-4",
-                "label": ""
-              },
-              {
-                "nodeId": "D30-5",
-                "label": ""
-              }
-            ]
-          },
-          {
-            "isHeader": false,
-            "cells": [
-              {
-                "label": "U（mV）"
-              },
-              {
-                "nodeId": "D31-0",
-                "label": ""
-              },
-              {
-                "nodeId": "D31-1",
-                "label": ""
-              },
-              {
-                "nodeId": "D31-2",
-                "label": ""
-              },
-              {
-                "nodeId": "D31-3",
-                "label": ""
-              },
-              {
-                "nodeId": "D31-4",
-                "label": ""
-              },
-              {
-                "nodeId": "D31-5",
-                "label": ""
+                "nodeId": "D31-5"
               }
             ]
           }
@@ -550,11 +490,7 @@
   },
   "ai": {
     "recognition": {
-      "imageRef": "IMG_RAW_DATA",
-      "prompt": "提取电位差计的原理和使用实验报告中的表格数据、填空和曲线读数"
-    },
-    "answerGeneration": {
-      "prompt": "基于电位差计的原理和使用实验原理，用中文学术性语言回答实验分析与拓展题。"
+      "imageRef": "IMG_RAW_DATA"
     }
   },
   "formulas": {}

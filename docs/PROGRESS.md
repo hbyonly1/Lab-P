@@ -154,7 +154,7 @@
 
 - 在 `SettingsPage.jsx` 的现有设置页中新开“自动化配置”Tab，不新增独立路由。
 - 新增 `frontend/src/services/automationConfigApi.js`，对接 `GET/PATCH /api/v1/admin/automation-config`。
-- 自动化配置以单个 JSON 文本区维护，支持本地 JSON 格式化、保存前 JSON 校验和 Ant Design `Modal.confirm` 二次确认；未增加每个选择器的独立设置栏，也未写 Playwright 脚本。
+- 自动化配置以单个 JSON 文本区维护，支持本地 JSON 格式化和保存前 JSON 校验；保存按钮直接提交，不再弹出 Ant Design `Modal.confirm` 二次确认；未增加每个选择器的独立设置栏，也未写 Playwright 脚本。
 - 样式仅补充 JSON 编辑器和按钮行，复用现有 Ant Design 输入控件与设置页 Tabs 结构。
 - 验证：在 `frontend/` 执行 `npm run build` 通过；Vite 仍提示主 JS chunk 超过 500 kB，为既有构建体积风险。
 
@@ -205,7 +205,7 @@
 - 修复后端配置读取：`backend/core/config.py` 现在会读取仓库根目录 `.env`，避免已配置 `ADMIN_USERNAME` / `ADMIN_PASSWORD` 时仍生成临时管理员密码。
 - 新增 `GET/PATCH /api/v1/experiments/{id}/raw-config`，仅 Admin 可读写实验原始配置；保存时校验 JSON object、校验 `meta.id` 与路径参数一致，并拒绝前端传入任意文件路径。
 - 保存实验原始配置会同时写回 `backend/configs/{id}.json` 与 `experiments.config_json`，并写入 `audit_logs`，审计详情记录文件名和保存前后 hash。
-- 新增公共 `JsonConfigEditor`，自动化配置和实验原始配置共用同一套 JSON 编辑、格式化、二次确认和保存交互。
+- 新增公共 `JsonConfigEditor`，自动化配置和实验原始配置共用同一套 JSON 编辑、格式化和保存交互；配置保存不再弹出二次确认框。
 - 在 `AdminExperimentPreviewPage` 现有 Tab 栏最左侧新增“原始配置”Tab，不在实验列表页另造入口；保存后会刷新当前实验预览使用的配置。
 - 同步 `API_CONTRACT.md` 和 `DECISIONS.md` 的接口契约与配置源文件决策。
 
@@ -243,4 +243,35 @@
 
 - 移除实验问题区每个问题旁边的单题生成按钮，改为在 `3. 实验分析与拓展` 标题栏右侧保留一个“一键生成并填入回答”按钮。
 - `POST /api/v1/ai/generate-answer-direct` 的语义直接替换为批量生成：前端传入全部问题的 `index/nodeId/title` 和当前实验数据，后端一次性请求 AI，并按题号映射回对应 `nodeId`。
-- 批量生成继续联动实验配置页的 Prompt 模板配置，后端按 `AiPromptTemplate -> backend/configs/{id}.json ai.generation -> 默认模板` 生成提示词；不再从前端传核心 prompt。
+- 批量生成继续联动实验配置页的 Prompt 模板配置，后端按 `AiPromptTemplate -> 系统默认模板` 生成提示词；不再从前端传核心 prompt，实验 JSON 的 `ai` 只保留图片槽位和目标节点等结构绑定。
+- Admin Prompt 模板配置页的“实验思考题生成 Prompt”预览改为直接使用当前实验配置里的真实问题列表，不再显示单题占位文本。
+- 生成式回答 Prompt 中的“本次实验关键数据”改为只展示数据值，并以一行中文逗号分隔，不再暴露节点名。
+- 生成式回答要求 AI 返回的原始 JSON 格式精简为 `{ "1": "...", "2": "..." }`，后端再转换为前端填表所需的 `index/nodeId/answer` 列表。
+- 删除旧版 `{ "answers": [{ "index": 1, "answer": "" }] }` 数组格式兼容，避免后端继续接受过时结构。
+
+### 实验配置详情节点可视化
+
+- 在实验配置 adapter 中生成 `metaInfo.nodeMetaMap`，汇总节点名、类型、固定答案、公式、表格/段落/问题来源等信息。
+- 新增后台配置详情专属节点提示层：Admin 实验配置详情的“实验预览”中，固定填空、实验数据表和实验分析问题可查看节点名、固定答案、公式和当前值。
+- 节点提示只通过 `AdminExperimentPreviewPage -> ExperimentDetailView(showNodeInspector=true)` 启用，学生实验详情页和 reviewer 审核任务详情页不显示该后台配置辅助信息。
+- 清理 `backend/configs/*.json` 中的 `label` 字段，节点元信息不再生成或 fallback 标签，后台节点浮层只展示节点名、类型、位置、固定答案、公式和当前值。
+- 删除旧 `extract` 识别语义，后端识别、Prompt 预览和生成式回答附加数据节点统一只读取 `inputs.fields[].type = "ai_recognize"`。
+- 电表改装配置中 `SYMD_Fill_0/1/2` 和 `SYYL_Fill_0` 改为 `fixed` 并临时填入固定答案，`DBGZ10-0` 到 `DBGZ10-7` 改为表格图像识别节点。
+- 固定填空节点不再默认预填或设为只读；用户点击“一键填空”并通过套餐权限后，后端才下发 `fixed.value` 到输入框，且下发后仍可手动修改。
+- 表格列显示文本改用 `text` 字段，不再复用已删除的节点 `label`；电表改装表头恢复为 `Rₓ（Ω）/200/400/.../8000`。
+- 后端公式计算器新增线性拟合白名单函数；`exp_meter_modification.json` 的 `formulas` 已补齐 `DBGZ2/DBGZ3/DBGZ4` 的通用表达式。
+- 电表改装拟合按 `Rₓ = k * (1/Iₓ) + b` 计算，`DBGZ2` 为斜率，`DBGZ3` 为 `-b`，`DBGZ4` 为 3 位有效数字的 `R²`。
+- 将公式函数迁移到 `backend/services/experiment_formulas.py`；`experiments.py` 只注册通用函数。公式统一使用 `v()` 显式读取节点或常量，不再保留电表改装专用函数，也不从 `ui.dataTable.columns` 推断计算依赖。
+- 公式计算不再静默吞掉缺失输入：后端对前置节点未填返回 `FORMULA_INPUT_INCOMPLETE` 和缺失节点列表，前端统一提示“填写不完整，无法计算”，并只高亮对应输入框，不向学生展示内部节点名或选择器。
+- 公式计算缺失输入时，前端将对应输入框切换为红色错误态，并自动滚动到第一个缺失输入框，帮助学生快速补齐数据。
+
+### 图片答案节点与落球法表格整理
+
+- 新增 `image_upload` 节点渲染语义：实验配置可将某个 DOM 节点绑定到独立图片槽位，前端在段落位置显示专属上传卡，上传成功后把图片 URL 写回对应 `nodeId`。
+- 学生详情页的主图片识别区只展示普通识别图片槽位；`purpose=answer_image` 或声明 `targetNodeId` 的槽位不再混入“一键识别并填表”的大图片区。
+- 落球法测粘滞系数配置中，`L3Area` 改为“粘滞系数与温度关系曲线”的图片上传节点，并从生成式文本问题区移除。
+- 落球法表格补齐 `温度（℃）/η（Pa·s）测量值` 表头和 30/33/36/39/40/42/44/46 行名，避免空 cell 导致页面左侧表格只剩输入框和截断节点标记。
+- 抽出 `SingleImageUploadNode` 公共组件，后续单图片答案节点统一复用 `ExperimentImageUploader` 的上传、预览、缩放和删除能力。
+- 液晶电光效应实验 `YSSJDrawingAreaArea`、`Y2Area` 改为图片上传节点，分别绑定签字原始数据照片和“平均透射率-电压”曲线截图；主识别图片区仍只使用 `IMG_RAW_DATA`。
+- 液晶实验补齐 `Y1` 表格的电压行与透射率列名，并清理数据处理段落中的富文本工具栏乱码，避免预览页中图片上传节点被渲染成普通短输入框。
+- 液晶实验新增 `Y5Area`、`Y7Area` 图片上传节点，分别绑定透光率下降/上升响应曲线照片，补齐学校系统后半段图片上传项的配置结构。

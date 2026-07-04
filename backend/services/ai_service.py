@@ -24,7 +24,7 @@ def get_openai_client(session: Session):
     ), config
 
 async def recognize_images(experiment_id: str, image_paths: list[str], session: Session) -> dict:
-    from services.experimentConfigStore import get_experiment_config
+    from services.experimentConfigStore import get_experiment_config, collect_ai_recognition_node_ids
     
     exp_config = get_experiment_config(experiment_id)
     if not exp_config:
@@ -32,29 +32,12 @@ async def recognize_images(experiment_id: str, image_paths: list[str], session: 
         
     db_template = session.get(AiPromptTemplate, experiment_id)
     
-    # 提取所有需要 OCR 的节点
-    extract_node_ids = []
-    # 从 inputs.fields 中找 type="extract"
-    for field in exp_config.get("inputs", {}).get("fields", []):
-        if field.get("type") == "extract":
-            extract_node_ids.append(field.get("id"))
-            
-    # 从 ui.dataTable 中找输入列
-    data_table = exp_config.get("ui", {}).get("dataTable")
-    if data_table and data_table.get("rows"):
-        rows = data_table.get("rows")
-        cols = data_table.get("columns", [])
-        for r_idx in range(rows):
-            for c_idx, col in enumerate(cols):
-                if not col.get("computed"): # 只要不是计算列，就是输入节点
-                    node_id = data_table.get("nodePattern", "").replace("{r}", str(r_idx)).replace("{c}", str(c_idx))
-                    if node_id:
-                        extract_node_ids.append(node_id)
+    recognition_node_ids = collect_ai_recognition_node_ids(exp_config)
     
-    if not extract_node_ids:
+    if not recognition_node_ids:
         return {} # Nothing to extract
         
-    prompt = build_recognition_prompt(exp_config, extract_node_ids, db_template)
+    prompt = build_recognition_prompt(exp_config, recognition_node_ids, db_template)
     
     client, config = get_openai_client(session)
     
@@ -94,7 +77,7 @@ async def recognize_images(experiment_id: str, image_paths: list[str], session: 
         result_dict = json.loads(content)
         
         # 过滤只保留我们想要的 keys
-        filtered = {k: str(v) for k, v in result_dict.items() if k in extract_node_ids}
+        filtered = {k: str(v) for k, v in result_dict.items() if k in recognition_node_ids}
         return filtered
         
     except Exception as e:
@@ -155,7 +138,10 @@ async def generate_answers(experiment_id: str, questions: list[dict], form_value
         content = response.choices[0].message.content.strip()
         try:
             payload = json.loads(content)
-            raw_answers = payload.get("answers", [])
+            raw_answers = [
+                {"index": key, "answer": value}
+                for key, value in payload.items()
+            ]
         except Exception:
             raw_answers = parse_numbered_answers(content, questions)
 

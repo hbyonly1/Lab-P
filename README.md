@@ -27,6 +27,40 @@ docker-compose up -d --build
 ```
 This starts PostgreSQL, Redis, FastAPI, Celery, and Nginx.
 
+### Making Backend Code Changes Take Effect
+
+When editing backend Python files such as `backend/core/ai_prompts.py`, refreshing the browser is not enough. The page calls the backend API, and the running Uvicorn process must reload the Python module before changes appear.
+
+For local non-Docker development, either restart the backend process manually or start it with auto-reload:
+
+```bash
+cd backend
+PYTHONPATH=. venv/bin/uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+```
+
+For Docker Compose, backend code is copied into the Docker image during build. After changing backend Python code, rebuild and recreate the affected services:
+
+```bash
+docker-compose up -d --build backend celery_worker
+
+cd backend
+PYTHONPATH=. venv/bin/uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+```
+
+Docker Compose exposes the backend on `http://localhost:8000`. If the frontend is running in Vite dev mode, check `frontend/.env.local`; when it contains `VITE_API_BASE_URL=http://localhost:8001`, the page is using the local development backend, not the Docker backend. In that case, rebuilding Docker will not affect the page you are viewing. Restart the local `8001` backend instead, or change `frontend/.env.local` to `http://localhost:8000` and restart Vite.
+
+If no source code changed and you only need to restart the already-built backend container, use:
+
+```bash
+docker-compose restart backend
+```
+
+If you changed worker code or logic used by background tasks, restart or rebuild `celery_worker` as well:
+
+```bash
+docker-compose restart celery_worker
+```
+
 2. **Start Frontend (Dev Mode)**:
 ```bash
 cd frontend
@@ -53,4 +87,3 @@ npm run dev
 ```bash
 docker-compose down -v
 ```
-

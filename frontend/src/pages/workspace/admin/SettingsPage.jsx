@@ -155,8 +155,6 @@ export default function SettingsPage() {
           saveText="保存自动化配置"
           saving={savingAutomation}
           onSave={handleSaveAutomationConfig}
-          confirmTitle="保存自动化配置"
-          confirmContent="保存后会影响后续学校系统同步和自动填报任务，请确认 JSON 内容已经核对。"
           successMessage="自动化配置已保存"
           fullScreen={true}
         />

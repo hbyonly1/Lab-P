@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Tabs, Form, Input, Button, message, Space, Card, Typography, Spin, Collapse, Select } from 'antd';
 import { buildExperimentConfig } from '../../../services/experimentConfigStore.js';
 import { ExperimentDetailView } from '../student/StudentExperimentDetailPage.jsx';
@@ -38,8 +38,6 @@ function ExperimentRawConfigTab({ experimentId, configJson, onSaved }) {
       saveText="保存配置"
       saving={saving}
       onSave={handleSave}
-      confirmTitle="保存实验配置"
-      confirmContent="保存后会写回后端配置文件并立即同步数据库，请确认 JSON 内容已经核对。"
       successMessage="实验配置已保存"
       className="settings-panel settings-automation-panel admin-experiment-raw-config-panel"
       rows={30}
@@ -96,8 +94,8 @@ function ExperimentSettingsTab({ experimentId }) {
       <Paragraph style={{ marginBottom: 0 }}>
         <Text type="secondary">
           在此处配置实验数据的自动计算公式。每行一条规则，格式为：<Text code>目标节点 = 表达式</Text>。<br />
-          例如：<Text code>B = A + D</Text> | <Text code>N4 = N10-0 * 2.5</Text> &nbsp;&nbsp;
-          （表达式支持基本的数学运算，所有参与运算的节点必须是有效的实验节点ID）
+          例如：<Text code>B = v('A') + v('D')</Text> | <Text code>N4 = v('N10-0') * 2.5</Text> &nbsp;&nbsp;
+          （<Text code>v('节点')</Text> 读取单个节点，<Text code>v('A','B')</Text> 读取节点序列，<Text code>v(1,2)</Text> 表示常量序列）
         </Text>
       </Paragraph>
     </div>
@@ -177,28 +175,17 @@ function ExperimentPromptTab({ experimentId, experimentConfig }) {
       let nodes = [];
       const fields = jsonConfig.inputs?.fields || [];
       fields.forEach(f => {
-        if (f.type === 'extract') nodes.push(f.id);
+        if (f.type === 'ai_recognize') nodes.push(f.id);
       });
-      const dataTable = jsonConfig.ui?.dataTable;
-      if (dataTable && dataTable.rows) {
-        for (let r = 0; r < dataTable.rows; r++) {
-          for (let c = 0; c < (dataTable.columns || []).length; c++) {
-            if (!dataTable.columns[c].computed) {
-              const nid = dataTable.nodePattern?.replace('{r}', r).replace('{c}', c);
-              if (nid) nodes.push(nid);
-            }
-          }
-        }
-      }
       setAvailableDataNodes(nodes.map(n => ({ label: n, value: n })));
+      const nodeSet = new Set(nodes);
 
-      const aiConfig = jsonConfig.ai || {};
       const newValues = {
-        recognition_system_prompt: template.recognition_system_prompt || aiConfig.recognition?.system_prompt || DEFAULT_RECOGNITION_SYSTEM,
-        recognition_extra_prompt: template.recognition_extra_prompt || aiConfig.recognition?.extra_prompt || '',
-        generation_system_prompt: template.generation_system_prompt || aiConfig.generation?.system_prompt || DEFAULT_GENERATION_SYSTEM,
-        generation_extra_prompt: template.generation_extra_prompt || aiConfig.generation?.extra_prompt || '',
-        generation_data_nodes: template.generation_data_nodes ? template.generation_data_nodes.split(',').filter(Boolean) : [],
+        recognition_system_prompt: template.recognition_system_prompt || DEFAULT_RECOGNITION_SYSTEM,
+        recognition_extra_prompt: template.recognition_extra_prompt || '',
+        generation_system_prompt: template.generation_system_prompt || DEFAULT_GENERATION_SYSTEM,
+        generation_extra_prompt: template.generation_extra_prompt || '',
+        generation_data_nodes: template.generation_data_nodes ? template.generation_data_nodes.split(',').filter(n => nodeSet.has(n)) : [],
       };
       promptForm.setFieldsValue(newValues);
       updatePreview(experimentId, newValues);
@@ -307,6 +294,7 @@ function ExperimentPromptTab({ experimentId, experimentConfig }) {
 export default function AdminExperimentPreviewPage() {
   const navigate = useNavigate();
   const { experimentId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [experiment, setExperiment] = useState(null);
   const [rawExperimentConfig, setRawExperimentConfig] = useState(null);
   const [loadingConfig, setLoadingConfig] = useState(true);
@@ -373,6 +361,7 @@ export default function AdminExperimentPreviewPage() {
         <ExperimentDetailView
           experiment={experiment}
           onBack={() => navigate('/workspace/admin/experiments')}
+          showNodeInspector={true}
         />
       ),
     },
@@ -387,13 +376,22 @@ export default function AdminExperimentPreviewPage() {
       children: <ExperimentPromptTab experimentId={experimentId} experimentConfig={experiment} />,
     },
   ];
+  const tabKeys = new Set(items.map((item) => item.key));
+  const activeTab = tabKeys.has(searchParams.get('tab')) ? searchParams.get('tab') : 'raw_config';
+
+  const handleTabChange = (nextTab) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('tab', nextTab);
+    setSearchParams(nextParams, { replace: true });
+  };
 
   return (
     <section className="settings-page admin-experiment-preview-page full-height-page">
       <div className="settings-tabs-shell">
         <Tabs
           className="settings-tabs"
-          defaultActiveKey="raw_config"
+          activeKey={activeTab}
+          onChange={handleTabChange}
           items={items}
         />
       </div>

@@ -9,245 +9,197 @@
   "inputs": {
     "images": [
       {
-        "id": "IMG_RAW_DATA",
-        "label": "原始实验记录与曲线图片"
+        "id": "IMG_RAW_DATA"
       }
     ],
     "fields": [
       {
         "id": "SYMD_Fill_0",
-        "type": "extract",
-        "label": "SYMD_Fill_0"
+        "type": "fixed"
       },
       {
         "id": "SYMD_Fill_1",
-        "type": "extract",
-        "label": "SYMD_Fill_1"
+        "type": "fixed"
       },
       {
         "id": "YSSJDrawingAreaArea",
-        "type": "generated",
-        "label": "YSSJDrawingAreaArea"
+        "type": "generated"
       },
       {
         "id": "S10-0",
-        "type": "extract",
-        "label": "S10-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S10-1",
-        "type": "extract",
-        "label": "S10-1"
+        "type": "ai_recognize"
       },
       {
         "id": "S10-2",
-        "type": "extract",
-        "label": "S10-2"
+        "type": "ai_recognize"
       },
       {
         "id": "S10-3",
-        "type": "extract",
-        "label": "S10-3"
+        "type": "ai_recognize"
       },
       {
         "id": "S10-4",
-        "type": "extract",
-        "label": "S10-4"
+        "type": "ai_recognize"
       },
       {
         "id": "S11-0",
-        "type": "extract",
-        "label": "S11-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S11-1",
-        "type": "extract",
-        "label": "S11-1"
+        "type": "ai_recognize"
       },
       {
         "id": "S11-2",
-        "type": "extract",
-        "label": "S11-2"
+        "type": "ai_recognize"
       },
       {
         "id": "S11-3",
-        "type": "extract",
-        "label": "S11-3"
+        "type": "ai_recognize"
       },
       {
         "id": "S11-4",
-        "type": "extract",
-        "label": "S11-4"
+        "type": "ai_recognize"
       },
       {
         "id": "S12-0",
-        "type": "extract",
-        "label": "S12-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S12-1",
-        "type": "extract",
-        "label": "S12-1"
+        "type": "ai_recognize"
       },
       {
         "id": "S12-2",
-        "type": "extract",
-        "label": "S12-2"
+        "type": "ai_recognize"
       },
       {
         "id": "S12-3",
-        "type": "extract",
-        "label": "S12-3"
+        "type": "ai_recognize"
       },
       {
         "id": "S12-4",
-        "type": "extract",
-        "label": "S12-4"
+        "type": "ai_recognize"
       },
       {
         "id": "S13-0",
-        "type": "extract",
-        "label": "S13-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S13-1",
-        "type": "extract",
-        "label": "S13-1"
+        "type": "ai_recognize"
       },
       {
         "id": "S13-2",
-        "type": "extract",
-        "label": "S13-2"
+        "type": "ai_recognize"
       },
       {
         "id": "S13-3",
-        "type": "extract",
-        "label": "S13-3"
+        "type": "ai_recognize"
       },
       {
         "id": "S13-4",
-        "type": "extract",
-        "label": "S13-4"
+        "type": "ai_recognize"
       },
       {
         "id": "S2",
-        "type": "computed",
-        "label": "S2"
+        "type": "computed"
       },
       {
         "id": "S3",
-        "type": "computed",
-        "label": "S3"
+        "type": "computed"
       },
       {
         "id": "S4",
-        "type": "computed",
-        "label": "S4"
+        "type": "computed"
       },
       {
         "id": "S50-0",
-        "type": "extract",
-        "label": "S50-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S50-1",
-        "type": "extract",
-        "label": "S50-1"
+        "type": "ai_recognize"
       },
       {
         "id": "S50-2",
-        "type": "extract",
-        "label": "S50-2"
+        "type": "ai_recognize"
       },
       {
         "id": "S50-3",
-        "type": "extract",
-        "label": "S50-3"
+        "type": "ai_recognize"
       },
       {
         "id": "S51-0",
-        "type": "extract",
-        "label": "S51-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S51-1",
-        "type": "extract",
-        "label": "S51-1"
+        "type": "ai_recognize"
       },
       {
         "id": "S51-2",
-        "type": "extract",
-        "label": "S51-2"
+        "type": "ai_recognize"
       },
       {
         "id": "S51-3",
-        "type": "extract",
-        "label": "S51-3"
+        "type": "ai_recognize"
       },
       {
         "id": "S52-0",
-        "type": "extract",
-        "label": "S52-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S52-1",
-        "type": "extract",
-        "label": "S52-1"
+        "type": "ai_recognize"
       },
       {
         "id": "S52-2",
-        "type": "extract",
-        "label": "S52-2"
+        "type": "ai_recognize"
       },
       {
         "id": "S52-3",
-        "type": "extract",
-        "label": "S52-3"
+        "type": "ai_recognize"
       },
       {
         "id": "S53-0",
-        "type": "extract",
-        "label": "S53-0"
+        "type": "ai_recognize"
       },
       {
         "id": "S53-1",
-        "type": "extract",
-        "label": "S53-1"
+        "type": "ai_recognize"
       },
       {
         "id": "S53-2",
-        "type": "extract",
-        "label": "S53-2"
+        "type": "ai_recognize"
       },
       {
         "id": "S53-3",
-        "type": "extract",
-        "label": "S53-3"
+        "type": "ai_recognize"
       },
       {
         "id": "S6",
-        "type": "computed",
-        "label": "S6"
+        "type": "computed"
       },
       {
         "id": "S7",
-        "type": "computed",
-        "label": "S7"
+        "type": "computed"
       },
       {
         "id": "S8",
-        "type": "computed",
-        "label": "S8"
+        "type": "computed"
       },
       {
         "id": "OP_Fill_0",
-        "type": "extract",
-        "label": "OP_Fill_0"
+        "type": "ai_recognize"
       },
       {
         "id": "OP1_Fill_0",
-        "type": "extract",
-        "label": "OP1_Fill_0"
+        "type": "ai_recognize"
       }
     ]
   },
@@ -433,135 +385,95 @@
           {
             "isHeader": true,
             "cells": [
+              {},
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {},
               {
-                "label": "i"
+                "nodeId": "S10-0"
               },
               {
-                "label": "1"
+                "nodeId": "S10-1"
               },
               {
-                "label": "2"
+                "nodeId": "S10-2"
               },
               {
-                "label": "3"
+                "nodeId": "S10-3"
               },
               {
-                "label": "4"
-              },
-              {
-                "label": "5"
+                "nodeId": "S10-4"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "lᵢ（mm）"
+                "nodeId": "S11-0"
               },
               {
-                "nodeId": "S10-0",
-                "label": ""
+                "nodeId": "S11-1"
               },
               {
-                "nodeId": "S10-1",
-                "label": ""
+                "nodeId": "S11-2"
               },
               {
-                "nodeId": "S10-2",
-                "label": ""
+                "nodeId": "S11-3"
               },
               {
-                "nodeId": "S10-3",
-                "label": ""
-              },
-              {
-                "nodeId": "S10-4",
-                "label": ""
+                "nodeId": "S11-4"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "i+5"
+                "nodeId": "S12-0"
               },
               {
-                "nodeId": "S11-0",
-                "label": ""
+                "nodeId": "S12-1"
               },
               {
-                "nodeId": "S11-1",
-                "label": ""
+                "nodeId": "S12-2"
               },
               {
-                "nodeId": "S11-2",
-                "label": ""
+                "nodeId": "S12-3"
               },
               {
-                "nodeId": "S11-3",
-                "label": ""
-              },
-              {
-                "nodeId": "S11-4",
-                "label": ""
+                "nodeId": "S12-4"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "lᵢ₊₅（mm）"
+                "nodeId": "S13-0"
               },
               {
-                "nodeId": "S12-0",
-                "label": ""
+                "nodeId": "S13-1"
               },
               {
-                "nodeId": "S12-1",
-                "label": ""
+                "nodeId": "S13-2"
               },
               {
-                "nodeId": "S12-2",
-                "label": ""
+                "nodeId": "S13-3"
               },
               {
-                "nodeId": "S12-3",
-                "label": ""
-              },
-              {
-                "nodeId": "S12-4",
-                "label": ""
-              }
-            ]
-          },
-          {
-            "isHeader": false,
-            "cells": [
-              {
-                "label": "λᵢ= (lᵢ₊₅-lᵢ)/5（mm）"
-              },
-              {
-                "nodeId": "S13-0",
-                "label": ""
-              },
-              {
-                "nodeId": "S13-1",
-                "label": ""
-              },
-              {
-                "nodeId": "S13-2",
-                "label": ""
-              },
-              {
-                "nodeId": "S13-3",
-                "label": ""
-              },
-              {
-                "nodeId": "S13-4",
-                "label": ""
+                "nodeId": "S13-4"
               }
             ]
           }
@@ -573,116 +485,82 @@
           {
             "isHeader": true,
             "cells": [
+              {},
+              {},
+              {},
+              {},
+              {}
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {},
               {
-                "label": "i"
+                "nodeId": "S50-0"
               },
               {
-                "label": "1"
+                "nodeId": "S50-1"
               },
               {
-                "label": "2"
+                "nodeId": "S50-2"
               },
               {
-                "label": "3"
-              },
-              {
-                "label": "4"
+                "nodeId": "S50-3"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "lᵢ（mm）"
+                "nodeId": "S51-0"
               },
               {
-                "nodeId": "S50-0",
-                "label": ""
+                "nodeId": "S51-1"
               },
               {
-                "nodeId": "S50-1",
-                "label": ""
+                "nodeId": "S51-2"
               },
               {
-                "nodeId": "S50-2",
-                "label": ""
-              },
-              {
-                "nodeId": "S50-3",
-                "label": ""
+                "nodeId": "S51-3"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "i+4"
+                "nodeId": "S52-0"
               },
               {
-                "nodeId": "S51-0",
-                "label": ""
+                "nodeId": "S52-1"
               },
               {
-                "nodeId": "S51-1",
-                "label": ""
+                "nodeId": "S52-2"
               },
               {
-                "nodeId": "S51-2",
-                "label": ""
-              },
-              {
-                "nodeId": "S51-3",
-                "label": ""
+                "nodeId": "S52-3"
               }
             ]
           },
           {
             "isHeader": false,
             "cells": [
+              {},
               {
-                "label": "lᵢ₊₄（mm）"
+                "nodeId": "S53-0"
               },
               {
-                "nodeId": "S52-0",
-                "label": ""
+                "nodeId": "S53-1"
               },
               {
-                "nodeId": "S52-1",
-                "label": ""
+                "nodeId": "S53-2"
               },
               {
-                "nodeId": "S52-2",
-                "label": ""
-              },
-              {
-                "nodeId": "S52-3",
-                "label": ""
-              }
-            ]
-          },
-          {
-            "isHeader": false,
-            "cells": [
-              {
-                "label": "λᵢ= (lᵢ₊₄-lᵢ)/2（mm）"
-              },
-              {
-                "nodeId": "S53-0",
-                "label": ""
-              },
-              {
-                "nodeId": "S53-1",
-                "label": ""
-              },
-              {
-                "nodeId": "S53-2",
-                "label": ""
-              },
-              {
-                "nodeId": "S53-3",
-                "label": ""
+                "nodeId": "S53-3"
               }
             ]
           }
@@ -802,11 +680,7 @@
   },
   "ai": {
     "recognition": {
-      "imageRef": "IMG_RAW_DATA",
-      "prompt": "提取声速的测量实验报告中的表格数据、填空和曲线读数"
-    },
-    "answerGeneration": {
-      "prompt": "基于声速的测量实验原理，用中文学术性语言回答实验分析与拓展题。"
+      "imageRef": "IMG_RAW_DATA"
     }
   },
   "formulas": {}

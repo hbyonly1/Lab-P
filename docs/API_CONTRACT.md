@@ -161,6 +161,7 @@
 }
 ```
 - **核心逻辑说明（零信任）**：前端**绝对不可以通过 Payload 传递计算公式**（防篡改与注入风险）。怎么计算、公式是什么，统统存放在后端的 `experiments` 表的 `config_json` 里。后端拿到 `current_values` 后，自行去数据库查公式并推导，最后返回结果。
+- **公式表达式能力**：表达式由后端 `simpleeval` 白名单执行，支持基础数学运算，以及后端在 `backend/services/experiment_formulas.py` 显式注册的辅助函数。统一使用 `v()` 取值：`v('A')` 读取单个节点，`v('A','B')` 读取多个节点并返回数组，`v(200,400)` 表示常量数组。当前已注册 `v`、`reciprocal`、`reciprocal_values`、`linear_slope`、`linear_intercept`、`linear_r2`、`format_sig`；公式函数不读取 UI 表格结构，所有依赖节点或常量必须在公式中显式写出。
 - **Response**:
 ```json
 {
@@ -168,6 +169,16 @@
   "data": {
     "B": "3.5",
     "Result": "1.2"
+  }
+}
+```
+- **Incomplete Input Error**: 如果公式依赖的前置节点未填写，后端返回 `400`，前端只展示“填写不完整，无法计算”，并可用 `missing_node_ids` 高亮对应输入框；学生端不得展示节点选择器或内部节点名。
+```json
+{
+  "detail": {
+    "code": "FORMULA_INPUT_INCOMPLETE",
+    "message": "填写不完整，无法计算",
+    "missing_node_ids": ["DBGZ10-2"]
   }
 }
 ```
@@ -188,7 +199,7 @@
   }
 }
 ```
-- **核心逻辑说明（零信任）**：前端不传递核心 Prompt！后端使用实验配置页“Prompt 模板配置”的生成式回答模板，按 `AiPromptTemplate -> backend/configs/{id}.json 的 ai.generation -> 系统默认模板` 的优先级组合提示词。后端要求模型返回 JSON object，并按 `index` 转换为对应 `nodeId`。
+- **核心逻辑说明（零信任）**：前端不传递核心 Prompt！后端使用实验配置页“Prompt 模板配置”的生成式回答模板，按 `AiPromptTemplate -> 系统默认模板` 的优先级组合提示词。实验 JSON 的 `ai` 只声明图片槽位和目标节点等结构绑定，不保存 Prompt 内容。后端要求模型返回简洁 JSON object，例如 `{ "1": "...", "2": "..." }`，再按题号转换为对应 `nodeId`。
 - **Response**:
 ```json
 {
@@ -269,6 +280,8 @@
 - 列表补充字段：`updated_at` 表示配置内容最后变化时间，`config_file_mtime` 表示本地 JSON 文件最后修改时间。
 - 排序和启用控制字段：`meta.sortOrder` 控制 Admin 实验配置页与学生实验页的统一显示顺序；`meta.enabled=false` 时学生端列表和详情不可见，Admin 仍可管理。
 - 实验配置 `meta` 不保存学生完成状态；学生维度的 `unsubmitted/reviewing/completed` 等状态来自 `submissions`，由前端在学生页面合并展示。
+- 节点类型语义：`ai_recognize` 是唯一图像识别节点类型；图像识别 Prompt schema、生成式回答附加数据节点下拉和生成式回答关键数据默认范围都只读取该类型。`fixed` 为固定填空节点，一键填空读取其 `value`；`computed` 为公式计算节点；`generated` 为生成式文本回答节点；`image_upload` 为学生/审核员单独上传图片并写回对应 `nodeId` 的图片答案节点。旧 `extract` 类型已删除，不再作为识别节点来源。
+- 图片槽位语义：`inputs.images[].id` 可被 `ai.recognition.imageRef` 绑定为表格/数据识别图片；也可通过 `inputs.images[].targetNodeId` 或 `inputs.fields[].imageSlotId` 绑定到 `image_upload` 节点。识别图片不会自动混入图片答案节点，图片答案节点保存为对应节点的图片 URL。
 
 当前真实接入的学生端实验配置：
 
@@ -349,8 +362,9 @@ exp_falling_ball_viscosity      落球法测粘滞系数
 ```json
 {
   "formulas": {
-    "K4": "vals['K10-0'] + vals['K10-1']",
-    "K5": "vals['K4'] / 2"
+    "DBGZ2": "linear_slope(reciprocal(v('DBGZ10-0', 'DBGZ10-1')), v(200, 400))",
+    "DBGZ3": "-linear_intercept(reciprocal(v('DBGZ10-0', 'DBGZ10-1')), v(200, 400))",
+    "DBGZ4": "format_sig(linear_r2(reciprocal(v('DBGZ10-0', 'DBGZ10-1')), v(200, 400)), 3)"
   }
 }
 ```
