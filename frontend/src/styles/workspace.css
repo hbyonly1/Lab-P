@@ -82,6 +82,113 @@
   padding: 0;
 }
 
+.automation-progress-modal .ant-modal-content {
+  border-radius: 8px;
+}
+
+.automation-progress-modal .ant-modal-body {
+  padding: 24px;
+}
+
+.automation-progress-body {
+  display: grid;
+  gap: 20px;
+}
+
+.automation-progress-current {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 14px 16px;
+  border: 1px solid #d6e4ff;
+  border-radius: 8px;
+  background: #f5f9ff;
+  color: #10213f;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.automation-step-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 36px;
+  position: relative;
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  max-height: 36px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  border: 1px solid #d7d7d3;
+  background: #f4f4f2;
+  color: #77746e;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.automation-progress-modal .ant-steps-item-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 36px !important;
+  height: 36px !important;
+  margin-inline-start: 0 !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  line-height: 0 !important;
+}
+
+.automation-progress-modal .ant-steps-item-custom .ant-steps-item-icon > .ant-steps-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 36px !important;
+  height: 36px !important;
+  line-height: 0 !important;
+}
+
+.automation-progress-modal .ant-steps-item-tail {
+  display: none !important;
+}
+
+.automation-progress-modal .ant-steps-item:not(:last-child) .automation-step-dot::after {
+  content: '';
+  position: absolute;
+  top: 36px;
+  left: 50%;
+  width: 2px !important;
+  height: 36px;
+  transform: translateX(-50%);
+  background: #d7d7d3;
+}
+
+.automation-progress-modal .ant-steps-item-finish:not(:last-child) .automation-step-dot::after {
+  background: #4f4d49;
+}
+
+.automation-progress-modal .ant-steps-item-finish .automation-step-dot {
+  background: #ffffff;
+  border-color: #4f4d49;
+  color: #1f1d1a;
+}
+
+.automation-progress-modal .ant-steps-item-process .automation-step-dot {
+  background: #111111;
+  border-color: #111111;
+  color: #ffffff;
+}
+
+.automation-progress-modal .ant-steps-item-wait .automation-step-dot {
+  background: #f4f4f2;
+  border-color: #d7d7d3;
+  color: #77746e;
+}
+
 .workspace-sider .ant-menu {
   flex: 1;
   overflow-y: auto;
@@ -421,6 +528,12 @@
   min-width: 0;
 }
 
+.student-experiments-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .service-mode-panel {
   background: #fcfbfa;
   border: 1px solid rgba(20, 20, 19, 0.08);
@@ -514,6 +627,19 @@
   flex: 0 0 auto;
   align-items: center;
   gap: 16px;
+}
+
+.student-dashboard-last-sync {
+  color: #16803c;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.student-dashboard-sync-button {
+  min-height: 40px;
+  border-radius: 8px;
+  font-weight: 600;
 }
 
 .workspace-collapse-button .anticon {
@@ -1033,7 +1159,7 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   background: #ffffff;
   border: 1px solid rgba(28, 42, 68, 0.08);
   border-radius: 18px;
@@ -1068,7 +1194,7 @@
 
 .experiment-list {
   display: grid;
-  max-height: 520px;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -1987,6 +2113,26 @@
     padding: var(--lf-workspace-content-padding-sm);
   }
 
+  .workspace-content.is-standard-content:has(.student-experiments-page) {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+
+  .student-experiments-page {
+    display: grid;
+    height: auto;
+    overflow: visible;
+  }
+
+  .student-experiments-page .experiment-list-panel {
+    overflow: hidden;
+  }
+
+  .student-experiments-page .experiment-list {
+    overflow: visible;
+  }
+
   .table-toolbar {
     flex-direction: column;
     align-items: flex-start;
@@ -2033,6 +2179,7 @@
 
   .student-dashboard-userbar {
     width: 100%;
+    flex-wrap: wrap;
     justify-content: flex-end;
   }
 
@@ -2544,6 +2691,29 @@
 /* Remove padding for Admin Experiment Preview Page */
 .workspace-content.is-standard-content:has(.admin-experiment-preview-page) {
   padding: 0 !important;
+}
+
+@media (min-width: 761px) {
+  .workspace-content.is-standard-content:has(.student-experiments-page) {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .student-experiments-page {
+    flex: 1;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .student-experiments-page .ui-stat-grid {
+    flex: 0 0 auto;
+  }
+
+  .student-experiments-page .experiment-list-panel {
+    flex: 1;
+  }
 }
 
 /* Full height settings for admin pages */

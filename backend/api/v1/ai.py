@@ -1,15 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
-from sqlmodel import Session, select
+from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel import Session
 from typing import Any, List, Optional
 from pydantic import BaseModel
 from core.db import get_session
-from models.core import User, AiConfig, AiPromptTemplate, Submission
+from models.core import AuditLog, AiConfig, User, AiPromptTemplate, Submission, get_utc_now
 from api.deps import get_current_user, get_current_reviewer_or_admin, get_current_admin
 from worker.ai_tasks import recognize_images_task, generate_answer_task, fixed_fill_task, recognize_submission_task
 from worker.celery_app import celery_app
-from cryptography.fernet import Fernet
 from core.config import settings
 from datetime import datetime
+from services.ai_provider import AI_TASK_ANSWER_GENERATION, AiProviderConfigError, ensure_ai_config, get_ai_provider
 
 router = APIRouter()
 
@@ -22,16 +22,27 @@ class GenerateAnswerRequest(BaseModel):
     questions: List[dict]
     current_form_values: dict
 
+
 class AiConfigUpdate(BaseModel):
+    provider: str = "openai_compatible"
     base_url: str
-    model: str
-    fallback_model: Optional[str] = None
-    api_key: Optional[str] = None
-    timeout_seconds: int = 60
-    temperature: float = 0.85
-    max_images_per_task: int = 8
-    max_concurrent_tasks: int = 4
+    default_model: str
+    default_timeout_seconds: int = 60
+    default_temperature: float = 0.7
+    default_max_images_per_task: int = 8
     auto_recognize: bool = False
+    image_recognition_model: str
+    image_recognition_timeout_seconds: int = 60
+    image_recognition_temperature: float = 0
+    image_recognition_max_images_per_task: int = 8
+    answer_generation_model: str
+    answer_generation_timeout_seconds: int = 60
+    answer_generation_temperature: float = 0.85
+    captcha_model: str
+    captcha_timeout_seconds: int = 30
+    captcha_temperature: float = 0
+    captcha_prompt: str
+
 
 class AiPromptUpdate(BaseModel):
     recognition_system_prompt: Optional[str] = None
@@ -44,6 +55,15 @@ class AiPromptUpdate(BaseModel):
 class PreviewPromptResponse(BaseModel):
     recognition_prompt: str
     generation_prompt: str
+
+
+class AiConnectionTestResponse(BaseModel):
+    ok: bool
+    output: Optional[str] = None
+    error: Optional[str] = None
+    error_code: Optional[str] = None
+    model: Optional[str] = None
+    base_url: Optional[str] = None
 
 
 @router.post("/recognize-direct")
@@ -147,47 +167,100 @@ def get_ai_config(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_admin)
 ):
-    config = session.get(AiConfig, 1)
-    if not config:
-        return {}
-    
-    data = config.model_dump()
-    if data.get("api_key_encrypted"):
-        data["api_key"] = "configured"
-    else:
-        data["api_key"] = None
-    del data["api_key_encrypted"]
-    
-    return data
+    config = ensure_ai_config(session)
+    session.commit()
+    session.refresh(config)
+    return {
+        "source": "database",
+        "provider": config.provider,
+        "api_key_configured": bool(settings.AI_API_KEY),
+        "base_url": config.base_url,
+        "default_model": config.default_model,
+        "default_timeout_seconds": config.default_timeout_seconds,
+        "default_temperature": config.default_temperature,
+        "default_max_images_per_task": config.default_max_images_per_task,
+        "auto_recognize": config.auto_recognize,
+        "image_recognition_model": config.image_recognition_model,
+        "image_recognition_timeout_seconds": config.image_recognition_timeout_seconds,
+        "image_recognition_temperature": config.image_recognition_temperature,
+        "image_recognition_max_images_per_task": config.image_recognition_max_images_per_task,
+        "answer_generation_model": config.answer_generation_model,
+        "answer_generation_timeout_seconds": config.answer_generation_timeout_seconds,
+        "answer_generation_temperature": config.answer_generation_temperature,
+        "captcha_model": config.captcha_model,
+        "captcha_timeout_seconds": config.captcha_timeout_seconds,
+        "captcha_temperature": config.captcha_temperature,
+        "captcha_prompt": config.captcha_prompt,
+    }
+
 
 @router.put("/admin/config")
 def update_ai_config(
     req: AiConfigUpdate,
     session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_admin)
+    current_user: User = Depends(get_current_admin),
 ):
-    config = session.get(AiConfig, 1)
-    if not config:
-        config = AiConfig(id=1)
-        
-    config.base_url = req.base_url
-    config.model = req.model
-    config.fallback_model = req.fallback_model
-    config.timeout_seconds = req.timeout_seconds
-    config.temperature = req.temperature
-    config.max_images_per_task = req.max_images_per_task
-    config.max_concurrent_tasks = req.max_concurrent_tasks
-    config.auto_recognize = req.auto_recognize
-    
-    if req.api_key and req.api_key != "configured":
-        if not settings.AI_ENCRYPTION_KEY:
-            raise HTTPException(status_code=500, detail="Missing AI_ENCRYPTION_KEY in environment")
-        f = Fernet(settings.AI_ENCRYPTION_KEY.encode())
-        config.api_key_encrypted = f.encrypt(req.api_key.encode()).decode()
-        
+    if req.provider != "openai_compatible":
+        raise HTTPException(status_code=422, detail="Only openai_compatible provider is supported.")
+
+    config = session.get(AiConfig, 1) or AiConfig(id=1)
+    for field, value in req.model_dump().items():
+        setattr(config, field, value)
+    config.updated_at = get_utc_now()
+    config.updated_by = current_user.id
     session.add(config)
+    session.flush()
+    session.add(
+        AuditLog(
+            user_id=current_user.id,
+            action="ai_config_updated",
+            status="success",
+            target_id=str(config.id),
+            details="Updated non-secret AI runtime configuration.",
+        )
+    )
     session.commit()
-    return {"status": "success"}
+    return get_ai_config(session=session, current_user=current_user)
+
+
+@router.post("/admin/test-connection", response_model=AiConnectionTestResponse)
+async def test_ai_connection(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_admin),
+):
+    profile = None
+    try:
+        provider = get_ai_provider(session)
+        profile = provider.get_profile(AI_TASK_ANSWER_GENERATION)
+        response = await provider.chat_completion(
+            task=AI_TASK_ANSWER_GENERATION,
+            messages=[{"role": "user", "content": "hello"}],
+        )
+        output = response.choices[0].message.content or ""
+        return AiConnectionTestResponse(
+            ok=True,
+            output=output,
+            model=profile.model,
+            base_url=profile.base_url,
+        )
+    except Exception as exc:
+        if isinstance(exc, AiProviderConfigError) and "AI API key" in str(exc):
+            error_code = "missing_api_key"
+            error = "缺少 AI_API_KEY：请在 .env 中填写 AI_API_KEY，然后重启后端进程。"
+        elif isinstance(exc, AiProviderConfigError):
+            error_code = "invalid_ai_config"
+            error = str(exc)
+        else:
+            status_code = getattr(exc, "status_code", None)
+            error_code = "provider_request_failed"
+            error = f"AI 服务请求失败{f'（HTTP {status_code}）' if status_code else ''}：{str(exc)}"
+        return AiConnectionTestResponse(
+            ok=False,
+            error=error,
+            error_code=error_code,
+            model=profile.model if profile else None,
+            base_url=profile.base_url if profile else None,
+        )
 
 @router.get("/admin/prompts/{experiment_id}")
 def get_prompt_template(

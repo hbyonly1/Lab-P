@@ -25,6 +25,7 @@ wheels/
 .coverage
 htmlcov/
 backend/logs/
+backend/tmp/
 backend/uploads/
 
 # Node.js & Frontend

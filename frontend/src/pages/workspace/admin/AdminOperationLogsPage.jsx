@@ -19,7 +19,16 @@ import {
 import { auditApi } from '../../../services/auditApi.js';
 
 const { Option } = Select;
-const { Paragraph, Text } = Typography;
+const { Text } = Typography;
+
+function formatLogDetails(details) {
+  if (!details) return '';
+  try {
+    return JSON.stringify(JSON.parse(details), null, 2);
+  } catch {
+    return details;
+  }
+}
 
 export default function AdminOperationLogsPage() {
   const [operationLogs, setOperationLogs] = useState([]);
@@ -228,7 +237,7 @@ export default function AdminOperationLogsPage() {
                   whiteSpace: 'pre-wrap',
                   border: '1px solid var(--lf-color-border)'
                 }}>
-                  {currentLog.details}
+                  {formatLogDetails(currentLog.details)}
                 </div>
               </div>
             )}

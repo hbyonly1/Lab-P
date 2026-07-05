@@ -135,11 +135,12 @@ def verify_payment(
         session.add(submission)
     
     student_user = session.get(User, order.student_id)
-    student_name = (
-        student_user.real_name or student_user.student_no or student_user.username
-        if student_user
-        else f"用户 {order.student_id}"
-    )
+    if student_user:
+        student_identity = student_user.real_name or "姓名未同步"
+        if student_user.student_no:
+            student_identity = f"{student_identity}，学号 {student_user.student_no}"
+    else:
+        student_identity = f"用户 {order.student_id}"
     action_cn = "确认了" if action_req.action == "verify" else "驳回了"
     
     # Audit log
@@ -148,7 +149,7 @@ def verify_payment(
         action=action_name,
         status="success",
         target_id=order.id,
-        details=f"{action_cn}订单 {order.id} ({student_name}) 的收款请求"
+        details=f"{action_cn}订单 {order.id} ({student_identity}) 的收款请求"
     )
     session.add(log)
     

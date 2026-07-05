@@ -15,16 +15,18 @@ import {
 } from '@ant-design/icons';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { buildExperimentConfig, initFixedValues } from '../../../services/experimentConfigStore.js';
-import { GoldButton, StatusBadge } from '../../../components/ui/index.js';
+import { AutomationProgressModal, GoldButton, StatusBadge } from '../../../components/ui/index.js';
 import { SectionShell, ExperimentDataTable, ExperimentImageUploader, SingleImageUploadNode, ProSubmitModal } from '../../../components/experiment/index.js';
 
-import { saveSubmissionCorrection, submitExperiment } from '../../../services/submissionsApi.js';
+import { createSelfManagedSubmission, saveSubmissionCorrection, submitExperiment } from '../../../services/submissionsApi.js';
 import { uploadFile } from '../../../services/uploadApi.js';
 import { getMe } from '../../../services/authApi.js';
 import { recognizeDirect, generateAnswerDirect, getFixedFillDirect, getTaskStatus } from '../../../services/aiApi.js';
 import { auditApi } from '../../../services/auditApi.js';
 import { experimentsApi } from '../../../services/experimentsApi.js';
 import * as submissionsApi from '../../../services/submissionsApi.js';
+import { startSchoolExperimentDetailSync, startSchoolExperimentSubmit } from '../../../services/schoolSyncApi.js';
+import { getActiveAutomationJobs } from '../../../services/automationJobsApi.js';
 import { ReviewerNodeHint } from '../../../components/experiment/ReviewerNodeHint.jsx';
 
 // Extracted components are imported from components/experiment/index.js
@@ -97,6 +99,10 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
   const [latestSubmission, setLatestSubmission] = useState(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isSavingFinal, setIsSavingFinal] = useState(false);
+  const [automationJob, setAutomationJob] = useState(null);
+  const [isAutomationModalOpen, setIsAutomationModalOpen] = useState(false);
+  const [detailSyncJob, setDetailSyncJob] = useState(null);
+  const [isDetailSyncModalOpen, setIsDetailSyncModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchUserPlan = async () => {
@@ -110,11 +116,16 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
     const fetchStatus = async () => {
       try {
         const submissions = await submissionsApi.getMySubmissions();
-        const latest = submissions.filter(s => s.experiment_id === experiment.meta.id).sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+        const experimentSubmissions = submissions
+          .filter(s => s.experiment_id === experiment.meta.id)
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        const latest = experimentSubmissions.find(s => !s.is_one_click_handoff) || experimentSubmissions[0];
         if (latest) {
           setLatestSubmission(latest);
           const statusMap = {
             'pending_payment': { label: '待支付', tone: 'amber' },
+            'incomplete': { label: '未完成', tone: 'pending' },
+            'draft_submitted': { label: '已临时提交', tone: 'blue' },
             'recognizing': { label: '处理中', tone: 'blue' },
             'reviewing': { label: '审核中', tone: 'amber' },
             'submitting': { label: '提交中', tone: 'blue' },
@@ -130,6 +141,50 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
     fetchUserPlan();
     fetchStatus();
   }, [experiment.meta.id]);
+
+  useEffect(() => {
+    if (isReviewer) return undefined;
+    let cancelled = false;
+
+    const showJob = (job) => {
+      if (['draft_submit', 'final_submit'].includes(job.action)) {
+        setAutomationJob(job);
+        setIsAutomationModalOpen(true);
+      } else {
+        setDetailSyncJob(job);
+        setIsDetailSyncModalOpen(true);
+      }
+    };
+
+    const recoverOrStartDetailSync = async () => {
+      try {
+        const activeJobs = await getActiveAutomationJobs({ experiment_id: experiment.meta.id });
+        if (cancelled) return;
+        const activeJob = (activeJobs || []).find((job) => (
+          ['school_detail_sync', 'draft_submit', 'final_submit'].includes(job.action)
+        ));
+        if (activeJob) {
+          showJob(activeJob);
+          return;
+        }
+        const job = await startSchoolExperimentDetailSync(experiment.meta.id);
+        if (!cancelled) showJob(job);
+      } catch (err) {
+        if (cancelled) return;
+        const activeJob = err.response?.data?.detail?.job;
+        if (err.response?.status === 409 && activeJob) {
+          showJob(activeJob);
+        } else {
+          console.error('Failed to sync school experiment detail:', err);
+        }
+      }
+    };
+
+    recoverOrStartDetailSync();
+    return () => {
+      cancelled = true;
+    };
+  }, [experiment.meta.id, isReviewer]);
 
   // 图片槽位状态映射：{ "IMG_RAW": [file1, file2], "IMG_WAVE": [file3] }
   const [imageSlots, setImageSlots] = useState(() => {
@@ -492,10 +547,10 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
   const collectImagePaths = () => Object.values(imageSlots).flat().map(img => img.url).filter(Boolean);
 
   const ensureSubmissionForSave = async () => {
-    if (latestSubmission?.id) return latestSubmission;
-    const created = await submitExperiment(experiment.meta.id, null, true, collectImagePaths(), 'pay_per_use');
+    if (latestSubmission?.id && !latestSubmission.is_one_click_handoff) return latestSubmission;
+    const created = await createSelfManagedSubmission(experiment.meta.id, collectImagePaths());
     setLatestSubmission(created);
-    setStatus({ label: created.status === 'pending_payment' ? '待支付' : created.status, tone: created.status === 'pending_payment' ? 'amber' : 'default' });
+    setStatus({ label: created.status === 'incomplete' ? '未完成' : created.status, tone: created.status === 'incomplete' ? 'pending' : 'default' });
     return created;
   };
 
@@ -517,7 +572,18 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
         saveMode,
       );
       setLatestSubmission(saved);
-      message.success({ content: isFinal ? '正式数据已保存到该网站。' : '草稿已保存到该网站。', key: 'save-correction' });
+      if (saved.status === 'submitting') {
+        setStatus({ label: '提交中', tone: 'blue' });
+      } else if (saved.status === 'incomplete') {
+        setStatus({ label: '未完成', tone: 'pending' });
+      }
+      const job = await startSchoolExperimentSubmit(experiment.meta.id, {
+        submissionId: saved.id,
+        mode: isFinal ? 'final' : 'draft',
+      });
+      setAutomationJob(job);
+      setIsAutomationModalOpen(true);
+      message.success({ content: isFinal ? '已开始正式提交到学校系统。' : '已开始临时提交到学校系统。', key: 'save-correction' });
     } catch (e) {
       message.error({ content: `保存失败: ${e.response?.data?.detail || e.message}`, key: 'save-correction' });
     } finally {
@@ -719,12 +785,52 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
           </div>
         </SectionShell>
       </div>
+      <AutomationProgressModal
+        open={isDetailSyncModalOpen}
+        initialJob={detailSyncJob}
+        title="学校系统实验同步"
+        steps={[
+          'school.detail.syncing',
+          'school.detail.connecting',
+          'school.detail.opening',
+          'school.detail.reading',
+          'school.detail.savingSnapshot',
+        ]}
+        defaultMessageCode="school.detail.syncing"
+        failureMessageCode="school.detail.failed"
+        onClose={() => {
+          setIsDetailSyncModalOpen(false);
+        }}
+      />
       {/* Pro 一键提交流程弹窗 */}
       <ProSubmitModal
         open={isSubmitModalOpen}
         experiments={submitTargets}
         onCancel={() => setIsSubmitModalOpen(false)}
         onSubmit={handleModalSubmit}
+      />
+      <AutomationProgressModal
+        open={isAutomationModalOpen}
+        initialJob={automationJob}
+        onJobUpdate={(job) => {
+          if (job.status === 'succeeded') {
+            setStatus(job.action === 'final_submit'
+              ? { label: '已完成', tone: 'green' }
+              : { label: '已临时提交', tone: 'blue' });
+          } else if (job.status === 'failed') {
+            setStatus({ label: '提交失败', tone: 'red' });
+          }
+        }}
+        onClose={(job) => {
+          setIsAutomationModalOpen(false);
+          if (job?.status === 'succeeded') {
+            setStatus(job.action === 'final_submit'
+              ? { label: '已完成', tone: 'green' }
+              : { label: '已临时提交', tone: 'blue' });
+          } else if (job?.status === 'failed') {
+            setStatus({ label: '提交失败', tone: 'red' });
+          }
+        }}
       />
     </section>
   );

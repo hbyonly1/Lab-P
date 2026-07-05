@@ -29,6 +29,9 @@ def get_me(current_user: User = Depends(get_current_user)) -> Any:
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str
+    username: str
+    student_no: Optional[str] = None
+    real_name: Optional[str] = None
     role: str
     capabilities: dict
 
@@ -71,6 +74,9 @@ def login_access_token(
             user.id, expires_delta=access_token_expires
         ),
         "token_type": "bearer",
+        "username": user.username,
+        "student_no": user.student_no,
+        "real_name": user.real_name,
         "role": user.role,
         "capabilities": user.capabilities
     }

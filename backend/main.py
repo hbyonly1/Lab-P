@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from api.v1 import auth, orders, submissions, files, audit, ai, experiments, feedback, automation_config
+from api.v1 import auth, orders, submissions, files, audit, ai, experiments, feedback, automation_config, automation_jobs, school_sync
 from core.config import settings
 import os
 from contextlib import asynccontextmanager
@@ -12,6 +12,7 @@ from core.db import engine
 from models.core import User, Experiment
 from core.security import get_password_hash
 from services.experiment_seed import seed_experiment_configs
+from services.school_session_manager import school_session_manager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -43,7 +44,10 @@ async def lifespan(app: FastAPI):
 
         seed_experiment_configs(session)
             
-    yield
+    try:
+        yield
+    finally:
+        school_session_manager.shutdown(reason="application_shutdown")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -69,6 +73,8 @@ app.include_router(ai.router, prefix=f"{settings.API_V1_STR}/ai", tags=["ai"])
 app.include_router(experiments.router, prefix=f"{settings.API_V1_STR}/experiments", tags=["experiments"])
 app.include_router(feedback.router, prefix=f"{settings.API_V1_STR}/feedback", tags=["feedback"])
 app.include_router(automation_config.router, prefix=f"{settings.API_V1_STR}/admin/automation-config", tags=["automation-config"])
+app.include_router(automation_jobs.router, prefix=f"{settings.API_V1_STR}/automation-jobs", tags=["automation-jobs"])
+app.include_router(school_sync.router, prefix=f"{settings.API_V1_STR}/school-sync", tags=["school-sync"])
 
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

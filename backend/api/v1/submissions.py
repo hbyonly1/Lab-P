@@ -3,14 +3,14 @@ from sqlmodel import Session, select
 from typing import Any, List, Optional
 
 from core.db import get_session
-from models.core import Submission, User, Order, Experiment, AuditLog, AiConfig
+from models.core import Submission, User, Order, Experiment, AuditLog
 from api.deps import get_current_user, get_current_reviewer_or_admin
 from pydantic import BaseModel
 import uuid
-from worker.tasks import process_submission_task
 from worker.ai_tasks import recognize_submission_task
 from core.pricing import PRICES
 from models.core import get_utc_now
+from services.ai_provider import ensure_ai_config
 
 router = APIRouter()
 
@@ -26,11 +26,15 @@ class CorrectionSaveRequest(BaseModel):
     image_paths: List[str] = []
     save_mode: str = "draft"
 
+class SelfManagedSubmissionRequest(BaseModel):
+    experiment_id: str
+    image_paths: List[str] = []
+
 class SubmissionReviewResponse(BaseModel):
     id: str
     student_id: int
     student_username: str
-    student_name: str
+    student_name: Optional[str] = None
     student_no: Optional[str] = None
     real_name: Optional[str] = None
     experiment_id: str
@@ -132,15 +136,70 @@ def create_submission(
     session.commit()
     session.refresh(submission)
     
-    if has_paid:
-        ai_config = session.get(AiConfig, 1)
-        if ai_config and ai_config.auto_recognize:
-            submission.status = "recognizing"
-            session.add(submission)
-            session.commit()
-            recognize_submission_task.delay(submission.id, current_user.id)
+    if has_paid and ensure_ai_config(session).auto_recognize:
+        submission.status = "recognizing"
+        session.add(submission)
+        session.commit()
+        recognize_submission_task.delay(submission.id, current_user.id)
     
     return submission
+
+
+@router.post("/self-managed", response_model=Submission)
+def create_self_managed_submission(
+    req: SelfManagedSubmissionRequest,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+) -> Any:
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="Only students can create self-managed submissions.")
+
+    existing_exp = session.get(Experiment, req.experiment_id)
+    if not existing_exp:
+        new_exp = Experiment(id=req.experiment_id, title=req.experiment_id)
+        session.add(new_exp)
+        session.commit()
+
+    existing_submission = session.exec(
+        select(Submission)
+        .where(Submission.student_id == current_user.id)
+        .where(Submission.experiment_id == req.experiment_id)
+        .where(Submission.is_one_click_handoff == False)  # noqa: E712
+        .order_by(Submission.created_at.desc())
+    ).first()
+
+    if existing_submission:
+        if req.image_paths:
+            existing_submission.image_paths = req.image_paths
+        existing_submission.updated_at = get_utc_now()
+        session.add(existing_submission)
+        session.commit()
+        session.refresh(existing_submission)
+        return existing_submission
+
+    submission = Submission(
+        id=f"SUB-{uuid.uuid4().hex[:8].upper()}",
+        student_id=current_user.id,
+        experiment_id=req.experiment_id,
+        order_id=None,
+        submitted_by=None,
+        status="incomplete",
+        payment_status="not_required",
+        is_one_click_handoff=False,
+        image_paths=req.image_paths,
+    )
+    session.add(submission)
+    session.add(AuditLog(
+        user_id=current_user.id,
+        action="self_managed_submission_created",
+        status="success",
+        target_id=submission.id,
+        details=f"创建实验 {req.experiment_id} 的自助提交草稿。",
+    ))
+    session.commit()
+    session.refresh(submission)
+    return submission
+
 
 @router.post("/{submission_id}/approve")
 def approve_submission(
@@ -149,22 +208,12 @@ def approve_submission(
     current_user: User = Depends(get_current_reviewer_or_admin)
 ):
     """
-    Reviewer/Admin approves a submission, triggering the automation task.
+    Legacy endpoint kept blocked while school automation uses automation_jobs.
     """
-    submission = session.get(Submission, submission_id)
-    if not submission:
-        raise HTTPException(status_code=404, detail="Submission not found.")
-        
-    submission.status = "submitting"
-    
-    session.add(submission)
-    session.commit()
-    session.refresh(submission)
-    
-    # Push to background worker
-    process_submission_task.delay(submission.id, current_user.id)
-    
-    return {"status": "success", "message": "Submission approved and automation triggered."}
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy Playwright trigger is disabled. Use /api/v1/school-sync/experiments/{experiment_id}/submit.",
+    )
 
 @router.post("/{submission_id}/submit-to-playwright")
 def submit_to_playwright(
@@ -173,24 +222,12 @@ def submit_to_playwright(
     current_user: User = Depends(get_current_user)
 ):
     """
-    User/Reviewer/Admin pushes the submission directly to playwright (submitting state).
+    Legacy endpoint kept blocked while school automation uses automation_jobs.
     """
-    submission = session.get(Submission, submission_id)
-    if not submission:
-        raise HTTPException(status_code=404, detail="Submission not found.")
-        
-    if current_user.role == "student" and submission.student_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-        
-    submission.status = "submitting"
-    
-    session.add(submission)
-    session.commit()
-    session.refresh(submission)
-    
-    process_submission_task.delay(submission.id, current_user.id)
-    
-    return {"status": "success", "message": "Submission triggered to Playwright."}
+    raise HTTPException(
+        status_code=410,
+        detail="Legacy Playwright trigger is disabled. Use /api/v1/school-sync/experiments/{experiment_id}/submit.",
+    )
 
 @router.patch("/{submission_id}/correction", response_model=Submission)
 def save_submission_correction(
@@ -221,8 +258,11 @@ def save_submission_correction(
     submission.image_paths = req.image_paths
     submission.updated_at = get_utc_now()
 
-    if req.save_mode == "final" and submission.status in ["pending_recognition", "recognizing"]:
-        submission.status = "reviewing"
+    if req.save_mode == "final":
+        if submission.is_one_click_handoff and submission.status in ["pending_recognition", "recognizing"]:
+            submission.status = "reviewing"
+        elif not submission.is_one_click_handoff:
+            submission.status = "submitting"
 
     session.add(submission)
     log = AuditLog(
@@ -267,7 +307,7 @@ def get_review_pool(
             id=sub.id,
             student_id=sub.student_id,
             student_username=user.student_no or user.username,
-            student_name=user.real_name or user.student_no or user.username,
+            student_name=user.real_name,
             student_no=user.student_no,
             real_name=user.real_name,
             experiment_id=sub.experiment_id,

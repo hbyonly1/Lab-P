@@ -14,6 +14,14 @@ export async function submitExperiment(experimentId, targetStudent = null, isHun
   return response.data;
 }
 
+export async function createSelfManagedSubmission(experimentId, imagePaths = []) {
+  const response = await apiClient.post('/api/v1/submissions/self-managed', {
+    experiment_id: experimentId,
+    image_paths: imagePaths,
+  });
+  return response.data;
+}
+
 export async function getReviewPool() {
   const response = await apiClient.get('/api/v1/submissions/review-pool');
   return response.data;

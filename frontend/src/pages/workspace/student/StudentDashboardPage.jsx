@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button, Table, Tag, Tooltip, message, Badge } from 'antd';
 import {
   AppstoreOutlined,
@@ -15,18 +15,21 @@ import {
   FileTextOutlined,
   LineChartOutlined,
   MoreOutlined,
+  ReloadOutlined,
   SettingOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { getAdminUserName } from '../../../auth.js';
-import { GoldButton, OutlineButton, TablePanel, AnnouncementDrawer, UpgradePlanModal } from '../../../components/ui/index.js';
+import { getAdminStudentNo, getAdminUserName, saveAdminStudentNo, saveAdminUserName } from '../../../auth.js';
+import { AutomationProgressModal, GoldButton, OutlineButton, TablePanel, AnnouncementDrawer, UpgradePlanModal } from '../../../components/ui/index.js';
 import { ProSubmitModal } from '../../../components/experiment/index.js';
 import { calculateExperimentMetrics } from '../../../utils/metricsUtils.js';
 import { auditApi } from '../../../services/auditApi.js';
 import { getMe } from '../../../services/authApi.js';
 import { getMySubmissions, submitExperiment } from '../../../services/submissionsApi.js';
 import { experimentsApi } from '../../../services/experimentsApi.js';
+import { getSchoolOverviewLatest, startSchoolOverviewSync } from '../../../services/schoolSyncApi.js';
+import { getActiveAutomationJobs } from '../../../services/automationJobsApi.js';
 import { STATUS_META, OVERALL_STATUS_META } from '../../../constants/statusEnums.js';
 import { AUDIT_ACTION_META } from '../../../constants/auditEnums.js';
 
@@ -88,8 +91,10 @@ const dashboardData = {
 
 export default function StudentDashboardPage() {
   const navigate = useNavigate();
-  const userName = getAdminUserName();
-  const firstName = userName.replace(/同学$/, '') || '同学';
+  const cachedRealName = getAdminUserName();
+  const cachedStudentNo = getAdminStudentNo();
+  const [realName, setRealName] = useState(cachedRealName);
+  const [studentNo, setStudentNo] = useState(cachedStudentNo);
 
   const [recentOperations, setRecentOperations] = useState([]);
   const [currentPlan, setCurrentPlan] = useState('free');
@@ -143,6 +148,47 @@ export default function StudentDashboardPage() {
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const [submitTargets, setSubmitTargets] = useState([]);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [isOverviewSyncing, setIsOverviewSyncing] = useState(false);
+  const [overviewJob, setOverviewJob] = useState(null);
+  const [isOverviewModalOpen, setIsOverviewModalOpen] = useState(false);
+  const [lastOverviewSyncedAt, setLastOverviewSyncedAt] = useState(null);
+
+  const refreshUserProfile = useCallback(async () => {
+    const data = await getMe();
+    const nextRealName = data.real_name || '';
+    const nextStudentNo = data.student_no || '';
+    setCurrentPlan(data.capabilities?.plan || 'free');
+    setRealName(nextRealName);
+    setStudentNo(nextStudentNo);
+    saveAdminUserName(nextRealName);
+    saveAdminStudentNo(nextStudentNo);
+    return data;
+  }, []);
+
+  const refreshOverviewLatest = useCallback(async () => {
+    const latest = await getSchoolOverviewLatest();
+    setLastOverviewSyncedAt(latest.lastSyncedAt || null);
+    return latest;
+  }, []);
+
+  const triggerOverviewSync = async ({ force = false } = {}) => {
+    setIsOverviewSyncing(true);
+    try {
+      const job = await startSchoolOverviewSync({ force });
+      setOverviewJob(job);
+      setIsOverviewModalOpen(true);
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      const activeJob = detail?.job;
+      if (err.response?.status === 409 && activeJob) {
+        setOverviewJob(activeJob);
+        setIsOverviewModalOpen(true);
+      } else {
+        message.error(err.response?.data?.detail || err.message || '学校系统同步失败');
+        setIsOverviewSyncing(false);
+      }
+    }
+  };
 
   useEffect(() => {
     const fetchRecent = async () => {
@@ -170,8 +216,7 @@ export default function StudentDashboardPage() {
 
     const fetchUserPlan = async () => {
       try {
-        const data = await getMe();
-        setCurrentPlan(data.capabilities?.plan || 'free');
+        await refreshUserProfile();
       } catch (err) {
         console.error('Failed to load user profile:', err);
       }
@@ -180,7 +225,34 @@ export default function StudentDashboardPage() {
     fetchRecent();
     fetchAudit();
     fetchUserPlan();
-  }, []);
+  }, [refreshUserProfile]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const autoSyncOverview = async () => {
+      try {
+        const activeJobs = await getActiveAutomationJobs({ action: 'school_overview_sync' });
+        if (!cancelled && activeJobs?.length > 0) {
+          setOverviewJob(activeJobs[0]);
+          setIsOverviewModalOpen(true);
+          setIsOverviewSyncing(true);
+          return;
+        }
+        const latest = await refreshOverviewLatest();
+        if (!cancelled && latest.shouldSync) {
+          await triggerOverviewSync({ force: false });
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to check school overview sync:', err);
+        }
+      }
+    };
+    autoSyncOverview();
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshOverviewLatest]);
 
   const handleBatchSubmitClick = () => {
     if (['free', 'plus'].includes(currentPlan)) {
@@ -216,7 +288,13 @@ export default function StudentDashboardPage() {
 
   return (
     <section className="workspace-standard-page student-dashboard-page">
-      <DashboardTopbar firstName={firstName} />
+      <DashboardTopbar
+        realName={realName}
+        studentNo={studentNo}
+        isOverviewSyncing={isOverviewSyncing}
+        lastSyncedAt={lastOverviewSyncedAt}
+        onManualSync={() => triggerOverviewSync({ force: true })}
+      />
 
       <QuickSubmitCard
         onBatchSubmit={handleBatchSubmitClick}
@@ -247,13 +325,68 @@ export default function StudentDashboardPage() {
         plans={dashboardData.plans}
         currentPlan={currentPlan}
       />
+      <AutomationProgressModal
+        open={isOverviewModalOpen}
+        initialJob={overviewJob}
+        title="学校系统概览同步"
+        steps={[
+          'school.overview.syncing',
+          'school.overview.connecting',
+          'school.overview.openingLogin',
+          'school.overview.recognizingCaptcha',
+          'school.overview.loggingIn',
+          'school.overview.checkingLogin',
+          'school.overview.readingList',
+          'school.overview.savingSnapshot',
+        ]}
+        stepAliases={{
+          'school.overview.retryingCaptcha': 'school.overview.recognizingCaptcha',
+        }}
+        defaultMessageCode="school.overview.syncing"
+        failureMessageCode="school.overview.failed"
+        onJobUpdate={(job) => {
+          if (['succeeded', 'failed'].includes(job.status)) {
+            setIsOverviewSyncing(false);
+          }
+          if (job.status === 'succeeded') {
+            refreshUserProfile().catch((err) => console.error('Failed to refresh user profile:', err));
+            refreshOverviewLatest().catch((err) => console.error('Failed to refresh overview latest:', err));
+          }
+        }}
+        onClose={() => {
+          setIsOverviewModalOpen(false);
+          setIsOverviewSyncing(false);
+          refreshUserProfile().catch((err) => console.error('Failed to refresh user profile:', err));
+          refreshOverviewLatest().catch((err) => console.error('Failed to refresh overview latest:', err));
+        }}
+      />
     </section>
   );
 }
 
 const MOCK_ANNOUNCEMENTS = [];
 
-function DashboardTopbar({ firstName }) {
+function formatLastSyncedAt(value) {
+  if (!value) return '暂无';
+  const rawValue = String(value);
+  const utcValue = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(rawValue) ? rawValue : `${rawValue}Z`;
+  const date = new Date(utcValue);
+  if (Number.isNaN(date.getTime())) return '暂无';
+  const parts = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${byType.year}-${byType.month}-${byType.day} ${byType.hour}:${byType.minute}:${byType.second}`;
+}
+
+function DashboardTopbar({ realName, studentNo, isOverviewSyncing, lastSyncedAt, onManualSync }) {
   const [announcements, setAnnouncements] = useState(MOCK_ANNOUNCEMENTS);
   const [isDrawerVisible, setIsDrawerVisible] = useState(false);
 
@@ -274,10 +407,21 @@ function DashboardTopbar({ firstName }) {
   return (
     <header className="student-dashboard-topbar">
       <div>
-        <h1>你好，{firstName} 同学</h1>
-        <p>Have a nice day!</p>
+        <h1>{realName ? `你好，${realName} 同学` : '你好，姓名未同步'}</h1>
+        <p>{studentNo ? `学号：${studentNo}` : '学校账号待同步'}</p>
       </div>
       <div className="student-dashboard-userbar">
+        <span className="student-dashboard-last-sync">
+          上次同步时间：{formatLastSyncedAt(lastSyncedAt)}
+        </span>
+        <Button
+          className="student-dashboard-sync-button"
+          icon={<ReloadOutlined spin={isOverviewSyncing} />}
+          loading={isOverviewSyncing}
+          onClick={onManualSync}
+        >
+          同步状态
+        </Button>
         <Badge dot={unreadCount > 0} offset={[-4, 4]}>
           <Button
             className={`ui-icon-button ${unreadCount > 0 ? 'bell-unread-ripple' : ''}`}

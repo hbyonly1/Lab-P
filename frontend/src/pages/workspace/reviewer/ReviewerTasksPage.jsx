@@ -43,7 +43,7 @@ export default function ReviewerTasksPage() {
         if (!groups[sub.student_username]) {
           groups[sub.student_username] = {
             student_id: String(sub.student_username), // UI labels it "student_id" but actually shows username
-            name: sub.student_name || `学生 ${sub.student_username}`,
+            name: sub.student_name || '姓名未同步',
             overall_status: 'incomplete', // default, evaluate below
             experiments: []
           };

@@ -69,10 +69,32 @@
 
 ## 3. 核心业务 API：实验数据保存与提交
 
-在“实验详情（编辑页）”中，针对右侧表单的修改，后端通过分离“存草稿”和“正式触发”来保证数据安全。
+在“实验详情（编辑页）”中，针对右侧表单的修改，后端通过分离“自助提交”和“一键代写”来保证支付语义清晰：
+
+- **自助临时 / 正式提交**：学生已经在前端填写好数据，只需要平台同步到学校系统；不创建订单，不进入待支付。
+- **一键代写 / 一键提交**：学生只上传图片，交给管理员或 reviewer 代写、代纠错、代提交；这条链路才需要付费或 Pro 权限。
+
+### 3.0 创建或复用自助提交记录
+
+- **Endpoint**: `POST /api/v1/submissions/self-managed`
+- **Auth Required**: Yes (Student)
+- **Payload**:
+
+```json
+{
+  "experiment_id": "exp_meter_modification",
+  "image_paths": ["/uploads/raw.jpg"]
+}
+```
+
+- **后端执行的严格逻辑**：
+  1. 只创建 `is_one_click_handoff=false` 的 submission。
+  2. 不创建 `orders`，不写 `pending_payment`。
+  3. 新建 submission 的 `status=incomplete`，`payment_status=not_required`。
+  4. 如果该学生该实验已有自助 submission，则复用已有记录。
 
 ### 3.1 临时保存 (Save Draft / Auto-save)
-- **Endpoint**: `PATCH /api/v1/submissions/{id}`
+- **Endpoint**: `PATCH /api/v1/submissions/{id}/correction`
 - **Auth Required**: Yes (仅验证资源所属权，学生和管理员均可调用)
 - **Payload**:
 ```json
@@ -85,10 +107,10 @@
 ```
 - **后端执行的严格逻辑**：
   1. **落库暂存**：更新 `corrected_json` 字段。任务的 `status` 仍保持 `incomplete`（未完成）或 `reviewing`（审核中），前端可做节流自动保存或点击“暂存”按钮触发。
-  2. **触发 Worker 同步**：除了在本地数据库保存外，后端会抛出异步任务给 Playwright Worker。**注意：前端在请求期间需处于 `submitting` 加载态，接口必须在 Worker 成功点击了学校网站的“临时保存”后，才返回 `200 Success`。**
+  2. **支付语义**：临时保存不触发订单，也不允许因为没有订单而把状态改成 `pending_payment`。
 
 ### 3.2 正式提交 (Official Submit)
-- **Endpoint**: `POST /api/v1/submissions/{id}/submit`
+- **Endpoint**: `PATCH /api/v1/submissions/{id}/correction` with `save_mode=final`
 - **Auth Required**: Yes
 - **Payload**: 
 ```json
@@ -97,7 +119,7 @@
     "temperature": "25",
     "pressure": "101.3"
   },
-  "is_one_click_handoff": false
+  "save_mode": "final"
 }
 ```
 - **后端执行的严格逻辑**：
@@ -106,7 +128,7 @@
      - 如果是学生点击“一键代劳提交”（仅上传图片，`is_one_click_handoff: true`），状态流转为 `reviewing`（进入人工审核池）。
      - 如果是学生自己填完数据正式提交，或审核员（Admin）完成纠错后正式提交，状态直接流转为 `submitting`（自动填报中，触发自动化引擎）。
   3. **完整性校验**：如果是触发自动化引擎，需根据该实验的 `mapping_json` 检查必填项是否都已填写。
-  4. **落库与触发**：将最终数据保存至 `corrected_json`，异步唤醒 Playwright Worker。**注意：接口必须阻塞等待 Worker 彻底完成自动化提交（或前端轮询状态），在此期间前端保持 `submitting` 状态。**
+  4. **落库与触发**：将最终数据保存至 `corrected_json`，进入自动化提交流程；这一流程不需要学生再支付。
 
 ## 4. 实验辅助工具 API (AI & 算力引擎)
 
@@ -468,10 +490,14 @@ created_at
 {
   "access_token": "jwt_string",
   "token_type": "bearer",
+  "username": "26A2510410114",
+  "student_no": "26A2510410114",
+  "real_name": "张三",
   "role": "admin|student|reviewer",
   "capabilities": {}
 }
 ```
+- **前端展示规则**：登录成功和学校概览同步成功后，姓名只允许使用 `real_name`；缺失时显示“姓名未同步”。`student_no` 只能展示为学号，`username` 只能展示为平台账号，不得把学号或账号兜底伪装成姓名。
 
 ### 6.2 当前用户
 - **Endpoint**: `GET /api/v1/auth/me`
@@ -501,7 +527,7 @@ created_at
 {
   "id": 1,
   "name": "default",
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "is_active": true,
   "created_by": 1,
   "updated_by": 1,
@@ -510,6 +536,15 @@ created_at
       "_comment": "学校实验报告系统入口。",
       "baseUrl": "http://10.25.77.60:8001",
       "loginUrl": "http://10.25.77.60:8001/Login"
+    },
+    "networkPolicy": {
+      "_comment": "学校系统网络入口策略。当前阶段直连内网，VPN 字段只保存环境变量名。",
+      "phase": "direct_intranet_only",
+      "directLoginUrl": "http://10.25.77.60:8001/Login",
+      "vpnLoginUrl": "https://10-25-77-60-8001-p.vpn.cumtb.edu.cn:8118/",
+      "vpnUsernameEnv": "CUMTB_VPN_USERNAME",
+      "vpnPasswordEnv": "CUMTB_VPN_PASSWORD",
+      "probeTimeoutMs": 3000
     },
     "identity": {
       "_comment": "学校系统账号使用 users.student_no，密码固定与学号一致；登录后姓名写入 users.real_name。",
@@ -561,11 +596,9 @@ created_at
       }
     },
     "captcha": {
-      "provider": "openai_compatible",
-      "apiKeyEnv": "ARK_API_KEY",
-      "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
-      "model": "doubao-1.5-vision-lite-250315",
-      "prompt": "识别图片验证码，只回答验证码内容，不要解释。"
+      "_comment": "验证码识别运行时使用统一 AI Provider；具体模型、prompt 和超时在 Admin AI 设置页维护。",
+      "task": "captcha",
+      "expectedLength": 4
     },
     "syncPolicy": {
       "initialSync": "identity_and_report_list",
@@ -574,8 +607,10 @@ created_at
     },
     "retryPolicy": {
       "captchaMaxRetries": 3,
+      "credentialMaxRetries": 1,
       "networkMaxRetries": 2,
-      "syncCooldownSeconds": 1800
+      "selectorMaxRetries": 1,
+      "syncCooldownSeconds": 600
     },
     "runtime": {
       "_comment": "headless=false 表示打开可视浏览器窗口；userSessionIdleTtlSeconds=0 表示平台不主动关闭会话。",
@@ -584,7 +619,23 @@ created_at
       "defaultTimeoutMs": 30000,
       "postLoginSettleMs": 2000,
       "postLoginWaitMs": 10000,
-      "userSessionIdleTtlSeconds": 0
+      "keepBrowserOpenAfterLogin": true,
+      "userSessionIdleTtlSeconds": 0,
+      "schoolSessionMaxAgeSeconds": 7200
+    },
+    "waitPolicy": {
+      "_comment": "学校页面节点稳定等待策略。关键 DOM 读写必须使用这些超时，不靠固定 sleep 判断成功。",
+      "afterClickMs": 300,
+      "afterInputMs": 100,
+      "afterImageUploadMs": 1000,
+      "modalOpenTimeoutMs": 15000,
+      "fieldWriteTimeoutMs": 10000,
+      "imageWriteTimeoutMs": 20000,
+      "submitFeedbackTimeoutMs": 30000,
+      "listRefreshTimeoutMs": 30000,
+      "networkIdleTimeoutMs": 10000,
+      "overviewStableMs": 1000,
+      "overviewPollMs": 250
     }
   }
 }
@@ -598,26 +649,32 @@ created_at
 ```json
 {
   "name": "default",
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "is_active": true,
   "config_json": {
     "schoolSystem": {},
+    "networkPolicy": {},
     "identity": {
       "passwordPolicy": "same_as_student_no"
     },
     "selectors": {},
+    "safety": {},
+    "captcha": {},
+    "syncPolicy": {},
     "retryPolicy": {},
-    "runtime": {}
+    "runtime": {},
+    "waitPolicy": {}
   }
 }
 ```
 - **Validation**:
   - `config_json` 必须是 JSON object。
-  - 顶层必须包含 `schoolSystem`、`identity`、`selectors`、`safety`、`captcha`、`syncPolicy`、`retryPolicy`、`runtime`。
+  - 顶层必须包含 `schoolSystem`、`networkPolicy`、`identity`、`selectors`、`safety`、`captcha`、`syncPolicy`、`retryPolicy`、`runtime`、`waitPolicy`。
   - `identity.passwordPolicy` 必须为 `same_as_student_no`。
+  - `networkPolicy.probeTimeoutMs`、`runtime.defaultTimeoutMs`、`runtime.postLoginSettleMs`、`runtime.postLoginWaitMs` 和 `waitPolicy` 中关键超时字段必须为正整数。
   - 不允许在配置中保存具体 Playwright 脚本代码。
   - JSONB 不支持 `//` 注释；可使用 `_comment`、`description` 等普通字段作为可保存注释。
-- **Compatibility**：不兼容旧配置结构；后端以 `schema_version=1.1` 的当前结构为准。读取默认配置时，如果数据库中的 `default` 配置仍是旧结构或旧版本，将直接替换为当前默认结构。
+- **Compatibility**：不兼容旧配置结构；后端以 `schema_version=1.2` 的当前结构为准。读取默认配置时，如果数据库中的 `default` 配置仍是旧结构或旧版本，将直接替换为当前默认结构。
 - **State Change**：写入或更新 `automation_engine_configs`，并写入 `audit_logs(action=automation_config_updated)`。
 - **Not Included**：当前阶段不提供 `test-login` 接口；后续如需连通性检查，再单独设计 `validate-login`。
 
@@ -640,6 +697,287 @@ created_at
 - 当前数据库不新增课程、成绩、截止时间等稳定字段；学校列表快照仅保存实验名和状态。
 - 实验详情、填空节点、图片编辑器和问题回答区域按需加载：用户进入某个实验后再打开学校系统 modal 读取。
 - 安全红线：自动化探测和按需读取阶段绝不点击“正式提交”；该按钮必须作为 `safety.forbiddenActions.finalSubmit` 禁点目标处理。
+
+### 6A.3.1 统一 AI Provider 运行配置
+
+- 后端运行时 AI 调用统一通过 `backend/services/ai_provider.py`，图片识别、实验问题生成和学校验证码识别都使用同一个 OpenAI-compatible provider。
+- `AI_API_KEY` 是真实密钥，只从 `.env` / 进程环境变量读取，前端不可查看或修改。
+- `ai_config` 表保存非密钥业务配置，Admin 设置页可修改，保存后立即生效。
+- `.env` 中只保留部署级密钥和少量首次初始化种子。`AI_API_KEY` 每次调用都会从 `.env` / 进程环境变量读取；其它 AI 种子只在 `ai_config` 表为空、后端首次创建配置行时使用，创建后以后端数据库配置为准。
+
+```text
+AI_PROVIDER=openai_compatible
+AI_API_KEY=<secret>
+AI_BASE_URL=https://api.siliconflow.cn/v1
+AI_DEFAULT_MODEL=deepseek-ai/DeepSeek-V4-Flash
+AI_IMAGE_RECOGNITION_MODEL=deepseek-ai/DeepSeek-OCR
+AI_ANSWER_GENERATION_MODEL=deepseek-ai/DeepSeek-V4-Flash
+AI_CAPTCHA_MODEL=zai-org/GLM-4.5V
+```
+
+- 温度、超时、最大图片数、自动识别开关和验证码 prompt 不再从 `.env` 配置；首次创建 `ai_config` 时使用代码内置默认值，之后由 Admin 设置页修改并保存到数据库。
+- 不再使用 `AI_API_KEY_ENV`、`CAPTCHA_AI_*`、供应商绑定 key 名或数据库加密保存 AI Key。
+- 当前不做 fallback model：某个 task 的模型失败即向调用方返回失败，由业务层记录任务状态和错误。
+- `GET /api/v1/ai/admin/config`：Admin 获取当前非密钥 AI 配置和 `api_key_configured` 状态，不返回真实 key。
+- `PUT /api/v1/ai/admin/config`：Admin 保存非密钥 AI profile，写入 `ai_config` 并记录 `audit_logs(action=ai_config_updated)`。
+- `POST /api/v1/ai/admin/test-connection`：使用当前 `ai_config` + `.env` 中的 `AI_API_KEY` 发送一条 `hello` 测试请求，返回模型输出；失败时返回 `ok=false`、`error_code` 和具体 `error`，例如缺少密钥时返回 `missing_api_key` 与“请在 .env 中填写 AI_API_KEY，然后重启后端进程”。
+
+### 6A.4 自动化 Job 公共查询
+
+#### GET /api/v1/school-sync/overview/latest
+
+- **Auth Required**: Yes (Student)
+- **Purpose**: 返回当前学生最近一次学校系统概览同步摘要，并告诉前端是否应自动触发同步。前端登录或进入仪表盘时先调用该接口，只有 `shouldSync=true` 才自动调用 `POST /overview`。
+- **Response**:
+
+```json
+{
+  "lastSyncedAt": "2026-07-05T10:00:00Z",
+  "shouldSync": false,
+  "cooldownSeconds": 600,
+  "remainingCooldownSeconds": 120,
+  "summary": {
+    "source": "school_complete_report_list",
+    "realName": "陈某某",
+    "total": 10,
+    "completed": 1,
+    "unsubmitted": 9,
+    "draftSubmitted": 0,
+    "finalSubmitted": 1,
+    "unknown": 0
+  }
+}
+```
+
+- **规则**:
+  - 没有同步记录时 `shouldSync=true`。
+  - 距离最近同步超过 `syncCooldownSeconds` 时 `shouldSync=true`。
+  - 冷却期内 `shouldSync=false`，除非用户点击手动同步按钮并调用 `POST /overview` 的 `force=true`。
+
+#### POST /api/v1/school-sync/overview
+
+- **Auth Required**: Yes (Student)
+- **Purpose**: 学生登录平台后触发学校系统概览同步。当前接口已接入 `school_overview_sync` service：创建脱敏 automation job 后尝试访问内网学校系统、使用 `users.student_no` 登录、识别验证码、确认登录结果、读取右上角真实姓名和完成报告列表，并写入 `school_sync_snapshots`。如果内网、Playwright、验证码 AI 或选择器不可用，job 进入 `failed`，不再写入伪成功概览快照。
+- **Payload**:
+
+```json
+{
+  "force": false
+}
+```
+
+- **Response**: 返回自动化 Job 公共 DTO。前端用 `jobId` 轮询 `GET /api/v1/automation-jobs/{job_id}`。
+
+```json
+{
+  "jobId": "JOB-XXXX",
+  "action": "school_overview_sync",
+  "status": "running",
+  "messageCode": "school.overview.syncing",
+  "messageParams": {},
+  "canRetry": false,
+  "submissionId": null,
+  "experimentId": null,
+  "startedAt": "2026-07-05T10:00:00Z",
+  "finishedAt": null,
+  "createdAt": "2026-07-05T10:00:00Z",
+  "updatedAt": "2026-07-05T10:00:00Z"
+}
+```
+
+- **409 Response**:
+
+```json
+{
+  "detail": {
+    "code": "JOB_ALREADY_RUNNING",
+    "job": {
+      "jobId": "JOB-EXISTING",
+      "action": "school_detail_sync",
+      "status": "running",
+      "messageCode": "school.detail.syncing",
+      "messageParams": {
+        "experimentName": "电表的改装"
+      },
+      "canRetry": false
+    }
+  }
+}
+```
+
+- **安全要求**:
+  - 后端只返回 public job DTO，不返回学校账号、验证码、选择器、内部 payload、真实截图路径或排查 HTML。
+  - 真实概览同步的截图路径、验证码图片路径和内部错误只保存在 `automation_jobs.result_payload` 等后台排查字段中，不通过学生端 public DTO 返回。
+  - 同一学生已有 active automation job 时返回 `409 JOB_ALREADY_RUNNING`，避免同时操作同一个学校系统会话。
+  - 相同概览同步请求在 active 状态下复用已有 job，防止重复点击创建多条任务。
+  - 验证码 OCR 候选值必须匹配必填配置 `captcha.expectedLength`，当前配置为 4 位；不足或超长时不填写、不提交，直接刷新验证码重试。
+  - 登录提交后必须先识别学校系统 Bootbox 错误弹窗，例如 `.bootbox.modal.in .bootbox-body` 中的 `验证码不正确`，验证码错误只进入刷新重试分支，不进入读取实验列表状态。
+  - 每次创建、复用或拒绝都写入 `audit_logs`。
+  - 同步成功写入 `audit_logs.action=school_overview_sync_completed`；同步失败写入 `school_overview_sync_failed`，并设置 `automation_jobs.error_code`。
+  - `school_overview_sync_failed.details` 必须写入脱敏 JSON 诊断 payload，至少包含 `jobId`、`errorCode`、`reason`、`message`、`currentStep`、`request.source/force`、学校系统 URL 摘要、网络策略、运行超时和重试配置；不得包含学校密码、验证码、AI API Key、完整 HTML 或截图真实路径。
+
+#### POST /api/v1/school-sync/experiments/{experiment_id}
+
+- **Auth Required**: Yes (Student)
+- **Purpose**: 学生进入单个实验详情页时触发学校系统单实验按需同步。后端复用当前用户的学校系统浏览器会话；如会话失效则重新登录，然后返回完成报告列表、按实验名称点击“完成报告”、打开学校报告 modal，读取当前字段值并写入 `school_sync_snapshots(source=school_report_modal)`。失败时 job 进入 `failed`，不写入 stub 快照。
+- **Response**: 返回自动化 Job 公共 DTO。前端用 `jobId` 轮询 `GET /api/v1/automation-jobs/{job_id}`。
+
+```json
+{
+  "jobId": "JOB-XXXX",
+  "action": "school_detail_sync",
+  "status": "running",
+  "messageCode": "school.detail.syncing",
+  "messageParams": {
+    "experimentName": "exp_meter_modification"
+  },
+  "canRetry": false,
+  "submissionId": null,
+  "experimentId": "exp_meter_modification"
+}
+```
+
+- **安全要求**:
+  - Student 只能触发自己的学校系统同步任务。
+  - 同一学生已有 active automation job 时返回 `409 JOB_ALREADY_RUNNING`，避免同时操作同一个学校系统会话。
+  - 前端只接收 public job DTO，不返回选择器、验证码、密码、截图真实路径或内部 payload。
+  - 后台 `automation_jobs.result_payload.sessionDiagnostic` 记录会话复用或重登决策，例如 `reused_existing_session`、`existing_session_recovery_failed`、`relogin_created_session`；该字段不进入 public job DTO。
+  - 每次创建、复用或拒绝都写入 `audit_logs`。
+
+#### POST /api/v1/school-sync/experiments/{experiment_id}/submit
+
+- **Auth Required**: Yes
+- **Purpose**: 学生在平台点击“临时提交”后，创建学校系统提交 job，并由前端阻塞弹窗轮询公开进度。后端先保存 `platform_before_submit` 快照，再复用或重建学校会话、打开对应实验报告 modal、按实验配置 `automation.mappings` 回填平台 `corrected_json.values`、逐字段校验、点击学校系统“临时提交”、等待学校反馈、关闭 modal 或返回主实验列表，并读取该实验提交状态。只有回读状态确认为 `school_draft_submitted` 时才把平台 submission 更新为 `draft_submitted`。正式提交当前仍被后端拒绝为 `FINAL_SUBMIT_DISABLED`，避免高风险动作提前开放。
+- **Payload**:
+
+```json
+{
+  "submissionId": "SUB-XXXX",
+  "mode": "draft"
+}
+```
+
+`mode` 可选值：
+
+```text
+draft
+final
+```
+
+- **Response**: 返回自动化 Job 公共 DTO。
+
+```json
+{
+  "jobId": "JOB-XXXX",
+  "action": "draft_submit",
+  "status": "running",
+  "messageCode": "school.submit.saving",
+  "messageParams": {
+    "experimentName": "电表的改装"
+  },
+  "canRetry": false,
+  "submissionId": "SUB-XXXX",
+  "experimentId": "exp_meter_modification"
+}
+```
+
+- **状态结果**:
+  - `mode=draft` 只有在学校系统反馈或回读状态确认成功后，submission 状态才更新为 `draft_submitted`。
+  - `mode=final` 当前会失败为 `FINAL_SUBMIT_DISABLED`；后续开放后，只有在学校系统反馈或回读状态确认成功后，submission 状态才更新为 `completed`。
+  - 提交 job 必须在同一浏览器会话内等待学校提交完成，再返回完成报告列表读取状态并写入 `school_sync_snapshots`；平台不能仅凭“已点击提交按钮”推断学校提交成功。
+  - 如果学校反馈成功但列表状态未能确认，job 必须返回明确的部分确认 / 状态未确认错误，不能直接标记 submission 完成。
+- **安全要求**:
+  - Student 只能提交自己的 self-managed submission。
+  - Student 不能通过该接口处理 `is_one_click_handoff=true` 的代写任务。
+  - 后端根据 submission 当前 `corrected_json` 和 `image_paths` 计算幂等内容，不信任前端 hash。
+  - 前端只接收 public job DTO，不返回学校系统选择器、字段校验细节、截图真实路径或内部 payload。
+  - 后台 `automation_jobs.result_payload.sessionDiagnostic` 记录本次提交是否复用了仪表盘概览同步留下的学校窗口，以及是否发生重新登录；该字段不进入 public job DTO。
+
+#### GET /api/v1/automation-jobs/{job_id}
+
+- **Auth Required**: Yes
+- **权限**:
+  - Student 只能查看自己发起或自己 submission 关联的 job。
+  - Admin / Reviewer 可以查看 job 的公共状态。
+- **安全要求**:
+  - 只返回脱敏 public 状态。
+  - 不返回 `request_payload`、`result_payload`、`sensitive_payload`、学校系统选择器、验证码、密码、API Key、完整 HTML 或截图真实路径。
+  - 对学校系统自动化 job，轮询时会检查关联学校浏览器会话；如果检测到 page 已关闭，后端会将 job 标记为 `failed`，`error_code=SCHOOL_BROWSER_CLOSED`，避免前端无限轮询 active job。
+- **Response**:
+
+```json
+{
+  "jobId": "JOB-XXXX",
+  "action": "school_overview_sync",
+  "status": "running",
+  "messageCode": "school.overview.syncing",
+  "messageParams": {
+    "experimentName": "电表的改装"
+  },
+  "canRetry": false,
+  "submissionId": null,
+  "experimentId": null,
+  "startedAt": null,
+  "finishedAt": null,
+  "createdAt": "2026-07-05T10:00:00Z",
+  "updatedAt": "2026-07-05T10:00:00Z"
+}
+```
+
+#### POST /api/v1/automation-jobs/{job_id}/cancel
+
+- **Auth Required**: Yes
+- **Purpose**: 管理员手动终止正在运行的自动化任务。用于服务器侧 Playwright 浏览器被关闭、任务明显卡住或需要人工介入时解除 active job。
+- **权限**:
+  - 仅 Admin 可调用。
+  - Student / Reviewer 调用返回 `403`。
+- **State Change**:
+  - 仅 active job 可被终止。
+  - 终止后 `automation_jobs.status=failed`，`public_status=failed`，`error_code=JOB_CANCELLED`，`public_message_params.reason=任务已手动终止`。
+  - 若 job 关联 submission，submission 会更新为 `error`，避免继续展示提交中。
+- **Response**: 返回自动化 Job 公共 DTO。
+
+#### GET /api/v1/automation-jobs/active
+
+- **Auth Required**: Yes
+- **Query**:
+  - `action` 可选。
+  - `experiment_id` 可选。
+  - `submission_id` 可选。
+- **Response**: 返回当前用户可见的 active job 公共列表。
+- **Active 状态**:
+
+```text
+queued
+running
+retrying
+waiting_manual_vpn_auth
+waiting_manual_2fa
+```
+
+#### 数据模型补充
+
+`automation_jobs` 新增字段：
+
+```text
+idempotency_key
+public_status
+public_message_code
+public_message_params
+sensitive_payload
+```
+
+其中 `sensitive_payload` 永远不通过普通前端接口返回。
+
+#### Job 创建幂等规则
+
+后端创建自动化 job 必须通过统一 helper：
+
+- 根据 action、当前用户、实验 / submission 和后端计算的内容 hash 生成 `idempotency_key`。
+- 如果相同 `idempotency_key` 已存在 active job，直接返回已有 job。
+- 如果相同 `idempotency_key` 但请求内容 hash 不一致，返回 `409 IDEMPOTENCY_CONFLICT`。
+- 如果同一用户已有 active job 正在操作学校 session，返回 `409 JOB_ALREADY_RUNNING`。
+- 数据库层使用 active 状态 partial unique index 防止并发请求创建重复 active job。
 
 ## 7. 订单与支付 (Orders)
 **现状缺口**：前端有完整的“订单管理”页面和筛选逻辑，需要真实的 API 支撑。

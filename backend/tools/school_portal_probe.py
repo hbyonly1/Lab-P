@@ -29,12 +29,13 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from api.v1.automation_config import default_automation_config
+from core.config import settings
 
 
 DEFAULT_LOGIN_URL = "http://10.25.77.60:8001/Login"
 DEFAULT_OUTPUT_ROOT = Path("backend/tmp/school_portal_probe")
-DEFAULT_CAPTCHA_AI_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
-DEFAULT_CAPTCHA_AI_MODEL = "doubao-1.5-vision-lite-250315"
+DEFAULT_AI_BASE_URL = "https://api.openai.com/v1"
+DEFAULT_AI_MODEL = "gpt-4o"
 
 LOGIN_SELECTORS = {
     "username": "#userName",
@@ -87,10 +88,14 @@ def apply_config_defaults(args: argparse.Namespace) -> argparse.Namespace:
         "userSessionIdleTtlSeconds",
         args.user_session_idle_ttl_seconds,
     )
-    args.captcha_ai_key_env = captcha.get("apiKeyEnv", args.captcha_ai_key_env)
-    args.captcha_ai_base_url = captcha.get("baseUrl", args.captcha_ai_base_url)
-    args.captcha_ai_model = captcha.get("model", args.captcha_ai_model)
-    args.captcha_ai_prompt = captcha.get("prompt", args.captcha_ai_prompt)
+    args.captcha_ai_base_url = args.captcha_ai_base_url or captcha.get("baseUrl") or settings.AI_BASE_URL or DEFAULT_AI_BASE_URL
+    args.captcha_ai_model = args.captcha_ai_model or captcha.get("model") or settings.AI_CAPTCHA_MODEL or DEFAULT_AI_MODEL
+    args.captcha_ai_prompt = (
+        args.captcha_ai_prompt
+        or captcha.get("prompt")
+        or "OCR this captcha. Return exactly one token: the 4-character uppercase code."
+    )
+    args.captcha_ai_timeout = args.captcha_ai_timeout or captcha.get("timeoutSeconds") or 30
     args.configured_login_selectors = login_selectors_from_config(config)
     return args
 
@@ -121,9 +126,9 @@ def chat_completions_url(base_url: str) -> str:
 
 
 def recognize_captcha_with_ai_sync(captcha_path: Path, args: argparse.Namespace) -> str:
-    api_key = os.getenv(args.captcha_ai_key_env)
+    api_key = os.getenv("AI_API_KEY") or settings.AI_API_KEY
     if not api_key:
-        raise RuntimeError(f"缺少环境变量 {args.captcha_ai_key_env}")
+        raise RuntimeError("缺少环境变量 AI_API_KEY")
 
     image_b64 = base64.b64encode(captcha_path.read_bytes()).decode("ascii")
     payload = {
@@ -657,11 +662,10 @@ def parse_args() -> argparse.Namespace:
         help="How to obtain captcha automatically. Use 'ai' for OpenAI-compatible vision API.",
     )
     parser.add_argument("--prompt-captcha", action="store_true", help="Pause after saving captcha image and read captcha from stdin.")
-    parser.add_argument("--captcha-ai-key-env", default="ARK_API_KEY", help="Environment variable containing the captcha AI API key.")
-    parser.add_argument("--captcha-ai-base-url", default=DEFAULT_CAPTCHA_AI_BASE_URL)
-    parser.add_argument("--captcha-ai-model", default=DEFAULT_CAPTCHA_AI_MODEL)
-    parser.add_argument("--captcha-ai-prompt", default="识别图片验证码，只回答验证码内容，不要解释。")
-    parser.add_argument("--captcha-ai-timeout", type=int, default=30)
+    parser.add_argument("--captcha-ai-base-url", default=None)
+    parser.add_argument("--captcha-ai-model", default=None)
+    parser.add_argument("--captcha-ai-prompt", default=None)
+    parser.add_argument("--captcha-ai-timeout", type=int, default=None)
     parser.add_argument("--headless", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--slow-mo", type=int, default=0)
     parser.add_argument("--timeout-ms", type=int, default=15000)

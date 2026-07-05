@@ -4,7 +4,9 @@ function normalizeAuthSession(payload) {
   return {
     accessToken: payload.access_token,
     tokenType: payload.token_type,
-    username: payload.username || 'user', // Note: we didn't return username from backend, so we might need to rely on what was typed
+    username: payload.username || '',
+    studentNo: payload.student_no,
+    realName: payload.real_name,
     role: payload.role,
     capabilities: payload.capabilities || {}
   };
@@ -21,9 +23,7 @@ export async function loginAdmin(credentials) {
     }
   });
   
-  const payload = response.data;
-  payload.username = credentials.username; // Attach it back since backend didn't return it
-  return normalizeAuthSession(payload);
+  return normalizeAuthSession(response.data);
 }
 
 export async function logoutAdmin() {

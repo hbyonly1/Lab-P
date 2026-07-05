@@ -1,4 +1,4 @@
-import { useMemo, useState, Suspense } from 'react';
+import { useEffect, useMemo, useState, Suspense } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Avatar, Button, Layout, Menu, Tooltip, Spin } from 'antd';
 import { DoubleLeftOutlined, DoubleRightOutlined, LogoutOutlined } from '@ant-design/icons';
@@ -6,7 +6,14 @@ import {
   getWorkspaceModuleByPath,
   getWorkspaceModulesForRole,
 } from '../workspaceModules.jsx';
-import { getAdminUserName, getAdminUserRole, clearAdminSession } from '../auth.js';
+import {
+  getAdminPlatformUsername,
+  getAdminStudentNo,
+  getAdminUserName,
+  getAdminUserRole,
+  clearAdminSession,
+  subscribeAuthSessionChanged,
+} from '../auth.js';
 
 const { Sider, Content } = Layout;
 
@@ -14,6 +21,12 @@ export default function WorkspaceLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
+  const [, setSessionVersion] = useState(0);
+
+  useEffect(() => subscribeAuthSessionChanged(() => {
+    setSessionVersion((version) => version + 1);
+  }), []);
+
   const userRole = getAdminUserRole();
   const accessibleModules = getWorkspaceModulesForRole(userRole);
   const currentModule = getWorkspaceModuleByPath(location.pathname);
@@ -24,8 +37,12 @@ export default function WorkspaceLayout() {
     'design-system',
   ];
   const isStandardContent = standardContentModules.includes(currentModule.id);
-  const userName = getAdminUserName();
-  const userInitial = userName.trim().charAt(0).toUpperCase() || 'A';
+  const realName = getAdminUserName();
+  const studentNo = getAdminStudentNo();
+  const platformUsername = getAdminPlatformUsername();
+  const primaryUserLabel = realName || (userRole === 'student' ? '姓名未同步' : platformUsername || '账号未同步');
+  const secondaryUserLabel = studentNo ? `学号：${studentNo}` : platformUsername ? `账号：${platformUsername}` : '账号待同步';
+  const userInitial = (realName || platformUsername || studentNo).trim().charAt(0).toUpperCase() || 'A';
 
   const menuItems = useMemo(
     () =>
@@ -76,8 +93,8 @@ export default function WorkspaceLayout() {
               {userInitial}
             </Avatar>
             <span className="workspace-footer-user-copy">
-              <strong>{userName}</strong>
-              <span>学号：{userName}</span>
+              <strong>{primaryUserLabel}</strong>
+              <span>{secondaryUserLabel}</span>
             </span>
             {!collapsed && (
               <Tooltip title="退出登录">

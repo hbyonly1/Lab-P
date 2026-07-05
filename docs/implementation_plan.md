@@ -177,7 +177,7 @@ updated_at
   "retryPolicy": {
     "captchaMaxRetries": 3,
     "networkMaxRetries": 2,
-    "syncCooldownSeconds": 1800
+    "syncCooldownSeconds": 600
   },
   "runtime": {
     "headless": true,

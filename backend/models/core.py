@@ -74,15 +74,20 @@ class AutomationEngineConfig(SQLModel, table=True):
 class AutomationJob(SQLModel, table=True):
     __tablename__ = "automation_jobs"
     id: str = Field(primary_key=True)
+    idempotency_key: Optional[str] = Field(default=None, index=True)
     submission_id: Optional[str] = Field(default=None, foreign_key="submissions.id")
     experiment_id: Optional[str] = Field(default=None, foreign_key="experiments.id")
     actor_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
     action: str
     status: str = Field(default="queued")
+    public_status: Optional[str] = Field(default=None)
+    public_message_code: Optional[str] = Field(default=None)
+    public_message_params: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
     attempt: int = Field(default=0)
     max_attempts: int = Field(default=1)
     request_payload: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
     result_payload: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
+    sensitive_payload: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
     error_code: Optional[str] = None
     error_message: Optional[str] = None
     screenshot_keys: List[str] = Field(default_factory=list, sa_column=Column(JSONB))
@@ -151,15 +156,26 @@ class Feedback(SQLModel, table=True):
 class AiConfig(SQLModel, table=True):
     __tablename__ = "ai_config"
     id: int = Field(default=1, primary_key=True)
+    provider: str = Field(default="openai_compatible")
     base_url: str = Field(default="https://api.openai.com/v1")
-    model: str = Field(default="gpt-4o")
-    fallback_model: Optional[str] = None
-    api_key_encrypted: Optional[str] = None  # Fernet 加密存储
-    timeout_seconds: int = Field(default=60)
-    temperature: float = Field(default=0.85)
-    max_images_per_task: int = Field(default=8)
-    max_concurrent_tasks: int = Field(default=4)
+    default_model: str = Field(default="gpt-4o")
+    default_timeout_seconds: int = Field(default=60)
+    default_temperature: float = Field(default=0.7)
+    default_max_images_per_task: int = Field(default=8)
     auto_recognize: bool = Field(default=False)
+    image_recognition_model: str = Field(default="gpt-4o")
+    image_recognition_timeout_seconds: int = Field(default=60)
+    image_recognition_temperature: float = Field(default=0)
+    image_recognition_max_images_per_task: int = Field(default=8)
+    answer_generation_model: str = Field(default="gpt-4o")
+    answer_generation_timeout_seconds: int = Field(default=60)
+    answer_generation_temperature: float = Field(default=0.85)
+    captcha_model: str = Field(default="gpt-4o")
+    captcha_timeout_seconds: int = Field(default=30)
+    captcha_temperature: float = Field(default=0)
+    captcha_prompt: str = Field(default="OCR this captcha. Return exactly one token: the 4-character uppercase code.")
+    updated_at: datetime = Field(default_factory=get_utc_now)
+    updated_by: Optional[int] = Field(default=None, foreign_key="users.id")
 
 class AiPromptTemplate(SQLModel, table=True):
     __tablename__ = "ai_prompt_templates"

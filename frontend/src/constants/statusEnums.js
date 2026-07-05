@@ -1,5 +1,6 @@
 export const STATUS_META = {
   incomplete: { label: '未完成', color: 'gold', tone: 'submit' },
+  draft_submitted: { label: '已临时提交', color: 'blue', tone: 'processing' },
   pending_payment: { label: '待核实付款', color: 'orange', tone: 'pending' },
   pending_recognition: { label: '待自动识别', color: 'cyan', tone: 'pending' },
   recognizing: { label: 'AI 识别中', color: 'purple', tone: 'processing' },
@@ -23,4 +24,3 @@ export const ORDER_STATUS_META = {
   rejected: { label: '已驳回', tone: 'failed', color: 'error' },
 };
 export const ORDER_STATUS_LIST = Object.keys(ORDER_STATUS_META);
-

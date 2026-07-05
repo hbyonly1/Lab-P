@@ -1,27 +1,13 @@
 import os
 import json
 from sqlmodel import Session, select
-from cryptography.fernet import Fernet
-from models.core import AiConfig, AiPromptTemplate
-from core.config import settings
+from models.core import AiPromptTemplate
 from core.ai_prompts import build_recognition_prompt, build_generation_answers_prompt
-
-def get_openai_client(session: Session):
-    import openai
-    config = session.get(AiConfig, 1)
-    if not config or not config.api_key_encrypted:
-        raise ValueError("AI Config not set up. Missing API Key.")
-    
-    fernet = Fernet(settings.AI_ENCRYPTION_KEY.encode())
-    try:
-        api_key = fernet.decrypt(config.api_key_encrypted.encode()).decode()
-    except Exception:
-        raise ValueError("Failed to decrypt API Key. Check AI_ENCRYPTION_KEY in .env")
-        
-    return openai.AsyncOpenAI(
-        api_key=api_key,
-        base_url=config.base_url
-    ), config
+from services.ai_provider import (
+    AI_TASK_ANSWER_GENERATION,
+    AI_TASK_IMAGE_RECOGNITION,
+    get_ai_provider,
+)
 
 async def recognize_images(experiment_id: str, image_paths: list[str], session: Session) -> dict:
     from services.experimentConfigStore import get_experiment_config, collect_ai_recognition_node_ids
@@ -39,7 +25,7 @@ async def recognize_images(experiment_id: str, image_paths: list[str], session: 
         
     prompt = build_recognition_prompt(exp_config, recognition_node_ids, db_template)
     
-    client, config = get_openai_client(session)
+    provider = get_ai_provider(session)
     
     messages = [
         {"role": "user", "content": [{"type": "text", "text": prompt}]}
@@ -67,11 +53,10 @@ async def recognize_images(experiment_id: str, image_paths: list[str], session: 
         })
         
     try:
-        response = await client.chat.completions.create(
-            model=config.model,
+        response = await provider.chat_completion(
+            task=AI_TASK_IMAGE_RECOGNITION,
             messages=messages,
-            temperature=config.temperature,
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
         )
         content = response.choices[0].message.content
         result_dict = json.loads(content)
@@ -126,14 +111,13 @@ async def generate_answers(experiment_id: str, questions: list[dict], form_value
     db_template = session.get(AiPromptTemplate, experiment_id)
     prompt = build_generation_answers_prompt(questions, form_values, exp_config, db_template)
 
-    client, config = get_openai_client(session)
+    provider = get_ai_provider(session)
 
     try:
-        response = await client.chat.completions.create(
-            model=config.model,
+        response = await provider.chat_completion(
+            task=AI_TASK_ANSWER_GENERATION,
             messages=[{"role": "user", "content": prompt}],
-            temperature=config.temperature,
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
         )
         content = response.choices[0].message.content.strip()
         try:

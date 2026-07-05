@@ -1,14 +1,20 @@
 import { useEffect, useState } from 'react';
-import { Button, Form, Input, InputNumber, Switch, Tabs, message, Spin } from 'antd';
+import { Alert, Button, Form, Input, InputNumber, Switch, Tabs, message, Spin } from 'antd';
 import { CodeOutlined, RobotOutlined, SaveOutlined } from '@ant-design/icons';
-import { getAiConfig, updateAiConfig } from '../../../services/aiApi.js';
+import { getAiConfig, testAiConnection, updateAiConfig } from '../../../services/aiApi.js';
 import { getAutomationConfig, updateAutomationConfig } from '../../../services/automationConfigApi.js';
 import { JsonConfigEditor } from '../../../components/config/JsonConfigEditor.jsx';
+
+const getAiTestErrorText = (result) => (
+  result?.error || result?.detail || result?.message || '测试请求失败，但后端没有返回具体错误。'
+);
 
 export default function SettingsPage() {
   const [aiForm] = Form.useForm();
   const [loading, setLoading] = useState(true);
   const [savingAi, setSavingAi] = useState(false);
+  const [testingAi, setTestingAi] = useState(false);
+  const [aiTestResult, setAiTestResult] = useState(null);
   const [savingAutomation, setSavingAutomation] = useState(false);
   const [automationConfigJson, setAutomationConfigJson] = useState({});
   const [automationMeta, setAutomationMeta] = useState({
@@ -20,15 +26,26 @@ export default function SettingsPage() {
   const fetchAiConfig = async () => {
     const config = await getAiConfig();
     aiForm.setFieldsValue({
-      base_url: config.base_url || 'https://api.openai.com/v1',
-      model: config.model || 'gpt-4o',
-      fallback_model: config.fallback_model,
-      api_key: config.api_key ? 'configured' : '',
-      timeout_seconds: config.timeout_seconds || 60,
-      temperature: config.temperature || 0.85,
-      max_images_per_task: config.max_images_per_task || 8,
-      max_concurrent_tasks: config.max_concurrent_tasks || 4,
+      source: config.source || 'env',
+      provider: config.provider || 'openai_compatible',
+      api_key_configured: config.api_key_configured ? '已配置' : '未配置',
+      base_url: config.base_url || '',
+      default_model: config.default_model || '',
+      default_timeout_seconds: config.default_timeout_seconds,
+      default_temperature: config.default_temperature,
+      default_max_images_per_task: config.default_max_images_per_task,
       auto_recognize: config.auto_recognize || false,
+      image_recognition_model: config.image_recognition_model || '',
+      image_recognition_timeout_seconds: config.image_recognition_timeout_seconds,
+      image_recognition_temperature: config.image_recognition_temperature,
+      image_recognition_max_images_per_task: config.image_recognition_max_images_per_task,
+      answer_generation_model: config.answer_generation_model || '',
+      answer_generation_timeout_seconds: config.answer_generation_timeout_seconds,
+      answer_generation_temperature: config.answer_generation_temperature,
+      captcha_model: config.captcha_model || '',
+      captcha_timeout_seconds: config.captcha_timeout_seconds,
+      captcha_temperature: config.captcha_temperature,
+      captcha_prompt: config.captcha_prompt || '',
     });
   };
 
@@ -56,13 +73,61 @@ export default function SettingsPage() {
     fetchConfig();
   }, []);
 
-  const handleSaveConfig = async (values) => {
+  const handleTestAiConnection = async () => {
+    try {
+      setTestingAi(true);
+      const result = await testAiConnection();
+      setAiTestResult(result);
+      if (result.ok) {
+        message.success('AI 连通性测试成功');
+      } else {
+        message.error(`AI 连通性测试失败：${getAiTestErrorText(result)}`, 8);
+      }
+    } catch (e) {
+      const result = {
+        ok: false,
+        error: e.response?.data?.detail || e.message || '测试请求失败',
+      };
+      setAiTestResult(result);
+      message.error(`AI 连通性测试失败：${getAiTestErrorText(result)}`, 8);
+    } finally {
+      setTestingAi(false);
+    }
+  };
+
+  const handleSaveAiConfig = async (values) => {
     try {
       setSavingAi(true);
-      await updateAiConfig(values);
-      message.success('AI 基础配置已保存');
+      const payload = {
+        provider: values.provider,
+        base_url: values.base_url,
+        default_model: values.default_model,
+        default_timeout_seconds: values.default_timeout_seconds,
+        default_temperature: values.default_temperature,
+        default_max_images_per_task: values.default_max_images_per_task,
+        auto_recognize: values.auto_recognize === true || values.auto_recognize === '启用',
+        image_recognition_model: values.image_recognition_model,
+        image_recognition_timeout_seconds: values.image_recognition_timeout_seconds,
+        image_recognition_temperature: values.image_recognition_temperature,
+        image_recognition_max_images_per_task: values.image_recognition_max_images_per_task,
+        answer_generation_model: values.answer_generation_model,
+        answer_generation_timeout_seconds: values.answer_generation_timeout_seconds,
+        answer_generation_temperature: values.answer_generation_temperature,
+        captcha_model: values.captcha_model,
+        captcha_timeout_seconds: values.captcha_timeout_seconds,
+        captcha_temperature: values.captcha_temperature,
+        captcha_prompt: values.captcha_prompt,
+      };
+      const saved = await updateAiConfig(payload);
+      aiForm.setFieldsValue({
+        ...saved,
+        source: saved.source || 'database',
+        api_key_configured: saved.api_key_configured ? '已配置' : '未配置',
+        auto_recognize: saved.auto_recognize,
+      });
+      message.success('AI 配置已保存');
     } catch (e) {
-      message.error(e.response?.data?.detail || '保存配置失败，请检查填写内容或后端日志');
+      message.error(e.response?.data?.detail || '保存 AI 配置失败');
     } finally {
       setSavingAi(false);
     }
@@ -101,42 +166,97 @@ export default function SettingsPage() {
       ),
       children: (
         <section className="settings-panel">
-          <Form form={aiForm} layout="vertical" requiredMark={false} onFinish={handleSaveConfig}>
+          <Form form={aiForm} layout="vertical" requiredMark={false} onFinish={handleSaveAiConfig}>
+            <Alert
+              type="info"
+              showIcon
+              message="AI Key 来自 .env / 进程环境变量；模型、Base URL、温度、超时等业务配置保存在数据库，保存后立即生效。"
+              style={{ marginBottom: 16 }}
+            />
             <div className="settings-grid">
-              <Form.Item name="base_url" label="Base URL (兼容 OpenAI)" rules={[{ required: true }]}>
-                <Input placeholder="例如: https://api.openai.com/v1" style={{ width: '100%' }} />
+              <Form.Item name="source" label="配置来源">
+                <Input disabled style={{ width: '100%' }} />
               </Form.Item>
-              <Form.Item name="api_key" label="API Key">
-                <Input placeholder="输入新 Key 将覆盖原有配置，为空则不修改" style={{ width: '100%' }} />
+              <Form.Item name="provider" label="Provider" rules={[{ required: true }]}>
+                <Input style={{ width: '100%' }} />
               </Form.Item>
-              <Form.Item name="model" label="默认模型" rules={[{ required: true }]}>
-                <Input placeholder="例如: gpt-4o" style={{ width: '100%' }} />
+              <Form.Item name="api_key_configured" label="API Key">
+                <Input disabled style={{ width: '100%' }} />
               </Form.Item>
-              <Form.Item name="fallback_model" label="降级备用模型">
-                <Input placeholder="当主模型失效时使用" style={{ width: '100%' }} />
+              <Form.Item name="base_url" label="Base URL" rules={[{ required: true }]}>
+                <Input style={{ width: '100%' }} />
               </Form.Item>
-              <Form.Item name="timeout_seconds" label="超时时间 (秒)">
+              <Form.Item name="default_model" label="默认模型" rules={[{ required: true }]}>
+                <Input style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item name="default_timeout_seconds" label="默认超时 (秒)">
                 <InputNumber min={10} max={300} style={{ width: '100%' }} />
               </Form.Item>
-              <Form.Item name="temperature" label="温度 (Temperature)">
+              <Form.Item name="default_temperature" label="默认温度">
                 <InputNumber min={0} max={2} step={0.1} style={{ width: '100%' }} />
               </Form.Item>
-              <Form.Item name="max_images_per_task" label="单次最大图片数">
+              <Form.Item name="default_max_images_per_task" label="默认单次最大图片数">
                 <InputNumber min={1} max={20} style={{ width: '100%' }} />
               </Form.Item>
-              <Form.Item name="max_concurrent_tasks" label="最大并发任务数">
-                <InputNumber min={1} max={50} style={{ width: '100%' }} />
-              </Form.Item>
-              <Form.Item name="auto_recognize" label="学生上传后自动触发识别" valuePropName="checked">
+              <Form.Item name="auto_recognize" label="上传后自动识别" valuePropName="checked">
                 <Switch />
               </Form.Item>
+              <Form.Item name="image_recognition_model" label="图片识别模型" rules={[{ required: true }]}>
+                <Input style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item name="image_recognition_timeout_seconds" label="图片识别超时 (秒)">
+                <InputNumber min={10} max={300} style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item name="image_recognition_temperature" label="图片识别温度">
+                <InputNumber min={0} max={2} step={0.1} style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item name="image_recognition_max_images_per_task" label="图片识别单次最大图片数">
+                <InputNumber min={1} max={20} style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item name="answer_generation_model" label="实验问题生成模型" rules={[{ required: true }]}>
+                <Input style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item name="answer_generation_timeout_seconds" label="问题生成超时 (秒)">
+                <InputNumber min={10} max={300} style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item name="answer_generation_temperature" label="问题生成温度">
+                <InputNumber min={0} max={2} step={0.1} style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item name="captcha_model" label="验证码识别模型" rules={[{ required: true }]}>
+                <Input style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item name="captcha_timeout_seconds" label="验证码超时 (秒)">
+                <InputNumber min={10} max={300} style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item name="captcha_temperature" label="验证码温度">
+                <InputNumber min={0} max={2} step={0.1} style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item name="captcha_prompt" label="验证码 Prompt" rules={[{ required: true }]}>
+                <Input.TextArea autoSize={{ minRows: 2, maxRows: 4 }} />
+              </Form.Item>
             </div>
-            <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+              <Button icon={<RobotOutlined />} loading={testingAi} onClick={handleTestAiConnection}>
+                测试连通性
+              </Button>
               <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={savingAi}>
-                保存基础配置
+                保存 AI 配置
               </Button>
             </div>
           </Form>
+          {aiTestResult && (
+            <Alert
+              type={aiTestResult.ok ? 'success' : 'error'}
+              showIcon
+              message={aiTestResult.ok ? 'AI 连通性测试成功' : `AI 连通性测试失败：${getAiTestErrorText(aiTestResult)}`}
+              description={
+                aiTestResult.ok
+                  ? `模型：${aiTestResult.model || '-'}；输出：${aiTestResult.output || ''}`
+                  : `错误码：${aiTestResult.error_code || '-'}；模型：${aiTestResult.model || '-'}；Base URL：${aiTestResult.base_url || '-'}`
+              }
+              style={{ marginTop: 16 }}
+            />
+          )}
         </section>
       ),
     },

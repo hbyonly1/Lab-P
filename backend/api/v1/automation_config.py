@@ -10,9 +10,10 @@ from models.core import AuditLog, AutomationEngineConfig, User, get_utc_now
 
 router = APIRouter()
 
-CONFIG_SCHEMA_VERSION = "1.1"
+CONFIG_SCHEMA_VERSION = "1.2"
 REQUIRED_TOP_LEVEL_KEYS = {
     "schoolSystem",
+    "networkPolicy",
     "identity",
     "selectors",
     "safety",
@@ -20,6 +21,7 @@ REQUIRED_TOP_LEVEL_KEYS = {
     "syncPolicy",
     "retryPolicy",
     "runtime",
+    "waitPolicy",
 }
 
 
@@ -47,6 +49,15 @@ def default_automation_config() -> Dict[str, Any]:
             "_comment": "学校实验报告系统入口。",
             "baseUrl": "http://10.25.77.60:8001",
             "loginUrl": "http://10.25.77.60:8001/Login",
+        },
+        "networkPolicy": {
+            "_comment": "学校系统网络入口策略。当前阶段直连内网，VPN 字段只保存环境变量名。",
+            "phase": "direct_intranet_only",
+            "directLoginUrl": "http://10.25.77.60:8001/Login",
+            "vpnLoginUrl": "https://10-25-77-60-8001-p.vpn.cumtb.edu.cn:8118/",
+            "vpnUsernameEnv": "CUMTB_VPN_USERNAME",
+            "vpnPasswordEnv": "CUMTB_VPN_PASSWORD",
+            "probeTimeoutMs": 3000,
         },
         "identity": {
             "_comment": "学校系统账号使用 users.student_no，密码固定与学号一致；登录后姓名写入 users.real_name。",
@@ -99,12 +110,9 @@ def default_automation_config() -> Dict[str, Any]:
             },
         },
         "captcha": {
-            "_comment": "验证码图片会截图后发送给 OpenAI-compatible 视觉模型识别。",
-            "provider": "openai_compatible",
-            "apiKeyEnv": "ARK_API_KEY",
-            "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
-            "model": "doubao-1.5-vision-lite-250315",
-            "prompt": "识别图片验证码，只回答验证码内容，不要解释。",
+            "_comment": "验证码识别运行时使用统一 AI Provider；具体模型、prompt 和超时在 Admin AI 设置页维护。",
+            "task": "captcha",
+            "expectedLength": 4,
         },
         "syncPolicy": {
             "_comment": "首次登录只同步姓名和实验列表；实验详情在用户点进实验时按需打开 modal 读取。",
@@ -114,8 +122,10 @@ def default_automation_config() -> Dict[str, Any]:
         },
         "retryPolicy": {
             "captchaMaxRetries": 3,
+            "credentialMaxRetries": 1,
             "networkMaxRetries": 2,
-            "syncCooldownSeconds": 1800,
+            "selectorMaxRetries": 1,
+            "syncCooldownSeconds": 600,
         },
         "runtime": {
             "_comment": "headless=false 表示打开可视浏览器窗口；userSessionIdleTtlSeconds=0 表示平台不主动关闭会话。",
@@ -124,7 +134,23 @@ def default_automation_config() -> Dict[str, Any]:
             "defaultTimeoutMs": 30000,
             "postLoginSettleMs": 2000,
             "postLoginWaitMs": 10000,
+            "keepBrowserOpenAfterLogin": True,
             "userSessionIdleTtlSeconds": 0,
+            "schoolSessionMaxAgeSeconds": 7200,
+        },
+        "waitPolicy": {
+            "_comment": "学校页面节点稳定等待策略。关键 DOM 读写必须使用这些超时，不靠固定 sleep 判断成功。",
+            "afterClickMs": 300,
+            "afterInputMs": 100,
+            "afterImageUploadMs": 1000,
+            "modalOpenTimeoutMs": 15000,
+            "fieldWriteTimeoutMs": 10000,
+            "imageWriteTimeoutMs": 20000,
+            "submitFeedbackTimeoutMs": 30000,
+            "listRefreshTimeoutMs": 30000,
+            "networkIdleTimeoutMs": 10000,
+            "overviewStableMs": 1000,
+            "overviewPollMs": 250,
         },
     }
 
@@ -140,6 +166,44 @@ def validate_config_payload(config_json: Dict[str, Any]) -> None:
     identity = config_json.get("identity") or {}
     if identity.get("passwordPolicy") != "same_as_student_no":
         raise HTTPException(status_code=422, detail="identity.passwordPolicy must be same_as_student_no.")
+
+    captcha = config_json.get("captcha") or {}
+    if captcha.get("expectedLength") is None:
+        raise HTTPException(status_code=422, detail="captcha.expectedLength is required.")
+    try:
+        expected_length = int(captcha.get("expectedLength"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="captcha.expectedLength must be a positive integer.") from None
+    if expected_length <= 0:
+        raise HTTPException(status_code=422, detail="captcha.expectedLength must be a positive integer.")
+
+    runtime = config_json.get("runtime") or {}
+    if "keepBrowserOpenAfterLogin" not in runtime:
+        raise HTTPException(status_code=422, detail="runtime.keepBrowserOpenAfterLogin is required.")
+    if not isinstance(runtime.get("keepBrowserOpenAfterLogin"), bool):
+        raise HTTPException(status_code=422, detail="runtime.keepBrowserOpenAfterLogin must be boolean.")
+
+    for group_name, fields in {
+        "networkPolicy": ["probeTimeoutMs"],
+        "runtime": ["defaultTimeoutMs", "postLoginSettleMs", "postLoginWaitMs"],
+        "waitPolicy": [
+            "modalOpenTimeoutMs",
+            "fieldWriteTimeoutMs",
+            "submitFeedbackTimeoutMs",
+            "listRefreshTimeoutMs",
+            "networkIdleTimeoutMs",
+            "overviewStableMs",
+            "overviewPollMs",
+        ],
+    }.items():
+        group = config_json.get(group_name) or {}
+        for field in fields:
+            try:
+                value = int(group.get(field))
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=422, detail=f"{group_name}.{field} must be a positive integer.") from None
+            if value <= 0:
+                raise HTTPException(status_code=422, detail=f"{group_name}.{field} must be a positive integer.")
 
     if "playwrightScript" in config_json or "script" in config_json:
         raise HTTPException(status_code=422, detail="config_json cannot contain Playwright script code.")

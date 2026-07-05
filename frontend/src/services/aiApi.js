@@ -42,6 +42,11 @@ export const updateAiConfig = async (configData) => {
   return response.data;
 };
 
+export const testAiConnection = async () => {
+  const response = await apiClient.post('/api/v1/ai/admin/test-connection');
+  return response.data;
+};
+
 export const getAiPromptTemplate = async (experimentId) => {
   const response = await apiClient.get(`/api/v1/ai/admin/prompts/${experimentId}`);
   return response.data;

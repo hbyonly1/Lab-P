@@ -32,7 +32,13 @@ class Settings(BaseSettings):
     ADMIN_PASSWORD: Optional[str] = None
     
     # AI Settings
-    AI_ENCRYPTION_KEY: str = "" # Fernet key to decrypt DB stored API Key
+    AI_PROVIDER: str = "openai_compatible"
+    AI_API_KEY: Optional[str] = None
+    AI_BASE_URL: Optional[str] = None
+    AI_DEFAULT_MODEL: Optional[str] = None
+    AI_IMAGE_RECOGNITION_MODEL: Optional[str] = None
+    AI_ANSWER_GENERATION_MODEL: Optional[str] = None
+    AI_CAPTCHA_MODEL: Optional[str] = None
     
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
