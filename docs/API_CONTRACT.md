@@ -304,6 +304,43 @@
 - 实验配置 `meta` 不保存学生完成状态；学生维度的 `unsubmitted/reviewing/completed` 等状态来自 `submissions`，由前端在学生页面合并展示。
 - 节点类型语义：`ai_recognize` 是唯一图像识别节点类型；图像识别 Prompt schema、生成式回答附加数据节点下拉和生成式回答关键数据默认范围都只读取该类型。`fixed` 为固定填空节点，一键填空读取其 `value`；`computed` 为公式计算节点；`generated` 为生成式文本回答节点；`image_upload` 为学生/审核员单独上传图片并写回对应 `nodeId` 的图片答案节点。旧 `extract` 类型已删除，不再作为识别节点来源。
 - 图片槽位语义：`inputs.images[].id` 可被 `ai.recognition.imageRef` 绑定为表格/数据识别图片；也可通过 `inputs.images[].targetNodeId` 或 `inputs.fields[].imageSlotId` 绑定到 `image_upload` 节点。识别图片不会自动混入图片答案节点，图片答案节点保存为对应节点的图片 URL。
+- 学校 DOM 写入策略语义：`automation.mappings[].targetType` 是可选字段，用于告诉后端怎样把平台节点写入学校系统节点；它不是平台节点类型，不能和 `generated`、`image_upload`、`ai_recognize` 混用含义。缺省值一律按 `text` 处理，只有富文本等特殊学校控件才显式配置。
+- 当前支持的 `targetType` 只有三种：
+
+```text
+text           普通 input / textarea / select / 可直接赋值文本节点
+wysiwyg_text   学校富文本编辑器里的文本回答节点
+wysiwyg_image  学校富文本编辑器里的图片上传节点
+```
+
+普通文本 mapping 不需要写 `targetType`：
+
+```json
+{
+  "sourceId": "DBGZ10-0",
+  "targetLocator": "#DBGZ10-0"
+}
+```
+
+富文本或图片上传节点必须显式写入：
+
+```json
+{
+  "sourceId": "skt0Area",
+  "targetLocator": "#skt0Area",
+  "targetType": "wysiwyg_text"
+}
+```
+
+```json
+{
+  "sourceId": "YSSJDrawingAreaArea",
+  "targetLocator": "#YSSJDrawingAreaArea",
+  "targetType": "wysiwyg_image"
+}
+```
+
+后端写入时必须按 `targetType` 分派写入器：`text` 走普通表单写入和回读；`wysiwyg_text` 不能直接 `fill()` 隐藏 textarea，必须写入同一富文本容器内的可编辑区域并同步 textarea；`wysiwyg_image` 必须点击学校富文本工具栏的插入图片按钮、使用 popup 内的 `input[type=file]` 上传平台图片对应的本地文件，并回读确认编辑器中出现图片。
 
 当前真实接入的学生端实验配置：
 
@@ -527,7 +564,7 @@ created_at
 {
   "id": 1,
   "name": "default",
-  "schema_version": "1.2",
+  "schema_version": "1.3",
   "is_active": true,
   "created_by": 1,
   "updated_by": 1,
@@ -569,7 +606,7 @@ created_at
       "reportList": {
         "_comment": "列表同步只保存实验名和提交状态；其它列暂不入库。",
         "columns": {
-          "experimentName": 2,
+          "experimentName": 0,
           "status": 6
         },
         "openReportButtonText": "完成报告"
@@ -578,11 +615,12 @@ created_at
         "root": "#ReportModal",
         "content": "#ReportModal #content",
         "saveDraft": "#ReportModal button:has-text('临时提交')",
+        "submitFinal": "#ReportModal button:has-text('正式提交')",
         "close": "#ReportModal button:has-text('关闭')"
       }
     },
     "safety": {
-      "_comment": "高风险动作保护。按需读取 modal 时必须跳过这些按钮，除非未来有独立审批和二次确认机制。",
+      "_comment": "高风险动作保护。按需读取和同步 modal 时必须跳过这些按钮；正式提交只允许由 final_submit job 在用户二次确认后触发。",
       "forbiddenActions": {
         "finalSubmit": {
           "policy": "never_click",
@@ -649,7 +687,7 @@ created_at
 ```json
 {
   "name": "default",
-  "schema_version": "1.2",
+  "schema_version": "1.3",
   "is_active": true,
   "config_json": {
     "schoolSystem": {},
@@ -674,7 +712,8 @@ created_at
   - `networkPolicy.probeTimeoutMs`、`runtime.defaultTimeoutMs`、`runtime.postLoginSettleMs`、`runtime.postLoginWaitMs` 和 `waitPolicy` 中关键超时字段必须为正整数。
   - 不允许在配置中保存具体 Playwright 脚本代码。
   - JSONB 不支持 `//` 注释；可使用 `_comment`、`description` 等普通字段作为可保存注释。
-- **Compatibility**：不兼容旧配置结构；后端以 `schema_version=1.2` 的当前结构为准。读取默认配置时，如果数据库中的 `default` 配置仍是旧结构或旧版本，将直接替换为当前默认结构。
+- **Compatibility**：不兼容旧配置结构；后端以 `schema_version=1.3` 的当前结构为准。读取默认配置时，如果数据库中的 `default` 配置仍是旧结构或旧版本，将直接替换为当前默认结构。
+- **列下标约定**：`selectors.reportList.columns` 使用 0 基下标；`experimentName=0` 表示读取学校列表第 1 列 `PaperName`，不要读取第 3 列 `LabName`，因为部分报告名会带批次后缀（例如 `0625`）。
 - **State Change**：写入或更新 `automation_engine_configs`，并写入 `audit_logs(action=automation_config_updated)`。
 - **Not Included**：当前阶段不提供 `test-login` 接口；后续如需连通性检查，再单独设计 `validate-login`。
 
@@ -745,7 +784,14 @@ AI_CAPTCHA_MODEL=zai-org/GLM-4.5V
     "draftSubmitted": 0,
     "finalSubmitted": 1,
     "unknown": 0
-  }
+  },
+  "experiments": [
+    {
+      "experimentName": "电表的改装",
+      "originalStatusText": "临时提交",
+      "schoolStatus": "school_draft_submitted"
+    }
+  ]
 }
 ```
 
@@ -753,6 +799,7 @@ AI_CAPTCHA_MODEL=zai-org/GLM-4.5V
   - 没有同步记录时 `shouldSync=true`。
   - 距离最近同步超过 `syncCooldownSeconds` 时 `shouldSync=true`。
   - 冷却期内 `shouldSync=false`，除非用户点击手动同步按钮并调用 `POST /overview` 的 `force=true`。
+  - `experiments` 来自最近一次学校概览快照，仅包含学生端可展示的实验名、学校原始状态文本和归一化学校状态；前端可用它合并展示“学校提交状态”，但不得用它覆盖平台 `Submission.status`。
 
 #### POST /api/v1/school-sync/overview
 
@@ -844,10 +891,32 @@ AI_CAPTCHA_MODEL=zai-org/GLM-4.5V
   - 后台 `automation_jobs.result_payload.sessionDiagnostic` 记录会话复用或重登决策，例如 `reused_existing_session`、`existing_session_recovery_failed`、`relogin_created_session`；该字段不进入 public job DTO。
   - 每次创建、复用或拒绝都写入 `audit_logs`。
 
+#### GET /api/v1/school-sync/experiments/{experiment_id}/latest
+
+- **Auth Required**: Yes (Student)
+- **Purpose**: 学生端在单实验同步 job 成功后读取最新 `school_report_modal` 快照，并把已按 `automation.mappings` 转换后的 `formValues` 回填到当前平台表单。该接口只返回当前学生自己的该实验快照，不返回学校 DOM 原始 HTML、截图路径、选择器或内部诊断 payload。
+- **Response**:
+
+```json
+{
+  "lastSyncedAt": "2026-07-06T12:00:00Z",
+  "experimentId": "exp_meter_modification",
+  "experimentName": "电表的改装",
+  "formValues": {
+    "DBGZ10-0": "1.23",
+    "skt0Area": "实验误差主要来自..."
+  },
+  "summary": {
+    "source": "school_report_modal",
+    "fieldCount": 17
+  }
+}
+```
+
 #### POST /api/v1/school-sync/experiments/{experiment_id}/submit
 
 - **Auth Required**: Yes
-- **Purpose**: 学生在平台点击“临时提交”后，创建学校系统提交 job，并由前端阻塞弹窗轮询公开进度。后端先保存 `platform_before_submit` 快照，再复用或重建学校会话、打开对应实验报告 modal、按实验配置 `automation.mappings` 回填平台 `corrected_json.values`、逐字段校验、点击学校系统“临时提交”、等待学校反馈、关闭 modal 或返回主实验列表，并读取该实验提交状态。只有回读状态确认为 `school_draft_submitted` 时才把平台 submission 更新为 `draft_submitted`。正式提交当前仍被后端拒绝为 `FINAL_SUBMIT_DISABLED`，避免高风险动作提前开放。
+- **Purpose**: 学生在平台点击“临时提交”后，创建学校系统提交 job，并由前端阻塞弹窗轮询公开进度。后端先保存 `platform_before_submit` 快照，再复用或重建学校会话、打开对应实验报告 modal、按实验配置 `automation.mappings` 回填平台 `corrected_json.values`、逐字段校验、点击学校系统“临时提交”、等待学校反馈、关闭 modal 或返回主实验列表，并读取该实验提交状态。`mode=final` 复用同一后端流程，只切换为正式提交 selector 和 `school_final_submitted` 状态确认；当前学生端正式提交确认按钮保持禁用，不开放用户触发。
 - **Payload**:
 
 ```json
@@ -883,9 +952,15 @@ final
 
 - **状态结果**:
   - `mode=draft` 只有在学校系统反馈或回读状态确认成功后，submission 状态才更新为 `draft_submitted`。
-  - `mode=final` 当前会失败为 `FINAL_SUBMIT_DISABLED`；后续开放后，只有在学校系统反馈或回读状态确认成功后，submission 状态才更新为 `completed`。
+  - `mode=final` 复用同一提交链路；只有在学校系统反馈或回读状态确认成功后，submission 状态才更新为 `completed`。
   - 提交 job 必须在同一浏览器会话内等待学校提交完成，再返回完成报告列表读取状态并写入 `school_sync_snapshots`；平台不能仅凭“已点击提交按钮”推断学校提交成功。
-  - 如果学校反馈成功但列表状态未能确认，job 必须返回明确的部分确认 / 状态未确认错误，不能直接标记 submission 完成。
+  - 如果学校反馈成功但列表状态未能确认，job 可以成功落库，并记录 `statusConfirmation=feedback_only`，方便后续同步或排查确认来源。
+- **字段写入要求**:
+  - 后端按实验配置 `automation.mappings[]` 写入学校 DOM；`targetType` 缺省为 `text`，特殊控件才显式配置为 `wysiwyg_text` 或 `wysiwyg_image`。
+  - `text` 字段走普通表单写入与回读校验；`wysiwyg_text` 字段写入富文本可编辑区域并同步隐藏 textarea；`wysiwyg_image` 字段点击学校富文本插入图片工具栏并通过 file input 上传。
+  - 提交前必须生成字段写入报告，至少区分 `succeededFields`、`skippedEmptyFields`、`failedFields`、`unsupportedFields`。
+  - 只要 `failedFields` 或 `unsupportedFields` 非空，后端必须停止提交，不点击学校系统“临时提交 / 正式提交”按钮。
+  - 字段写入失败应优先使用 `FIELD_WRITE_VERIFY_FAILED`、`WYSIWYG_TEXT_WRITE_FAILED`、`WYSIWYG_IMAGE_UPLOAD_FAILED` 等明确错误码；`automation_jobs.error_message` 和后台审计可保存脱敏节点摘要，public job DTO 不返回选择器、HTML、截图路径或内部诊断。
 - **安全要求**:
   - Student 只能提交自己的 self-managed submission。
   - Student 不能通过该接口处理 `is_one_click_handoff=true` 的代写任务。

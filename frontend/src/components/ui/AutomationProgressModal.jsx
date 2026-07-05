@@ -12,14 +12,16 @@ const SUBMIT_STEPS = [
   'school.submit.verifying',
   'school.submit.submitAction',
   'school.submit.confirming',
-  'school.submit.returningList',
   'school.submit.readingStatus',
-  'school.submit.success',
+  'school.submit.updatingPlatform',
 ];
 
 function normalizeStepCode(messageCode, stepAliases = {}) {
   if (['school.submit.submittingDraft', 'school.submit.submittingFinal'].includes(messageCode)) {
     return 'school.submit.submitAction';
+  }
+  if (messageCode === 'school.submit.returningList') {
+    return 'school.submit.readingStatus';
   }
   return stepAliases[messageCode] || messageCode;
 }

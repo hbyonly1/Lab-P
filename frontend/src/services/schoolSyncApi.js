@@ -15,6 +15,11 @@ export async function startSchoolExperimentDetailSync(experimentId) {
   return response.data;
 }
 
+export async function getSchoolExperimentDetailLatest(experimentId) {
+  const response = await apiClient.get(`/api/v1/school-sync/experiments/${experimentId}/latest`);
+  return response.data;
+}
+
 export async function startSchoolExperimentSubmit(experimentId, { submissionId, mode }) {
   const response = await apiClient.post(`/api/v1/school-sync/experiments/${experimentId}/submit`, {
     submissionId,

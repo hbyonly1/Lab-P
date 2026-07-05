@@ -372,7 +372,7 @@ UNKNOWN_LOGIN_RESULT
 - 探测、同步、读取 modal 时禁止点击“正式提交”。
 - 只有用户在平台明确点击“正式提交”，并通过前端二次确认后，才允许创建 `final_submit` job。
 - 每次提交都必须先保存平台快照，避免学校提交失败后无法恢复用户数据。
-- 当前真实提交未接入时，submit job 必须失败退出并保留 `platform_before_submit` 快照，不能用 stub 把 submission 标记为 `draft_submitted` 或 `completed`。
+- 当前学生端正式提交确认按钮保持禁用；后端 `final_submit` 流程已按正式提交 selector 和 `school_final_submitted` 确认规则准备，后续开放前必须先完成前端二次确认放行和真实学校环境验证。
 - 临时提交的 modal 复用、bootbox 成功反馈识别，以及实验列表“学校提交状态 / 平台处理状态”拆分，详见 `docs/SCHOOL_SUBMIT_AND_STATUS_PLAN.md`。
 
 ### 7.1 回填后逐节点校验
@@ -381,10 +381,10 @@ UNKNOWN_LOGIN_RESULT
 
 需要校验的内容：
 
-- 普通文本输入框：读取学校 DOM 当前值，与平台提交值规范化后比较。
-- textarea / 富文本区域：读取可见文本或编辑器 HTML，确认平台内容存在。
+- 普通文本输入框：`targetType` 缺省为 `text`，读取学校 DOM 当前值，与平台提交值规范化后比较。
+- 富文本文本区域：`targetType=wysiwyg_text`，不能直接 fill 隐藏 textarea；必须写入同一 `.wysiwyg-wrapper` / `.wysiwyg-container` 内的 `.wysiwyg-editor`，同步 textarea value，并回读 editor HTML 或可见文本。
 - 表格输入节点：按节点 ID 或配置定位逐格校验。
-- 图片上传节点：确认学校编辑器或图片区域中出现对应图片、文件名或图片节点。
+- 富文本图片上传节点：`targetType=wysiwyg_image`，点击同一编辑器 toolbar 的“插入图片”按钮，等待 popup 中的 `input[type=file]`，使用 Playwright 上传平台图片对应的本地文件，再确认 editor 内出现图片节点。
 - 计算结果节点：如果平台侧有值，也要按普通输入节点校验。
 
 不需要校验的内容：
@@ -412,8 +412,9 @@ UNKNOWN_LOGIN_RESULT
     },
     {
       "nodeId": "Y2Area",
-      "type": "image",
-      "reason": "image_not_found_after_upload"
+      "type": "wysiwyg_image",
+      "reason": "image_not_found_after_upload",
+      "stage": "verify"
     }
   ]
 }
@@ -765,19 +766,19 @@ school.overview.loggingIn = 正在确认学校系统登录结果...
 school.overview.checkingLogin = 正在确认学校系统登录结果...
 school.overview.retryingCaptcha = 验证码校验失败，正在重新识别并重试...
 school.overview.readingList = 正在读取完成报告列表...
-school.overview.savingSnapshot = 正在保存学校系统状态...
+school.overview.savingSnapshot = 正在加载学校系统状态到平台...
 school.overview.success = 您的概览数据已读取完成，请查看仪表盘进行下一步操作。
 school.overview.failed = 当前无法连接至学校系统，原因：{reason}，若该情况持续存在，请反馈并联系管理员。
 
 school.detail.syncing = 正在从学校系统同步您的「{experimentName}」填写数据，请耐心等待...
 school.detail.connecting = 正在准备学校系统会话...
 school.detail.opening = 正在打开实验报告...
-school.detail.reading = 正在读取学校系统已有填写内容...
-school.detail.savingSnapshot = 正在保存实验填写快照...
+school.detail.reading = 正在读取学校系统已填写内容...
+school.detail.savingSnapshot = 正在加载实验填写快照到平台...
 school.detail.success = 您的实验数据填写已读取完成，并已回填至当前网页，请进行下一步操作。
 school.detail.failed = 当前无法同步实验数据，原因：{reason}，若该情况持续存在，请反馈并联系管理员。
 
-school.submit.saving = 正在保存平台数据...
+school.submit.saving = 正在保存数据至平台...
 school.submit.connecting = 正在准备学校系统会话...
 school.submit.opening = 正在打开实验报告...
 school.submit.filling = 正在回填表单数据...
@@ -903,7 +904,7 @@ final
 - 自动化 job 已有脱敏 public DTO、active 查询、幂等键和 active job 唯一约束。
 - 概览同步已有 `GET /api/v1/school-sync/overview/latest` 和 `POST /api/v1/school-sync/overview`；后端已接入 `school_overview_sync` service，负责内网连通性探测、Playwright 登录、验证码 AI 识别、真实姓名和完成报告列表读取。当前仍需在配置 `AI_API_KEY` 且可访问学校内网的环境中做真实端到端验证。
 - 单实验同步已有 `POST /api/v1/school-sync/experiments/{experiment_id}` 真实 service：复用用户级学校浏览器会话，回到完成报告列表，点击对应实验“完成报告”，读取 modal 字段并保存 `school_sync_snapshots(source=school_report_modal)`。
-- 临时提交已有 `POST /api/v1/school-sync/experiments/{experiment_id}/submit` 真实 service 骨架：前端提交时先保存平台数据，再创建 `draft_submit` job；后端打开学校 modal、按 `automation.mappings` 回填和校验文本字段、点击“临时提交”、等待反馈、返回主实验列表并读取状态。未确认 `school_draft_submitted` 时不得更新平台为已提交。正式提交暂未开放，后端返回 `FINAL_SUBMIT_DISABLED`。
+- 临时 / 正式提交共用 `POST /api/v1/school-sync/experiments/{experiment_id}/submit` service：前端提交时先保存平台数据，再创建 `draft_submit` 或 `final_submit` job；后端打开学校 modal、按 `automation.mappings` 回填和校验文本字段、点击对应提交按钮、等待反馈、返回主实验列表并读取状态。正式提交当前仅后端流程准备完成，学生端二次确认弹窗的确认按钮仍保持禁用。
 - 提交前已保存 `submission_versions(source=platform_before_submit)`，便于后续真实学校系统失败时追踪平台侧快照。
 - 学生端接口只返回 public job 状态和标准提示码，不返回选择器、验证码、密码、内部 payload 或截图真实路径。
 - 学生仪表盘和实验详情页会在进入页面时恢复当前 active job 弹窗，避免刷新后丢失进度。
@@ -912,7 +913,7 @@ final
 
 - 概览同步真实环境验证：确认内网连通性、验证码识别准确率、选择器稳定性、真实姓名和学校提交状态读取结果。
 - 将学校状态合并到学生页面的实验列表和仪表盘指标。
-- 在真实学校页面继续验证各实验 `automation.mappings` 与 modal DOM 是否完全匹配，补齐图片上传、富文本和特殊控件的写入与校验策略。
+- 在真实学校页面继续验证各实验 `automation.mappings` 与 modal DOM 是否完全匹配；特殊节点通过 `targetType=text | wysiwyg_text | wysiwyg_image` 区分写入策略，普通节点默认 `text`。
 - 根据平台节点值回填学校 DOM，逐节点校验文本、表格和图片是否写入成功。
 - 点击临时 / 正式提交按钮，等待学校反馈、保存截图 / HTML 摘要，并写入真实学校状态快照。
 - VPN / 二次验证人工协助分支仍只预留状态，不在第一阶段实现。

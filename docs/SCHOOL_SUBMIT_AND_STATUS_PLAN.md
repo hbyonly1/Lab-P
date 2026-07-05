@@ -29,9 +29,158 @@
 已观察到的成功反馈节点形态：
 
 ```html
-<div class="bootbox-body">提交成功!</div>
+<body class="modal-open">
+  <div class="bootbox modal fade bootbox-alert in" tabindex="-1" role="dialog" aria-hidden="false" style="display: block;">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-body">
+          <button type="button" class="bootbox-close-button close" data-dismiss="modal" aria-hidden="true">x</button>
+          <div class="bootbox-body">提交成功!</div>
+        </div>
+        <div class="modal-footer">...</div>
+      </div>
+    </div>
+  </div>
+</body>
+```
+
+可操作成功信号应收敛为：
+
+```html
+div.bootbox.modal.bootbox-alert.in[aria-hidden="false"] div.bootbox-body
+```
+
+其中 `.bootbox-body` 文本精确或规范化后匹配：
+
+```text
+提交成功!
+提交成功
+保存成功
+```
+
+关闭按钮可用：
+
+```html
 <button data-bb-handler="ok" class="btn btn-primary">OK</button>
 ```
+
+或：
+
+```html
+button.bootbox-close-button.close[data-dismiss="modal"]
+```
+
+### 2.1 当前提交反馈误判问题
+
+已有真实失败日志证明，提交反馈识别不能再扫描整个报告 modal：
+
+```text
+.modal-body
+```
+
+原因是学校实验报告正文自身包含“错误”等普通教学文本，例如：
+
+```text
+若电流表示数不为0，则连线错误
+```
+
+如果后端把 `#ReportModal .modal-body` 的整篇报告正文当作“提交反馈”，再用 `/失败|错误|不正确/` 匹配，就会把正常报告内容误判为 `SUBMIT_REJECTED_BY_SCHOOL`。
+
+正确规则：
+
+- 点击提交前记录页面已有的 bootbox / modal 数量和可见文本快照。
+- 点击提交后只等待新出现或变为可见的提交反馈层。
+- 成功 / 失败判断只允许读取 bootbox alert 的 `.bootbox-body`。
+- 不允许把 `#ReportModal .modal-body`、整篇报告正文、上传图片弹窗、上传进度框作为提交反馈。
+- `matchedFailureMessages` 只能来自提交反馈层，不能来自实验报告正文。
+
+推荐反馈选择器：
+
+```text
+.bootbox.modal.bootbox-alert.in .bootbox-body
+.bootbox[aria-hidden="false"] .bootbox-body
+.bootbox.modal[style*="display: block"] .bootbox-body
+```
+
+不推荐作为反馈来源：
+
+```text
+#ReportModal .modal-body
+.modal-body
+.wysiwyg-popup
+#kvFileinputModal
+```
+
+如果点击提交后没有读到 bootbox alert：
+
+- 先保存提交后页面截图和 HTML。
+- 再读取是否存在上传弹窗、文件上传进度、浏览器 dialog 等阻塞物。
+- 返回 `SUBMIT_FEEDBACK_TIMEOUT` 或更具体的阻塞错误，不要扫描整篇报告正文猜测失败。
+
+### 2.2 提交反馈等待稳定规则
+
+当前出现 `SUBMIT_FEEDBACK_TIMEOUT` 时，不能直接推断学校系统没有返回反馈。需要把“点击后反馈还没挂载”和“页面被其它弹窗阻塞”区分开。
+
+可能原因：
+
+- 点击提交后立即读取，bootbox 还没插入 DOM、还没变成 `display:block`、还没加 `in`，或 `.bootbox-body` 文本还没渲染。
+- 图片上传弹窗、上传进度框、文件预览 modal 仍然存在，学校提交动作被阻塞或焦点停在上传控件上。
+- 学校确实没有返回 bootbox，此时也应输出完整现场诊断，而不是退回扫描报告正文。
+
+后端等待规则：
+
+1. 点击提交前记录基线：当前可见 bootbox 数量、`.bootbox-body` 文本、可见 modal 列表、上传 popup / 上传进度是否存在。
+2. 点击提交后先等待一个很短的 `submitFeedbackSettleMs`，再进入轮询；固定等待只作为点击后的缓冲，不替代状态等待。
+3. 轮询目标只允许是可见 bootbox 的 `.bootbox-body`：
+
+```text
+.bootbox .bootbox-body
+```
+
+4. 过滤规则：`.bootbox-body` 的最近 `.bootbox` 必须可见；优先接受 `.bootbox-alert`，但不要求第一时间就带 `.in`。
+5. 读到文本后等待文本稳定，例如连续两次轮询相同或持续 `submitFeedbackStableMs` 不变。
+6. 成功只匹配提交反馈层里的：
+
+```text
+提交成功!
+提交成功
+保存成功
+```
+
+7. 失败只匹配提交反馈层里的：
+
+```text
+提交失败
+保存失败
+失败
+错误
+不正确
+```
+
+8. 轮询超时后返回 `SUBMIT_FEEDBACK_TIMEOUT`，并附带诊断，不扫描 `#ReportModal .modal-body`。
+
+超时诊断至少包含：
+
+```json
+{
+  "submitStage": "submit_feedback_timeout",
+  "feedbackTimeoutMs": 10000,
+  "visibleBootboxCount": 0,
+  "bootboxCandidates": [],
+  "visibleModalSummaries": [
+    {
+      "selectorHint": "#kvFileinputModal",
+      "visible": true,
+      "textPreview": "上传图片： × 0% 移除 取消 选择"
+    }
+  ],
+  "hasWysiwygPopup": false,
+  "hasFileUploadProgress": true,
+  "currentUrl": "http://10.25.77.60:8001/ReportStudent/CompleteReport/"
+}
+```
+
+如果诊断显示上传 modal、上传进度或 WYSIWYG popup 仍存在，应优先归类为提交前置阻塞或图片上传未完成，而不是“学校未反馈”。
 
 ## 3. 报告 modal 复用规则
 
@@ -212,7 +361,7 @@ StudentExperimentDetailPage
 当前已有 messageCode 可以继续复用，但展示文案建议调整：
 
 ```text
-school.submit.saving          正在保存平台数据...
+school.submit.saving          正在保存数据至平台...
 school.submit.connecting      正在准备学校系统会话...
 school.submit.opening         正在打开实验报告...
 school.submit.filling         正在回填表单数据...
@@ -481,6 +630,185 @@ report_modal   -> close or keep, depending on next action
 report_list    -> read list status
 unknown        -> navigate or click CompleteReport, then read list
 ```
+
+## 8.1 正式提交共用规则
+
+正式提交不应另写一套流程。它和临时提交共用“保存平台快照 -> 获取或恢复学校会话 -> 打开 / 复用目标报告 modal -> 回填 -> 校验 -> 点击提交 -> 读取反馈 -> 回到列表确认状态 -> 保存 snapshot / job / audit”的主链路。
+
+两者只允许在这些点不同：
+
+- 提交按钮 selector：临时提交使用 `selectors.modal.saveDraft`，正式提交使用 `selectors.modal.submitFinal`。
+- 学校状态确认：临时提交期待 `school_draft_submitted`，正式提交期待 `school_final_submitted`。
+- 平台最终状态：临时提交落为 `draft_submitted`，正式提交落为 `completed`。
+- 前端风险控制：正式提交必须经过二次确认；当前确认按钮保持禁用，不开放学生端真实触发。
+
+## 8.2 学校字段 targetType 规则
+
+`automation.mappings` 应支持可选 `targetType`，用于区分学校系统里的特殊控件。绝大多数节点是普通文本节点，所以 `targetType` 不必每个都写；缺省值一律视为 `text`。
+
+WYSIWYG 字段的真实 DOM 证据、图片上传弹窗、写入器拆分和验收步骤详见 `docs/SCHOOL_WYSIWYG_FIELD_WRITE_PLAN.md`。本节只保留提交链路需要遵守的概要规则。
+
+当前只定义三类：
+
+```text
+text           普通 input / textarea / select / 可直接赋值文本节点
+wysiwyg_text   学校富文本编辑器里的文本回答节点
+wysiwyg_image  学校富文本编辑器里的图片上传节点
+```
+
+配置示例：
+
+```json
+{
+  "sourceId": "DBGZ10-0",
+  "targetLocator": "#DBGZ10-0"
+}
+```
+
+上例不写 `targetType`，等价于：
+
+```json
+{
+  "sourceId": "DBGZ10-0",
+  "targetLocator": "#DBGZ10-0",
+  "targetType": "text"
+}
+```
+
+特殊节点才显式写：
+
+```json
+{
+  "sourceId": "skt0Area",
+  "targetLocator": "#skt0Area",
+  "targetType": "wysiwyg_text"
+}
+```
+
+```json
+{
+  "sourceId": "YSSJDrawingAreaArea",
+  "targetLocator": "#YSSJDrawingAreaArea",
+  "targetType": "wysiwyg_image"
+}
+```
+
+说明：
+
+- `targetType` 是学校 DOM 写入策略，不是平台节点类型；平台节点仍可继续使用 `generated`、`image_upload` 等业务类型。
+- `targetLocator` 仍指向学校系统稳定节点，通常是隐藏 textarea 的 id，例如 `#skt0Area` / `#YSSJDrawingAreaArea`。
+- 后端写入时不能因为 `targetLocator` 命中 `textarea` 就直接 `fill()`；如果它是隐藏的 WYSIWYG textarea，必须走对应 `targetType` 策略。
+- 未配置 `targetType` 的旧 mapping 必须保持兼容，按普通 `text` 处理。
+
+## 8.3 WYSIWYG 文本节点写入规则
+
+已观察到学校实验问题节点形态：
+
+```html
+<textarea class="editorClass hide" id="skt0Area" name="editor"></textarea>
+<div contenteditable="true" class="wysiwyg-editor"></div>
+```
+
+这类节点的真实可编辑区域不是隐藏 textarea，而是同一个 `.wysiwyg-wrapper` / `.wysiwyg-container` 里的 `.wysiwyg-editor`。因此 `wysiwyg_text` 写入顺序应为：
+
+1. 通过 `targetLocator` 找到隐藏 textarea。
+2. 找到最近的 `.wysiwyg-wrapper` 或 `.wysiwyg-container`。
+3. 在容器内找到 `.wysiwyg-editor[contenteditable="true"]`。
+4. 将平台文本转换成安全 HTML：换行转 `<br>`，普通文本做 HTML escape。
+5. 优先调用学校编辑器实例 API，例如 `$(textarea).data("wysiwygjs").setHTML(html)`；如果没有实例 API，再直接设置 editor `innerHTML`。
+6. 同步写入 textarea `value`，并触发 `input`、`change`、`blur` 等事件。
+7. 回读时同时读取 `.wysiwyg-editor.innerHTML` 和 `textarea.value`，只要规范化后包含平台文本即可判定成功。
+
+失败时不要再包装成 `SCHOOL_SUBMIT_UNKNOWN_ERROR`。应记录明确错误，例如：
+
+```json
+{
+  "errorCode": "WYSIWYG_TEXT_WRITE_FAILED",
+  "nodeId": "skt0Area",
+  "targetType": "wysiwyg_text",
+  "targetLocator": "#skt0Area",
+  "stage": "editor_not_found",
+  "textareaHidden": true
+}
+```
+
+## 8.4 WYSIWYG 图片节点上传规则
+
+图片节点和文本节点必须走两条路线。已观察到学校图片节点形态：
+
+```html
+<textarea class="editorClass Drawing YSSJDrawingAreaArea hide" id="YSSJDrawingAreaArea" name="editor"></textarea>
+<div contenteditable="true" class="wysiwyg-editor"></div>
+<a class="wysiwyg-toolbar-icon" title="插入图片">...</a>
+<div class="wysiwyg-popup">
+  <input type="file" draggable="true" style="opacity:0">
+</div>
+```
+
+`wysiwyg_image` 不应直接把平台图片 URL 当文本填入隐藏 textarea，也不应简单拼 `<img>` 后跳过上传流程。目标行为应尽量模拟真实用户：
+
+1. 通过 `targetLocator` 找到该图片节点对应的隐藏 textarea。
+2. 找到同一富文本容器里的 `.wysiwyg-editor` 和 toolbar。
+3. 如果配置或默认策略要求清空旧图片，先清空 editor 内容和 textarea value，触发 `input/change`。
+4. 点击同一容器内 `a.wysiwyg-toolbar-icon[title*="插入图片"]`。
+5. 等待 `.wysiwyg-popup input[type="file"]` 出现。
+6. 将平台图片值解析为本地文件路径；如果当前值是 `/uploads/...` 或完整平台 URL，后端必须先解析到服务器本地文件或可供 Playwright `set_input_files()` 使用的临时文件。
+7. 对 popup 中的 file input 执行 `set_input_files(local_file_path)`。
+8. 等待 `.wysiwyg-editor img` 出现，并确认 `src` 非空、图片可加载，必要时等待 textarea value 或 editor HTML 同步。
+9. 回读校验：至少确认 editor 内存在 `img`，且图片数量、文件名、data URL 或 src 与本次上传能建立关联。
+
+清空策略：
+
+- `wysiwyg_image` 默认 `clearBeforeUpload=true`，因为图片节点通常代表一张当前实验图片，重复上传会导致多图叠加。
+- 如果未来某节点允许多图，可以在 mapping 里增加 `clearBeforeUpload=false`，但当前阶段先不扩展。
+
+失败结果示例：
+
+```json
+{
+  "errorCode": "WYSIWYG_IMAGE_UPLOAD_FAILED",
+  "nodeId": "YSSJDrawingAreaArea",
+  "targetType": "wysiwyg_image",
+  "targetLocator": "#YSSJDrawingAreaArea",
+  "stage": "file_input_missing",
+  "hasToolbarImageButton": true,
+  "hasPopup": false
+}
+```
+
+## 8.5 字段写入诊断和提交前阻断
+
+提交链路必须在点击学校“临时提交 / 正式提交”前生成字段写入报告。报告至少分组：
+
+```text
+succeededFields      已写入并回读通过
+skippedEmptyFields   平台侧为空，跳过
+failedFields         写入失败或回读不匹配
+unsupportedFields    当前 targetType 暂不支持
+```
+
+每个失败字段至少记录：
+
+```json
+{
+  "nodeId": "skt0Area",
+  "targetType": "wysiwyg_text",
+  "targetLocator": "#skt0Area",
+  "reason": "hidden_textarea_requires_wysiwyg_writer",
+  "stage": "write",
+  "tag": "textarea",
+  "className": "editorClass hide",
+  "isVisible": false,
+  "valueLength": 6
+}
+```
+
+规则：
+
+- 只要 `failedFields` 或 `unsupportedFields` 非空，就停止提交，不点击学校提交按钮。
+- job 失败码优先用 `FIELD_WRITE_VERIFY_FAILED`、`WYSIWYG_TEXT_WRITE_FAILED`、`WYSIWYG_IMAGE_UPLOAD_FAILED` 等明确错误，不再落到 `SCHOOL_SUBMIT_UNKNOWN_ERROR`。
+- `automation_jobs.error_message` 可以保存脱敏技术细节；学生 public message 仍展示“部分内容未能成功写入学校系统，系统已停止提交”。
+- audit log 的 `details` 应包含精简字段失败摘要，例如 `skt0Area(wysiwyg_text): hidden textarea fill timeout`，方便管理员直接定位节点。
 
 ## 9. 实验列表状态拆分
 

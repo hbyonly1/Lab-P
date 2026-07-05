@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Input, Select, Space, Modal, Tooltip, Typography } from 'antd';
+import Editor from '@monaco-editor/react';
 import {
   FileDoneOutlined,
   CheckCircleOutlined,
@@ -21,13 +22,43 @@ import { auditApi } from '../../../services/auditApi.js';
 const { Option } = Select;
 const { Text } = Typography;
 
-function formatLogDetails(details) {
+function formatLogDetails(details, fallback = '') {
   if (!details) return '';
   try {
-    return JSON.stringify(JSON.parse(details), null, 2);
+    return JSON.stringify(typeof details === 'string' ? JSON.parse(details) : details, null, 2);
   } catch {
-    return details;
+    return String(details || fallback);
   }
+}
+
+function JsonDetailsEditor({ value }) {
+  return (
+    <div className="operation-log-json-editor">
+      <Editor
+        height="520px"
+        language="json"
+        theme="vs"
+        value={formatLogDetails(value)}
+        loading="正在加载 JSON 编辑器..."
+        options={{
+          automaticLayout: true,
+          bracketPairColorization: { enabled: true },
+          domReadOnly: true,
+          folding: true,
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+          fontSize: 13,
+          lineNumbers: 'on',
+          minimap: { enabled: true },
+          padding: { top: 12, bottom: 12 },
+          readOnly: true,
+          renderValidationDecorations: 'off',
+          scrollBeyondLastLine: false,
+          tabSize: 2,
+          wordWrap: 'on',
+        }}
+      />
+    </div>
+  );
 }
 
 export default function AdminOperationLogsPage() {
@@ -208,7 +239,7 @@ export default function AdminOperationLogsPage() {
         open={detailModalVisible}
         onCancel={() => setDetailModalVisible(false)}
         footer={null}
-        width={700}
+        width="min(1100px, 92vw)"
       >
         {currentLog && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
@@ -228,17 +259,7 @@ export default function AdminOperationLogsPage() {
             {currentLog.details && (
               <div style={{ marginTop: '8px' }}>
                 <Text strong>详情信息 (Details):</Text>
-                <div style={{
-                  background: 'var(--lf-color-bg-subtle)',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  marginTop: '8px',
-                  fontFamily: 'monospace',
-                  whiteSpace: 'pre-wrap',
-                  border: '1px solid var(--lf-color-border)'
-                }}>
-                  {formatLogDetails(currentLog.details)}
-                </div>
+                <JsonDetailsEditor value={currentLog.details} />
               </div>
             )}
           </div>

@@ -20,7 +20,9 @@ from services.automation_job_service import (
     create_or_reuse_automation_job,
     make_idempotency_key,
 )
-from services.school_overview_sync import SchoolAutomationError, extract_captcha_candidate, mark_overview_failed
+from services.school_overview_sync import SchoolAutomationError, extract_captcha_candidate, extract_report_list, mark_overview_failed
+import services.school_report_sync as school_report_sync_service
+from services.school_report_sync import SchoolReportOpenResult
 from services.school_dom import wait_for_locator_value
 from services.school_session_manager import SchoolSessionManager, school_session_manager
 
@@ -94,6 +96,31 @@ class FakeModalSchoolPage(FakeSchoolPage):
         return FakeLocator(counts.get(selector, 0), page=self, selector=selector)
 
 
+class FakeReportListColumnsPage(FakeSchoolPage):
+    async def wait_for_function(self, *_args, **_kwargs):
+        return True
+
+    async def evaluate(self, _script, _args=None):
+        cells = [
+            "液晶电光效应实验0625",
+            "大学物理实验I",
+            "液晶电光效应实验",
+            "第14周-星期五 2026/6/5",
+            "第22周-星期一 2026/7/27",
+            "",
+            "未提交",
+            "未评阅",
+        ]
+        experiment_idx = int((_args or {}).get("experimentIdx", 0))
+        status_idx = int((_args or {}).get("statusIdx", 6))
+        return [
+            {
+                "experimentName": cells[experiment_idx],
+                "originalStatusText": cells[status_idx],
+            }
+        ]
+
+
 class FakeValueLocator:
     def __init__(self, values):
         self.values = list(values)
@@ -105,10 +132,181 @@ class FakeValueLocator:
         return self.last_value
 
 
+class FakeDiagnosticLocator:
+    def __init__(self, diagnostic=None, count_value=1):
+        self.diagnostic = diagnostic or {}
+        self.count_value = count_value
+
+    @property
+    def first(self):
+        return self
+
+    async def count(self):
+        return self.count_value
+
+    async def is_visible(self):
+        return bool(self.diagnostic.get("isVisible", False))
+
+    async def evaluate(self, script, *_args):
+        if "tagName.toLowerCase" in script and "getComputedStyle" not in script:
+            return self.diagnostic.get("tag", "textarea")
+        if "isContentEditable" in script and "getComputedStyle" not in script:
+            return self.diagnostic.get("isContentEditable", False)
+        return self.diagnostic
+
+
+class FakeMappingAuditPage:
+    def __init__(self, diagnostics):
+        self.diagnostics = diagnostics
+
+    def locator(self, selector):
+        clean_selector = selector.split(" ", 1)[-1] if selector.startswith("#ReportModal ") else selector
+        diagnostic = self.diagnostics.get(clean_selector)
+        return FakeDiagnosticLocator(diagnostic, 1 if diagnostic else 0)
+
+
+class FakeSubmitFeedbackPage:
+    def __init__(self, feedback_messages, *, wait_raises=False):
+        self.feedback_messages = feedback_messages
+        self.wait_raises = wait_raises
+        self.wait_scripts = []
+        self.evaluate_scripts = []
+
+    def locator(self, selector):
+        return FakeLocator(1, page=self, selector=selector)
+
+    def on(self, *_args, **_kwargs):
+        return None
+
+    async def wait_for_function(self, script, arg=None, **_kwargs):
+        self.wait_scripts.append((script, arg))
+        assert ".modal-body" not in str(arg or "")
+        assert "#ReportModal" not in str(arg or "")
+        if self.wait_raises:
+            raise TimeoutError("feedback timeout")
+        return True
+
+    async def evaluate(self, script, arg=None):
+        self.evaluate_scripts.append(script)
+        assert ".modal-body" not in script
+        if "submitStage" in script and "bootboxCandidates" in script:
+            return {
+                "submitStage": (arg or {}).get("stage"),
+                "feedbackTimeoutMs": (arg or {}).get("timeoutMs"),
+                "visibleBootboxCount": 0,
+                "bootboxCandidates": [],
+                "visibleModalSummaries": [
+                    {"selectorHint": "#kvFileinputModal", "textPreview": "上传图片： × 0% 移除 取消 选择"}
+                ],
+                "hasFileUploadDialog": True,
+            }
+        assert ".bootbox .bootbox-body" in script
+        return self.feedback_messages
+
+
 def test_wait_for_locator_value_retries_until_value_matches():
     locator = FakeValueLocator(["", "old", "expected"])
     actual = asyncio.run(wait_for_locator_value(locator, "expected", timeout_ms=1000, interval_ms=1))
     assert actual == "expected"
+
+
+def test_mapping_audit_recommends_wysiwyg_for_hidden_textarea():
+    page = FakeMappingAuditPage(
+        {
+            "#skt0Area": {
+                "tag": "textarea",
+                "className": "editorClass hide",
+                "isVisible": False,
+                "hasWysiwygWrapper": True,
+                "hasWysiwygEditor": True,
+                "hasImageToolbarButton": False,
+            }
+        }
+    )
+    audit = asyncio.run(
+        school_report_sync_service._build_mapping_audit(
+            page,
+            "#ReportModal",
+            "exp_meter_modification",
+            {"skt0Area": "你好"},
+        )
+    )
+    item = next(row for row in audit if row["sourceId"] == "skt0Area")
+    assert item["mappingExists"] is True
+    assert item["targetLocator"] == "#skt0Area"
+    assert item["targetType"] == "wysiwyg_text"
+
+
+def test_mapping_audit_reports_meter_image_mapping():
+    page = FakeMappingAuditPage({})
+    audit = asyncio.run(
+        school_report_sync_service._build_mapping_audit(
+            page,
+            "#ReportModal",
+            "exp_meter_modification",
+            {"YSSJDrawingAreaArea": "/uploads/test.png"},
+        )
+    )
+    item = next(row for row in audit if row["sourceId"] == "YSSJDrawingAreaArea")
+    assert item["platformHasValue"] is True
+    assert item["mappingExists"] is True
+    assert item["targetLocator"] == "#YSSJDrawingAreaArea"
+    assert item["targetType"] == "wysiwyg_image"
+
+
+def test_local_upload_path_resolution_prefers_existing_upload(tmp_path, monkeypatch):
+    upload_dir = tmp_path / "uploads" / "2026-07"
+    upload_dir.mkdir(parents=True)
+    image_path = upload_dir / "field.png"
+    image_path.write_bytes(b"fake")
+    monkeypatch.chdir(tmp_path)
+
+    resolved = school_report_sync_service._resolve_upload_file_path("/uploads/2026-07/field.png")
+
+    assert resolved == image_path
+
+
+def test_submit_feedback_only_reads_bootbox_alert_body():
+    page = FakeSubmitFeedbackPage(["提交成功!"])
+
+    result = asyncio.run(
+        school_report_sync_service._click_submit_and_wait_feedback(
+            page,
+            default_automation_config(),
+            "draft",
+        )
+    )
+
+    assert result["submitAccepted"] is True
+    assert result["feedback"] == ["提交成功!"]
+
+
+def test_submit_feedback_timeout_includes_modal_diagnostic():
+    page = FakeSubmitFeedbackPage([], wait_raises=True)
+
+    try:
+        asyncio.run(
+            school_report_sync_service._click_submit_and_wait_feedback(
+                page,
+                default_automation_config(),
+                "draft",
+            )
+        )
+    except SchoolAutomationError as exc:
+        assert exc.error_code == "SUBMIT_FEEDBACK_TIMEOUT"
+        detail = json.loads(exc.message)
+        assert detail["feedback"] == []
+        assert detail["timeoutDiagnostic"]["hasFileUploadDialog"] is True
+        assert detail["timeoutDiagnostic"]["visibleModalSummaries"][0]["selectorHint"] == "#kvFileinputModal"
+    else:
+        raise AssertionError("expected SUBMIT_FEEDBACK_TIMEOUT")
+
+
+def test_extract_report_list_uses_paper_name_column_by_default():
+    items = asyncio.run(extract_report_list(FakeReportListColumnsPage(), default_automation_config(), timeout_ms=1000))
+    assert items[0]["experimentName"] == "液晶电光效应实验0625"
+    assert items[0]["schoolStatus"] == "school_not_submitted"
+
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_data():
@@ -874,6 +1072,8 @@ def test_school_overview_sync_creates_public_job(student_token, monkeypatch):
     assert latest["lastSyncedAt"] is not None
     assert latest["summary"]["source"] == "school_complete_report_list"
     assert latest["summary"]["total"] == 2
+    assert latest["experiments"][0]["experimentName"] == "实验 A"
+    assert latest["experiments"][0]["schoolStatus"] == "school_not_submitted"
 
     res = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {student_token}"})
     assert res.status_code == 200, res.text
@@ -937,6 +1137,7 @@ def test_school_overview_failure_audit_contains_diagnostic_payload(student_token
     with next(get_session()) as session:
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
         session.exec(delete(AuditLog).where(AuditLog.user_id == student.id))
+        session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id == student.id))
         session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
         job = AutomationJob(
             id="JOB-OVERVIEW-FAIL-DIAG",
@@ -1031,6 +1232,39 @@ def test_school_detail_sync_does_not_create_stub_snapshot(student_token, monkeyp
             .where(SchoolSyncSnapshot.experiment_id == "exp_e2e_flow_unique")
         ).first()
         assert snapshot is None
+
+
+def test_school_detail_latest_returns_mapped_form_values(student_token):
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id == student.id))
+        session.add(
+            SchoolSyncSnapshot(
+                user_id=student.id,
+                experiment_id="exp_e2e_flow_unique",
+                snapshot_json={
+                    "source": "school_report_modal",
+                    "experimentId": "exp_e2e_flow_unique",
+                    "experimentName": "Test Exp E2E",
+                    "values": {"DBGZ10-0": "raw school value"},
+                    "formValues": {"A": "1.23", "B": ""},
+                },
+                summary_json={"source": "school_report_modal", "fieldCount": 2},
+                synced_at=get_utc_now(),
+            )
+        )
+        session.commit()
+
+    res = client.get(
+        "/api/v1/school-sync/experiments/exp_e2e_flow_unique/latest",
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["experimentId"] == "exp_e2e_flow_unique"
+    assert data["experimentName"] == "Test Exp E2E"
+    assert data["formValues"] == {"A": "1.23", "B": ""}
+    assert data["summary"]["fieldCount"] == 2
 
 
 def test_self_managed_submission_does_not_require_payment(student_token):
@@ -1166,6 +1400,227 @@ def test_school_submit_job_keeps_submission_unconfirmed_until_real_school_status
         assert len(versions) == 1
         assert versions[0].source == "platform_before_submit"
         assert versions[0].snapshot_json["mode"] == "final"
+
+
+def test_school_submit_success_can_be_confirmed_by_feedback_only(student_token, monkeypatch):
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        session.exec(delete(AuditLog).where(AuditLog.user_id == student.id))
+        session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id == student.id))
+        session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
+        submission_ids = [
+            item.id for item in session.exec(select(Submission).where(Submission.student_id == student.id)).all()
+        ]
+        if submission_ids:
+            session.exec(delete(SubmissionVersion).where(SubmissionVersion.submission_id.in_(submission_ids)))
+        session.exec(delete(Submission).where(Submission.student_id == student.id))
+        submission = Submission(
+            id="SUB-FEEDBACK-ONLY",
+            student_id=student.id,
+            experiment_id="exp_e2e_flow_unique",
+            status="submitting",
+            payment_status="not_required",
+            corrected_json={"experiment_name": "Test Exp E2E", "values": {"A": "1"}},
+        )
+        session.add(submission)
+        session.flush()
+        job = AutomationJob(
+            id="JOB-FEEDBACK-ONLY",
+            actor_user_id=student.id,
+            action="draft_submit",
+            status="running",
+            public_status="running",
+            public_message_code="school.submit.saving",
+            submission_id=submission.id,
+            experiment_id=submission.experiment_id,
+        )
+        session.add(job)
+        session.commit()
+
+    def fake_run(coro):
+        coro.close()
+        opened = SchoolReportOpenResult(
+            experiment_name="Test Exp E2E",
+            school_status={"experimentName": "Test Exp E2E", "originalStatusText": "未提交", "schoolStatus": "school_not_submitted"},
+            snapshot={"source": "school_report_modal", "values": {}},
+            summary={"source": "school_report_modal"},
+            artifacts={},
+            session_diagnostic={"reuseDecision": "reused_current_report_modal"},
+        )
+        return {
+            "opened": opened,
+            "feedback": ["提交成功!"],
+            "submitAccepted": True,
+            "statusConfirmation": "feedback_only",
+            "status": {"experimentName": "Test Exp E2E", "originalStatusText": "未提交", "schoolStatus": "school_not_submitted"},
+            "statusError": None,
+            "artifacts": {},
+            "sessionDiagnostic": {"reuseDecision": "reused_current_report_modal"},
+        }
+
+    monkeypatch.setattr(school_report_sync_service.school_session_manager, "run", fake_run)
+
+    school_report_sync_service.run_school_experiment_submit("JOB-FEEDBACK-ONLY", "SUB-FEEDBACK-ONLY", "draft")
+
+    with next(get_session()) as session:
+        job = session.get(AutomationJob, "JOB-FEEDBACK-ONLY")
+        submission = session.get(Submission, "SUB-FEEDBACK-ONLY")
+        snapshot = session.exec(
+            select(SchoolSyncSnapshot)
+            .where(SchoolSyncSnapshot.automation_job_id == "JOB-FEEDBACK-ONLY")
+        ).first()
+        assert job.status == "succeeded"
+        assert job.result_payload["submitAccepted"] is True
+        assert job.result_payload["statusConfirmation"] == "feedback_only"
+        assert submission.status == "draft_submitted"
+        assert snapshot.summary_json["statusConfirmation"] == "feedback_only"
+
+
+def test_school_final_submit_success_updates_submission_completed(student_token, monkeypatch):
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        session.exec(delete(AuditLog).where(AuditLog.user_id == student.id))
+        session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id == student.id))
+        session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
+        submission_ids = [
+            item.id for item in session.exec(select(Submission).where(Submission.student_id == student.id)).all()
+        ]
+        if submission_ids:
+            session.exec(delete(SubmissionVersion).where(SubmissionVersion.submission_id.in_(submission_ids)))
+        session.exec(delete(Submission).where(Submission.student_id == student.id))
+        submission = Submission(
+            id="SUB-FINAL-SUCCESS",
+            student_id=student.id,
+            experiment_id="exp_e2e_flow_unique",
+            status="submitting",
+            payment_status="not_required",
+            corrected_json={"experiment_name": "Test Exp E2E", "values": {"A": "1"}},
+        )
+        session.add(submission)
+        session.flush()
+        job = AutomationJob(
+            id="JOB-FINAL-SUCCESS",
+            actor_user_id=student.id,
+            action="final_submit",
+            status="running",
+            public_status="running",
+            public_message_code="school.submit.saving",
+            submission_id=submission.id,
+            experiment_id=submission.experiment_id,
+        )
+        session.add(job)
+        session.commit()
+
+    def fake_run(coro):
+        coro.close()
+        opened = SchoolReportOpenResult(
+            experiment_name="Test Exp E2E",
+            school_status={"experimentName": "Test Exp E2E", "originalStatusText": "临时提交", "schoolStatus": "school_draft_submitted"},
+            snapshot={"source": "school_report_modal", "values": {}},
+            summary={"source": "school_report_modal"},
+            artifacts={},
+            session_diagnostic={"reuseDecision": "reused_current_report_modal"},
+        )
+        return {
+            "opened": opened,
+            "feedback": ["提交成功!"],
+            "submitAccepted": True,
+            "statusConfirmation": "list_confirmed",
+            "status": {"experimentName": "Test Exp E2E", "originalStatusText": "正常提交", "schoolStatus": "school_final_submitted"},
+            "statusError": None,
+            "artifacts": {},
+            "sessionDiagnostic": {"reuseDecision": "reused_current_report_modal"},
+        }
+
+    monkeypatch.setattr(school_report_sync_service.school_session_manager, "run", fake_run)
+
+    school_report_sync_service.run_school_experiment_submit("JOB-FINAL-SUCCESS", "SUB-FINAL-SUCCESS", "final")
+
+    with next(get_session()) as session:
+        job = session.get(AutomationJob, "JOB-FINAL-SUCCESS")
+        submission = session.get(Submission, "SUB-FINAL-SUCCESS")
+        snapshot = session.exec(
+            select(SchoolSyncSnapshot)
+            .where(SchoolSyncSnapshot.automation_job_id == "JOB-FINAL-SUCCESS")
+        ).first()
+        assert job.status == "succeeded"
+        assert job.result_payload["submitAccepted"] is True
+        assert job.result_payload["statusConfirmation"] == "list_confirmed"
+        assert submission.status == "completed"
+        assert snapshot.summary_json["mode"] == "final"
+        assert snapshot.summary_json["schoolStatus"] == "school_final_submitted"
+
+
+def test_school_submit_failure_audit_keeps_structured_diagnostics(student_token):
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        session.exec(delete(AuditLog).where(AuditLog.user_id == student.id))
+        session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id == student.id))
+        session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
+        submission = Submission(
+            id="SUB-STRUCTURED-FAIL",
+            student_id=student.id,
+            experiment_id="exp_meter_modification",
+            status="submitting",
+            payment_status="not_required",
+            corrected_json={"values": {"skt0Area": "你好"}},
+        )
+        existing_submission = session.get(Submission, submission.id)
+        if existing_submission:
+            session.delete(existing_submission)
+            session.flush()
+        session.add(submission)
+        session.flush()
+        job = AutomationJob(
+            id="JOB-STRUCTURED-FAIL",
+            actor_user_id=student.id,
+            action="draft_submit",
+            status="running",
+            public_status="running",
+            public_message_code="school.submit.confirming",
+            submission_id=submission.id,
+            experiment_id=submission.experiment_id,
+        )
+        session.add(job)
+        session.commit()
+
+        error = SchoolAutomationError(
+            "SUBMIT_REJECTED_BY_SCHOOL",
+            "学校系统返回提交失败",
+            current_step="school.submit.confirming",
+            message=json.dumps(
+                {
+                    "feedback": ["实验问题未填写完整，提交失败"],
+                    "fieldWriteReport": {
+                        "succeededFields": [{"nodeId": "skt0Area", "targetType": "wysiwyg_text"}],
+                        "skippedEmptyFields": [],
+                        "missingFields": [{"nodeId": "YSSJDrawingAreaArea", "reason": "platform_value_without_automation_mapping"}],
+                        "failedFields": [],
+                        "unsupportedFields": [],
+                        "mappingAudit": [],
+                    },
+                    "artifacts": {"before_submit_modal_html": "/tmp/before.html"},
+                },
+                ensure_ascii=False,
+            ),
+        )
+        school_report_sync_service._mark_job_failed(session, job, error)
+        session.commit()
+
+    with next(get_session()) as session:
+        job = session.get(AutomationJob, "JOB-STRUCTURED-FAIL")
+        log = session.exec(
+            select(AuditLog)
+            .where(AuditLog.target_id == "JOB-STRUCTURED-FAIL")
+            .where(AuditLog.action == "draft_submit_failed")
+        ).first()
+        assert job.result_payload["feedback"] == ["实验问题未填写完整，提交失败"]
+        assert job.result_payload["fieldWriteReport"]["missingFields"][0]["nodeId"] == "YSSJDrawingAreaArea"
+        details = json.loads(log.details)
+        assert details["errorCode"] == "SUBMIT_REJECTED_BY_SCHOOL"
+        assert details["feedback"] == ["实验问题未填写完整，提交失败"]
+        assert details["fieldWriteSummary"]["missingCount"] == 1
+        assert details["artifacts"]["before_submit_modal_html"] == "/tmp/before.html"
 
 
 def test_student_audit_logs_hide_internal_actions(student_token):

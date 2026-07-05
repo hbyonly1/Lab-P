@@ -9,10 +9,17 @@
   "inputs": {
     "images": [
       {
-        "id": "IMG_RAW_DATA"
+        "id": "IMG_RAW_DATA",
+        "label": "签字原始数据上传",
+        "targetNodeId": "YSSJDrawingAreaArea"
       }
     ],
     "fields": [
+      {
+        "id": "YSSJDrawingAreaArea",
+        "type": "image_upload",
+        "imageSlotId": "IMG_RAW_DATA"
+      },
       {
         "id": "SYMD_Fill_0",
         "type": "fixed",
@@ -359,7 +366,13 @@
       },
       {
         "sourceId": "skt0Area",
-        "targetLocator": "#skt0Area"
+        "targetLocator": "#skt0Area",
+        "targetType": "wysiwyg_text"
+      },
+      {
+        "sourceId": "YSSJDrawingAreaArea",
+        "targetLocator": "#YSSJDrawingAreaArea",
+        "targetType": "wysiwyg_image"
       }
     ]
   }

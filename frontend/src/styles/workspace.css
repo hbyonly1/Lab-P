@@ -1169,7 +1169,7 @@
 .experiment-list-head,
 .experiment-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 140px 408px;
+  grid-template-columns: minmax(0, 1fr) 128px 128px 408px;
   gap: 16px;
   align-items: center;
   min-width: 0;
@@ -1188,7 +1188,8 @@
   text-align: right;
 }
 
-.experiment-list-head span:nth-child(2) {
+.experiment-list-head span:nth-child(2),
+.experiment-list-head span:nth-child(3) {
   text-align: left;
 }
 
@@ -1479,7 +1480,8 @@
 }
 
 .experiment-data-row>span,
-.experiment-data-row .ant-input {
+.experiment-data-row .ant-input,
+.experiment-data-row .reviewer-node-input-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1494,7 +1496,8 @@
 }
 
 .experiment-data-row>span:last-child,
-.experiment-data-row .ant-input:last-child {
+.experiment-data-row .ant-input:last-child,
+.experiment-data-row .reviewer-node-input-wrap:last-child {
   border-right: 0;
 }
 
@@ -2230,7 +2233,7 @@
 
   .experiment-list-head,
   .experiment-row {
-    grid-template-columns: minmax(220px, 1fr) 96px 382px;
+    grid-template-columns: minmax(180px, 1fr) 96px 96px 382px;
     gap: 10px;
   }
 
@@ -2349,8 +2352,22 @@
 }
 
 .reviewer-node-input-wrap .ant-input {
+  width: 100%;
   min-width: 0;
   padding-right: 34px;
+}
+
+.experiment-data-row .reviewer-node-input-wrap .ant-input {
+  height: 100%;
+  padding-inline: 8px;
+  background: #fff;
+  border-right: 0;
+}
+
+.experiment-data-row .reviewer-node-input-wrap .ant-input:hover,
+.experiment-data-row .reviewer-node-input-wrap .ant-input:focus {
+  background: #f8fbff;
+  box-shadow: inset 0 0 0 1px #7bb2ff;
 }
 
 .reviewer-node-hint-tag {
@@ -2795,4 +2812,12 @@
 .flex-form-item textarea {
   flex: 1 !important;
   resize: none !important;
+}
+
+.operation-log-json-editor {
+  margin-top: 8px;
+  border: 1px solid var(--lf-color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--lf-color-bg);
 }

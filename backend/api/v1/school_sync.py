@@ -32,6 +32,17 @@ class SchoolOverviewLatest(BaseModel):
     cooldown_seconds: int = Field(alias="cooldownSeconds")
     remaining_cooldown_seconds: int = Field(alias="remainingCooldownSeconds")
     summary: Dict[str, Any] = Field(default_factory=dict)
+    experiments: list[Dict[str, Any]] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
+
+
+class SchoolExperimentDetailLatest(BaseModel):
+    last_synced_at: Optional[datetime] = Field(default=None, alias="lastSyncedAt")
+    experiment_id: str = Field(alias="experimentId")
+    experiment_name: Optional[str] = Field(default=None, alias="experimentName")
+    form_values: Dict[str, Any] = Field(default_factory=dict, alias="formValues")
+    summary: Dict[str, Any] = Field(default_factory=dict)
 
     model_config = {"populate_by_name": True}
 
@@ -104,6 +115,7 @@ def _overview_latest_data(session: Session, user_id: int) -> SchoolOverviewLates
             cooldownSeconds=cooldown_seconds,
             remainingCooldownSeconds=0,
             summary={},
+            experiments=[],
         )
 
     latest_synced_at = latest.synced_at
@@ -116,6 +128,37 @@ def _overview_latest_data(session: Session, user_id: int) -> SchoolOverviewLates
         shouldSync=remaining == 0,
         cooldownSeconds=cooldown_seconds,
         remainingCooldownSeconds=remaining,
+        summary=latest.summary_json or {},
+        experiments=(latest.snapshot_json or {}).get("experiments") or [],
+    )
+
+
+def _latest_detail_snapshot(session: Session, user_id: int, experiment_id: str) -> Optional[SchoolSyncSnapshot]:
+    return session.exec(
+        select(SchoolSyncSnapshot)
+        .where(SchoolSyncSnapshot.user_id == user_id)
+        .where(SchoolSyncSnapshot.experiment_id == experiment_id)
+        .where(SchoolSyncSnapshot.submission_id == None)  # noqa: E711
+        .order_by(SchoolSyncSnapshot.synced_at.desc())
+    ).first()
+
+
+def _detail_latest_data(session: Session, user_id: int, experiment_id: str) -> SchoolExperimentDetailLatest:
+    latest = _latest_detail_snapshot(session, user_id, experiment_id)
+    if not latest:
+        return SchoolExperimentDetailLatest(
+            lastSyncedAt=None,
+            experimentId=experiment_id,
+            experimentName=None,
+            formValues={},
+            summary={},
+        )
+    snapshot = latest.snapshot_json or {}
+    return SchoolExperimentDetailLatest(
+        lastSyncedAt=latest.synced_at,
+        experimentId=experiment_id,
+        experimentName=snapshot.get("experimentName"),
+        formValues=snapshot.get("formValues") or {},
         summary=latest.summary_json or {},
     )
 
@@ -192,6 +235,17 @@ def start_school_experiment_detail_sync(
     session.commit()
     session.refresh(job)
     return to_public_job(job)
+
+
+@router.get("/experiments/{experiment_id}/latest", response_model=SchoolExperimentDetailLatest)
+def get_school_experiment_detail_latest(
+    experiment_id: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> SchoolExperimentDetailLatest:
+    if current_user.role != "student":
+        raise HTTPException(status_code=403, detail="Only students can view school experiment detail sync status.")
+    return _detail_latest_data(session, current_user.id, experiment_id)
 
 
 @router.post("/overview", response_model=AutomationJobPublic)

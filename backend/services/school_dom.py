@@ -23,7 +23,7 @@ async def wait_for_selector_count(
             """
             ({ selector, minCount }) => document.querySelectorAll(selector).length >= minCount
             """,
-            {"selector": selector, "minCount": min_count},
+            arg={"selector": selector, "minCount": min_count},
             timeout=timeout_ms,
         )
         first_count = await page.locator(selector).count()
@@ -52,7 +52,7 @@ async def read_non_empty_text(
               return Boolean(text.trim());
             }
             """,
-            selector,
+            arg=selector,
             timeout=timeout_ms,
         )
         if stable_ms > 0:

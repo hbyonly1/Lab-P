@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Input, Upload, message, Spin } from 'antd';
+import { Button, Input, Modal, Upload, message, Spin } from 'antd';
 import {
   ArrowLeftOutlined,
   CloudUploadOutlined,
@@ -25,7 +25,7 @@ import { recognizeDirect, generateAnswerDirect, getFixedFillDirect, getTaskStatu
 import { auditApi } from '../../../services/auditApi.js';
 import { experimentsApi } from '../../../services/experimentsApi.js';
 import * as submissionsApi from '../../../services/submissionsApi.js';
-import { startSchoolExperimentDetailSync, startSchoolExperimentSubmit } from '../../../services/schoolSyncApi.js';
+import { getSchoolExperimentDetailLatest, startSchoolExperimentDetailSync, startSchoolExperimentSubmit } from '../../../services/schoolSyncApi.js';
 import { getActiveAutomationJobs } from '../../../services/automationJobsApi.js';
 import { ReviewerNodeHint } from '../../../components/experiment/ReviewerNodeHint.jsx';
 
@@ -103,6 +103,8 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
   const [isAutomationModalOpen, setIsAutomationModalOpen] = useState(false);
   const [detailSyncJob, setDetailSyncJob] = useState(null);
   const [isDetailSyncModalOpen, setIsDetailSyncModalOpen] = useState(false);
+  const [isFinalConfirmOpen, setIsFinalConfirmOpen] = useState(false);
+  const [appliedDetailSyncJobId, setAppliedDetailSyncJobId] = useState(null);
 
   useEffect(() => {
     const fetchUserPlan = async () => {
@@ -140,6 +142,7 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
     };
     fetchUserPlan();
     fetchStatus();
+    setAppliedDetailSyncJobId(null);
   }, [experiment.meta.id]);
 
   useEffect(() => {
@@ -222,6 +225,25 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
       next.delete(nodeId);
       return next;
     });
+  };
+
+  const applyLatestSchoolDetailSnapshot = async (job) => {
+    if (!job?.jobId || job.jobId === appliedDetailSyncJobId) return;
+    try {
+      const latest = await getSchoolExperimentDetailLatest(experiment.meta.id);
+      const nextValues = Object.fromEntries(
+        Object.entries(latest.formValues || {}).filter(([, value]) => value !== null && value !== undefined && String(value) !== ''),
+      );
+      if (Object.keys(nextValues).length === 0) {
+        setAppliedDetailSyncJobId(job.jobId);
+        return;
+      }
+      setFormValues((prev) => ({ ...prev, ...nextValues }));
+      setAppliedDetailSyncJobId(job.jobId);
+      message.success('学校系统已填写内容已回填到当前页面。');
+    } catch (err) {
+      message.warning(`学校数据已同步，但回填到页面失败: ${err.response?.data?.detail || err.message}`);
+    }
   };
 
   const getImageSlotForNode = (nodeId) => {
@@ -591,6 +613,11 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
     }
   };
 
+  const handleFinalConfirmOk = () => {
+    setIsFinalConfirmOpen(false);
+    handleSaveCorrection('final');
+  };
+
   const handleModalSubmit = async (batchImages, targetStudent, isHungup = false, planName = 'pay_per_use') => {
     try {
       // 提取弹窗内上传的图片路径
@@ -634,7 +661,7 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
         </div>
         <div className="experiment-detail-actions">
           <Button icon={<SaveOutlined />} style={{ background: '#fff' }} loading={isSavingDraft} onClick={() => handleSaveCorrection('draft')}>临时提交</Button>
-          <Button type="primary" icon={<SendOutlined />} loading={isSavingFinal} onClick={() => handleSaveCorrection('final')}>正式提交</Button>
+          <Button type="primary" icon={<SendOutlined />} loading={isSavingFinal} onClick={() => setIsFinalConfirmOpen(true)}>正式提交</Button>
           <GoldButton onClick={handleOneClickSubmit} icon={<CrownOutlined />}>
             一键提交
           </GoldButton>
@@ -790,15 +817,25 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
         initialJob={detailSyncJob}
         title="学校系统实验同步"
         steps={[
-          'school.detail.syncing',
           'school.detail.connecting',
           'school.detail.opening',
           'school.detail.reading',
           'school.detail.savingSnapshot',
         ]}
+        stepAliases={{
+          'school.detail.syncing': 'school.detail.connecting',
+        }}
         defaultMessageCode="school.detail.syncing"
         failureMessageCode="school.detail.failed"
-        onClose={() => {
+        onJobUpdate={(job) => {
+          if (job.status === 'succeeded') {
+            applyLatestSchoolDetailSnapshot(job);
+          }
+        }}
+        onClose={(job) => {
+          if (job?.status === 'succeeded') {
+            applyLatestSchoolDetailSnapshot(job);
+          }
           setIsDetailSyncModalOpen(false);
         }}
       />
@@ -809,6 +846,20 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
         onCancel={() => setIsSubmitModalOpen(false)}
         onSubmit={handleModalSubmit}
       />
+      <Modal
+        title="确认正式提交"
+        open={isFinalConfirmOpen}
+        okText="正式提交"
+        cancelText="取消"
+        okButtonProps={{ danger: true, disabled: true, loading: isSavingFinal }}
+        onOk={handleFinalConfirmOk}
+        onCancel={() => setIsFinalConfirmOpen(false)}
+        destroyOnHidden
+      >
+        <p style={{ marginBottom: 0 }}>
+          正式提交会将当前实验提交为学校系统最终状态。当前入口暂未开放，请先使用临时提交。
+        </p>
+      </Modal>
       <AutomationProgressModal
         open={isAutomationModalOpen}
         initialJob={automationJob}

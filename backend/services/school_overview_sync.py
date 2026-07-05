@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
-from api.v1.automation_config import default_automation_config
+from api.v1.automation_config import CONFIG_SCHEMA_VERSION, default_automation_config
 from core.db import engine
 from models.core import AuditLog, AutomationEngineConfig, AutomationJob, SchoolSyncSnapshot, User, get_utc_now
 from services.ai_provider import AI_TASK_CAPTCHA, AiProviderConfigError, get_ai_provider
@@ -80,7 +80,9 @@ def load_active_config(session: Session) -> Dict[str, Any]:
         .where(AutomationEngineConfig.is_active == True)  # noqa: E712
         .order_by(AutomationEngineConfig.id.desc())
     ).first()
-    return config.config_json if config and config.config_json else default_automation_config()
+    if not config or not config.config_json or config.schema_version != CONFIG_SCHEMA_VERSION:
+        return default_automation_config()
+    return config.config_json
 
 
 def set_job_progress(job_id: str, message_code: str) -> None:
@@ -356,7 +358,7 @@ async def extract_report_list(page: Any, config: Dict[str, Any], timeout_ms: int
         "tbody[data-bind='foreach: CompleteReportList'] tr",
     )
     columns = deep_get(config, "selectors.reportList.columns", {}) or {}
-    experiment_idx = safe_int(columns.get("experimentName"), 2)
+    experiment_idx = safe_int(columns.get("experimentName"), 0)
     status_idx = safe_int(columns.get("status"), 6)
     try:
         await wait_for_selector_count(page, row_selector, min_count=1, timeout_ms=timeout_ms)
@@ -407,7 +409,7 @@ async def wait_and_extract_overview(
         "tbody[data-bind='foreach: CompleteReportList'] tr",
     )
     columns = deep_get(config, "selectors.reportList.columns", {}) or {}
-    experiment_idx = safe_int(columns.get("experimentName"), 2)
+    experiment_idx = safe_int(columns.get("experimentName"), 0)
     status_idx = safe_int(columns.get("status"), 6)
     deadline = asyncio.get_running_loop().time() + max(timeout_ms, 1) / 1000
     last_snapshot: Optional[Dict[str, Any]] = None

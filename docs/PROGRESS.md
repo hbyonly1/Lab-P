@@ -474,4 +474,46 @@
 - 补充前端提交进度面板展示规则：`AutomationProgressModal` 只展示保存数据、准备学校会话、打开报告、回填、校验、提交、确认反馈、同步状态、更新平台状态等稳定业务步骤；后端内部的 modal 复用、bootbox 关闭、页面恢复和必要时登录不逐项暴露给用户。
 - 同步 `SCHOOL_AUTOMATION_FLOW_PLAN.md` 的提交提示文案：`school.submit.connecting` 改为“正在准备学校系统会话...”，提交后列表恢复和状态读取在前端合并为“正在同步学校提交状态...”。
 - 补充同步进度面板展示规则：概览同步面板展示准备会话、识别验证码、确认登录、读取完成报告列表、保存学校状态；单实验同步面板展示准备会话、打开实验报告、读取已有填写内容、保存实验填写快照。同步成功只表示读取完成，不表示写入或提交学校系统。
-- 验证：本次仅修改文档，未运行后端测试或前端构建。
+- 后端提交链路按计划落地第一步：打开报告前先识别并复用当前目标实验 modal；学校返回明确“提交成功!”时记录 `submitAccepted=true`，即使列表状态暂未确认也可按 `statusConfirmation=feedback_only` 成功落库。
+- 学生端自动化进度文案和步骤按计划更新：同步和提交都展示“准备学校系统会话”，提交后列表恢复与状态读取合并为“同步学校提交状态”。
+- `GET /api/v1/school-sync/overview/latest` 增加 `experiments` 学校状态数组，学生实验列表拆为“学校提交状态”和“平台处理状态”两列，学校状态不覆盖平台状态。
+- 验证：`py_compile` 通过；`pytest backend/tests/test_e2e_flow.py -q` 通过 26 项；`frontend/` 下 `npm run build` 通过。
+- 正式提交后端链路改为复用临时提交的同一管线，只切换 `selectors.modal.submitFinal` 和 `school_final_submitted` 确认规则；成功后平台 submission 更新为 `completed`。
+- 学生端正式提交按钮先进入二次确认弹窗，但确认按钮保持禁用，当前不会从前端触发真实正式提交。
+- 验证：`py_compile backend/api/v1/automation_config.py backend/services/school_report_sync.py backend/tests/test_e2e_flow.py` 通过；提交相关 3 个用例通过；`pytest backend/tests/test_e2e_flow.py -q` 通过 27 项；`frontend/` 下 `npm run build` 通过；`git diff --check` 通过。
+- 修正学校完成报告列表实验名列配置：`selectors.reportList.columns.experimentName` 从第 3 列 `LabName` 改为第 1 列 `PaperName`，避免 `液晶电光效应实验0625` 这类报告名因批次后缀只存在于 `PaperName` 而被前端显示为“未同步”。自动化配置 schema 升级为 `1.3`，运行时遇到旧 schema 时直接使用新版默认配置。
+- 修复单实验同步成功后没有回填平台表单的问题：后端保存学校 modal 快照时新增按 `automation.mappings` 反向映射得到的 `formValues`，新增 `GET /api/v1/school-sync/experiments/{experiment_id}/latest` 返回当前学生自己的最新单实验快照；前端在 `school_detail_sync` 成功后拉取该快照并将非空 `formValues` 合并到当前页面。
+
+## 2026-07-06
+
+### 学校字段 targetType 写入策略计划
+
+- 根据真实提交失败诊断，确认实验问题节点 `#skt0Area` 是隐藏 textarea + 可见 WYSIWYG 编辑器结构，普通 `Locator.fill()` 会因元素不可见超时，不能再按普通 textarea 处理。
+- 在 `docs/SCHOOL_SUBMIT_AND_STATUS_PLAN.md` 补充 `automation.mappings[].targetType` 计划：缺省为 `text`，只对特殊学校控件显式配置 `wysiwyg_text` 或 `wysiwyg_image`。
+- 明确 `targetType` 是学校 DOM 写入策略，不是平台业务节点类型；平台仍可继续使用 `generated`、`image_upload` 等类型表达数据来源和表单语义。
+- 明确 WYSIWYG 文本写入应定位同一富文本容器的 `.wysiwyg-editor`，写入安全 HTML，同步隐藏 textarea，并触发 `input/change/blur` 后回读校验。
+- 明确 WYSIWYG 图片写入应点击学校工具栏“插入图片”，等待 popup 内 `input[type=file]`，通过 Playwright 上传平台图片对应的本地文件，并确认 editor 内出现图片；当前默认上传前清空旧图片。
+- 同步 `docs/API_CONTRACT.md`：实验配置契约记录 `targetType=text | wysiwyg_text | wysiwyg_image`，提交接口要求提交前生成字段写入报告，遇到 `failedFields` 或 `unsupportedFields` 必须阻断学校提交。
+- 新增 `docs/SCHOOL_WYSIWYG_FIELD_WRITE_PLAN.md`，基于截图中真实 DOM 记录图片工具栏、透明 file input、上传后 `img src="data:image/png;base64,..."`、文本 editor 写入形态，并拆出诊断、`wysiwyg_text`、`wysiwyg_image` 和真实提交验证顺序。
+- 补充映射原则：提交主映射必须以 `automation.mappings[]` 为准，推荐 `sourceId` 对齐学校节点 id、`targetLocator=#节点id`；平台 `inputs.fields[].id` 或 `inputs.images[].targetNodeId` 只说明页面展示和图片槽绑定，不等于学校提交 mapping。后续先做 mapping audit，列出平台字段、提交 mapping 和学校 DOM 三列关系。
+- 后端提交回填新增 `targetType` 分派：缺省 `text` 保持普通写入，`wysiwyg_text` 写入同字段 `.wysiwyg-editor` 并同步隐藏 textarea，`wysiwyg_image` 点击同 container 的“插入图片”按钮后通过 popup `input[type=file]` 上传本地图片。
+- 提交前新增 mapping audit / field write report：记录平台字段、`automation.mappings`、学校 DOM 节点关系；平台有值但缺提交 mapping、隐藏 WYSIWYG textarea 仍按 `text`、WYSIWYG 写入失败都会在点击学校提交按钮前阻断。
+- 失败落库改进：字段写入失败时 `automation_jobs.result_payload.fieldWriteReport` 保存脱敏报告，audit details 记录节点摘要，不再只能看到 `SCHOOL_SUBMIT_UNKNOWN_ERROR`。
+- 单实验同步回读也按 `targetType` 读取；`wysiwyg_text` 回读 editor 可见文本，`wysiwyg_image` 回读当前 editor 图片 `src`。
+- `exp_meter_modification` 的 `skt0Area` 提交 mapping 已标记为 `targetType=wysiwyg_text`。
+- 验证：`py_compile backend/services/school_report_sync.py backend/tests/test_e2e_flow.py` 通过；`pytest backend/tests/test_e2e_flow.py -q` 通过 32 项。
+- 遗留风险：`wysiwyg_image` 已实现上传路径，但尚未在真实学校页面验证；除电表实验外，大多数实验仍缺完整 `automation.mappings`，后续应先跑 mapping audit 再逐实验补配置，不能靠 class 或标题自动猜。
+- 提交失败日志增强：`SUBMIT_REJECTED_BY_SCHOOL`、反馈超时和字段写入失败现在会把学校反馈文本、`fieldWriteReport`、提交前 / 失败时 artifact、打开报告摘要写入 `automation_jobs.result_payload`；`audit_logs.details` 改为结构化 JSON，包含错误码、阶段、反馈、字段写入摘要和 artifact 路径，便于后台直接排查。
+- 验证：`py_compile backend/services/school_report_sync.py backend/tests/test_e2e_flow.py` 通过；`pytest backend/tests/test_e2e_flow.py -q` 通过 33 项。
+- 根据真实成功节点截图修正计划：学校提交成功反馈应只读取新出现的 `.bootbox.modal.bootbox-alert.in .bootbox-body`，文本为 `提交成功!`；不得扫描 `#ReportModal .modal-body` 或整篇实验报告正文，否则会因为正文里的“连线错误”等教学文本误判为 `SUBMIT_REJECTED_BY_SCHOOL`。本条已写入 `docs/SCHOOL_SUBMIT_AND_STATUS_PLAN.md`，代码实现仍待跟进。
+- 提交反馈误判修复已落地：`_click_submit_and_wait_feedback()` 现在只读取可见 bootbox alert 的 `.bootbox-body`，不再扫描 `.modal-body`、报告正文、上传弹窗或上传进度；新增测试覆盖“只读取 bootbox alert body”的行为。
+- 验证：`py_compile backend/services/school_report_sync.py backend/tests/test_e2e_flow.py` 通过；`pytest backend/tests/test_e2e_flow.py -q` 通过 34 项。
+- 根据最新 `SUBMIT_FEEDBACK_TIMEOUT` 现象补充计划：点击提交后应先短暂 settle，再轮询可见 `.bootbox .bootbox-body` 到文本稳定；超时时必须输出 bootbox 候选、可见 modal、上传 popup、上传进度、当前 URL 和 artifact，不再只给“未收到学校系统提交反馈”的笼统提示。
+- 根据最新图片未上传现象补充计划：如果 `fieldWriteReport` 中没有任何 `wysiwyg_image` 字段，优先判定为平台图片槽、`inputs.fields`、提交值和 `automation.mappings` 没对上，writer 未执行；电表“签字原始数据上传”需要补 `image_upload` 节点、图片槽 `targetNodeId` 和 `targetType=wysiwyg_image` mapping，并在图片写入阶段记录本地文件解析、toolbar、popup、file input、上传 modal、进度和 editor img 前后数量。
+- 修复电表实验图片节点配置缺口：`exp_meter_modification` 的 `IMG_RAW_DATA` 增加 `targetNodeId=YSSJDrawingAreaArea`，`inputs.fields` 增加 `YSSJDrawingAreaArea(image_upload)`，`automation.mappings` 增加 `YSSJDrawingAreaArea -> #YSSJDrawingAreaArea -> wysiwyg_image`；本地数据库 `experiments.config_json` 已确认包含该 mapping。
+- 验证：`python3 -m json.tool backend/configs/exp_meter_modification.json` 通过；`pytest backend/tests/test_e2e_flow.py::test_mapping_audit_reports_meter_image_mapping -q` 通过；`pytest backend/tests/test_e2e_flow.py -q` 通过 34 项。
+- 修复提交后反馈读取不稳定：点击学校提交按钮前记录 bootbox / modal 基线，点击后按 `waitPolicy.afterClickMs` 短暂 settle，再轮询所有可见 `.bootbox .bootbox-body`，不再要求第一时间出现 `.bootbox-alert.in`；`SUBMIT_FEEDBACK_TIMEOUT` 会记录 `beforeClickDiagnostic` 和 `timeoutDiagnostic`，包含可见 bootbox、上传 modal、WYSIWYG popup、文件上传对话框、backdrop 和当前 URL。
+- 验证：`py_compile backend/services/school_report_sync.py backend/tests/test_e2e_flow.py` 通过；提交反馈定向测试 2 项通过；`pytest backend/tests/test_e2e_flow.py -q` 通过 35 项。
+- 修复 Playwright `wait_for_function` 参数兼容问题：图片上传后等待 editor `<img>`、提交反馈等待、通用 DOM 等待均改为使用 `arg=` 传参，避免当前 Playwright Python 版本抛出 `wait_for_function() takes 2 positional arguments...`。
+- 操作日志详情弹窗改为复用 Monaco JSON 编辑器只读展示完整 details，不再用普通文本块承载长 JSON；长字段可滚动、折叠和复制，暂不做摘要裁剪。
+- 验证：`py_compile backend/services/school_report_sync.py backend/services/school_dom.py backend/tests/test_e2e_flow.py` 通过；提交反馈定向测试 2 项通过；`pytest backend/tests/test_e2e_flow.py -q` 通过 35 项；`frontend/ npm run build` 通过。

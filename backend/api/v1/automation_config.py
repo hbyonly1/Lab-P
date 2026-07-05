@@ -10,7 +10,7 @@ from models.core import AuditLog, AutomationEngineConfig, User, get_utc_now
 
 router = APIRouter()
 
-CONFIG_SCHEMA_VERSION = "1.2"
+CONFIG_SCHEMA_VERSION = "1.3"
 REQUIRED_TOP_LEVEL_KEYS = {
     "schoolSystem",
     "networkPolicy",
@@ -82,7 +82,7 @@ def default_automation_config() -> Dict[str, Any]:
             "reportList": {
                 "_comment": "列表同步只保存实验名和提交状态；其它列暂不入库。",
                 "columns": {
-                    "experimentName": 2,
+                    "experimentName": 0,
                     "status": 6,
                 },
                 "openReportButtonText": "完成报告",
@@ -92,11 +92,12 @@ def default_automation_config() -> Dict[str, Any]:
                 "root": "#ReportModal",
                 "content": "#ReportModal #content",
                 "saveDraft": "#ReportModal button:has-text('临时提交')",
+                "submitFinal": "#ReportModal button:has-text('正式提交')",
                 "close": "#ReportModal button:has-text('关闭')",
             },
         },
         "safety": {
-            "_comment": "高风险动作保护。按需读取 modal 时必须跳过这些按钮，除非未来有独立审批和二次确认机制。",
+            "_comment": "高风险动作保护。按需读取和同步 modal 时必须跳过这些按钮；正式提交只允许由 final_submit job 在用户二次确认后触发。",
             "forbiddenActions": {
                 "finalSubmit": {
                     "policy": "never_click",

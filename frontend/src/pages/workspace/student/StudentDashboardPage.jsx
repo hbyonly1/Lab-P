@@ -330,16 +330,16 @@ export default function StudentDashboardPage() {
         initialJob={overviewJob}
         title="学校系统概览同步"
         steps={[
-          'school.overview.syncing',
           'school.overview.connecting',
-          'school.overview.openingLogin',
           'school.overview.recognizingCaptcha',
-          'school.overview.loggingIn',
           'school.overview.checkingLogin',
           'school.overview.readingList',
           'school.overview.savingSnapshot',
         ]}
         stepAliases={{
+          'school.overview.syncing': 'school.overview.connecting',
+          'school.overview.openingLogin': 'school.overview.connecting',
+          'school.overview.loggingIn': 'school.overview.checkingLogin',
           'school.overview.retryingCaptcha': 'school.overview.recognizingCaptcha',
         }}
         defaultMessageCode="school.overview.syncing"
