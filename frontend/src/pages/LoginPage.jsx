@@ -1,10 +1,10 @@
-import { Button, Form, Input, message } from 'antd';
+import { Button, Form, Input, Modal, message } from 'antd';
 import { LeftOutlined, LockOutlined, RightOutlined, UserOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { clearAdminSession, saveAdminSession } from '../auth.js';
 import { apiErrorMessage } from '../services/apiClient.js';
-import { loginAdmin } from '../services/authApi.js';
+import { loginAdmin, previewLogin } from '../services/authApi.js';
 import { getDefaultWorkspacePath } from '../workspaceModules.jsx';
 
 export default function LoginPage() {
@@ -13,11 +13,36 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const redirectTo = location.state?.from?.pathname;
 
-
+  const confirmSchoolCredentials = (values) => new Promise((resolve) => {
+    Modal.confirm({
+      title: '确认这是你的账号密码？',
+      content: (
+        <div>
+          <p>将会作为后续登录学校系统的凭证：</p>
+          <p>密码将安全储存至服务器，无需担心隐私问题</p>
+          <p>账号：{values.username}</p>
+          <p>密码：{values.password}</p>
+        </div>
+      ),
+      okText: '确认',
+      cancelText: '返回',
+      okButtonProps: { type: 'primary' },
+      onOk: () => resolve(true),
+      onCancel: () => resolve(false),
+    });
+  });
 
   const handleSubmit = async (values) => {
     setSubmitting(true);
     try {
+      const preview = await previewLogin(values.username);
+      if (preview.requires_school_credential_confirmation) {
+        const confirmed = await confirmSchoolCredentials(values);
+        if (!confirmed) {
+          return;
+        }
+      }
+
       const session = await loginAdmin(values);
       if (!['student', 'reviewer', 'admin'].includes(session.role)) {
         clearAdminSession();

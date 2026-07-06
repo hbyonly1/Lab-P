@@ -680,5 +680,207 @@
       "imageRef": "IMG_RAW_DATA"
     }
   },
-  "formulas": {}
+  "formulas": {},
+  "automation": {
+    "mappings": [
+      {
+        "sourceId": "SYMD_Fill_0",
+        "targetLocator": "#SYMD_Fill_0"
+      },
+      {
+        "sourceId": "SYMD_Fill_1",
+        "targetLocator": "#SYMD_Fill_1"
+      },
+      {
+        "sourceId": "SYMD_Fill_2",
+        "targetLocator": "#SYMD_Fill_2"
+      },
+      {
+        "sourceId": "SYMD_Fill_3",
+        "targetLocator": "#SYMD_Fill_3"
+      },
+      {
+        "sourceId": "SYMD_Fill_4",
+        "targetLocator": "#SYMD_Fill_4"
+      },
+      {
+        "sourceId": "SYYL_Fill_0",
+        "targetLocator": "#SYYL_Fill_0"
+      },
+      {
+        "sourceId": "SYYL_Fill_1",
+        "targetLocator": "#SYYL_Fill_1"
+      },
+      {
+        "sourceId": "SYYL_Fill_2",
+        "targetLocator": "#SYYL_Fill_2"
+      },
+      {
+        "sourceId": "SYYL_Fill_3",
+        "targetLocator": "#SYYL_Fill_3"
+      },
+      {
+        "sourceId": "SYYL_Fill_4",
+        "targetLocator": "#SYYL_Fill_4"
+      },
+      {
+        "sourceId": "SYYL_Fill_5",
+        "targetLocator": "#SYYL_Fill_5"
+      },
+      {
+        "sourceId": "SYYL_Fill_6",
+        "targetLocator": "#SYYL_Fill_6"
+      },
+      {
+        "sourceId": "SYYL_Fill_7",
+        "targetLocator": "#SYYL_Fill_7"
+      },
+      {
+        "sourceId": "YSSJDrawingAreaArea",
+        "targetLocator": "#YSSJDrawingAreaArea",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "L1",
+        "targetLocator": "#L1"
+      },
+      {
+        "sourceId": "L2",
+        "targetLocator": "#L2"
+      },
+      {
+        "sourceId": "L3",
+        "targetLocator": "#L3"
+      },
+      {
+        "sourceId": "L4",
+        "targetLocator": "#L4"
+      },
+      {
+        "sourceId": "L50-0",
+        "targetLocator": "#L50-0"
+      },
+      {
+        "sourceId": "L50-1",
+        "targetLocator": "#L50-1"
+      },
+      {
+        "sourceId": "L50-2",
+        "targetLocator": "#L50-2"
+      },
+      {
+        "sourceId": "L51-0",
+        "targetLocator": "#L51-0"
+      },
+      {
+        "sourceId": "L51-1",
+        "targetLocator": "#L51-1"
+      },
+      {
+        "sourceId": "L51-2",
+        "targetLocator": "#L51-2"
+      },
+      {
+        "sourceId": "L52-0",
+        "targetLocator": "#L52-0"
+      },
+      {
+        "sourceId": "L52-1",
+        "targetLocator": "#L52-1"
+      },
+      {
+        "sourceId": "L52-2",
+        "targetLocator": "#L52-2"
+      },
+      {
+        "sourceId": "L53-0",
+        "targetLocator": "#L53-0"
+      },
+      {
+        "sourceId": "L53-1",
+        "targetLocator": "#L53-1"
+      },
+      {
+        "sourceId": "L53-2",
+        "targetLocator": "#L53-2"
+      },
+      {
+        "sourceId": "L54-0",
+        "targetLocator": "#L54-0"
+      },
+      {
+        "sourceId": "L54-1",
+        "targetLocator": "#L54-1"
+      },
+      {
+        "sourceId": "L54-2",
+        "targetLocator": "#L54-2"
+      },
+      {
+        "sourceId": "L55-0",
+        "targetLocator": "#L55-0"
+      },
+      {
+        "sourceId": "L55-1",
+        "targetLocator": "#L55-1"
+      },
+      {
+        "sourceId": "L55-2",
+        "targetLocator": "#L55-2"
+      },
+      {
+        "sourceId": "L56-0",
+        "targetLocator": "#L56-0"
+      },
+      {
+        "sourceId": "L56-1",
+        "targetLocator": "#L56-1"
+      },
+      {
+        "sourceId": "L56-2",
+        "targetLocator": "#L56-2"
+      },
+      {
+        "sourceId": "L57-0",
+        "targetLocator": "#L57-0"
+      },
+      {
+        "sourceId": "L57-1",
+        "targetLocator": "#L57-1"
+      },
+      {
+        "sourceId": "L57-2",
+        "targetLocator": "#L57-2"
+      },
+      {
+        "sourceId": "L60-0",
+        "targetLocator": "#L60-0"
+      },
+      {
+        "sourceId": "L61-0",
+        "targetLocator": "#L61-0"
+      },
+      {
+        "sourceId": "L62-0",
+        "targetLocator": "#L62-0"
+      },
+      {
+        "sourceId": "L63-0",
+        "targetLocator": "#L63-0"
+      },
+      {
+        "sourceId": "L64-0",
+        "targetLocator": "#L64-0"
+      },
+      {
+        "sourceId": "L7",
+        "targetLocator": "#L7"
+      },
+      {
+        "sourceId": "L8",
+        "targetLocator": "#L8"
+      }
+    ],
+    "submitLocator": "a:has-text(\"提交\")"
+  }
 }

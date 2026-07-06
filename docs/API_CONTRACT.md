@@ -93,6 +93,27 @@
   3. 新建 submission 的 `status=incomplete`，`payment_status=not_required`。
   4. 如果该学生该实验已有自助 submission，则复用已有记录。
 
+### 3.0.1 创建一键托管提交记录
+
+- **Endpoint**: `POST /api/v1/submissions/submit`
+- **Auth Required**: Yes
+- **Payload**:
+
+```json
+{
+  "experiment_id": "exp_meter_modification",
+  "is_hungup": true,
+  "plan": "pay_per_use",
+  "image_paths": ["/uploads/2026-07/raw.jpg"]
+}
+```
+
+- **后端执行的严格逻辑**：
+  1. 只创建 `is_one_click_handoff=true` 的 submission。
+  2. `image_paths` 至少包含一个已上传图片 URL；空数组或全空值请求返回 `400`，不得创建订单或审核任务。
+  3. 学生不是 Pro 且没有已支付单次订单时，只有 `is_hungup=true` 才允许创建待付款订单。
+  4. 前端批量提交时只能对已上传图片的实验调用该接口，未上传图片的实验必须留空，不进入人工审核池。
+
 ### 3.1 临时保存 (Save Draft / Auto-save)
 - **Endpoint**: `PATCH /api/v1/submissions/{id}/correction`
 - **Auth Required**: Yes (仅验证资源所属权，学生和管理员均可调用)
@@ -505,6 +526,7 @@ username
 student_no
 real_name
 hashed_password
+encrypted_school_password
 role
 capabilities
 created_at
@@ -513,14 +535,35 @@ created_at
 说明：
 
 - `username`：平台登录账号。admin / reviewer 使用平台账号登录。
-- `student_no`：学生学号。学生登录平台和学校系统登录均使用该字段；学校系统密码同 `student_no`。
+- `student_no`：学生学号。学生登录平台和学校系统登录均使用该字段。
+- `hashed_password`：平台登录校验使用的密码哈希。
+- `encrypted_school_password`：用户登录平台时输入密码的可解密加密副本，仅供 Playwright 登录学校实验系统使用；不得返回前端、不得写入日志。
 - `real_name`：学校系统同步到的真实姓名，仅用于展示和核对，不参与登录。
 - 不兼容旧数据；如果本地库中已有旧用户数据导致字段冲突，直接清表或重建数据库。
 
 ### 6.1 用户登录
+- **Endpoint**: `POST /api/v1/auth/login-preview`
+- **Payload**:
+```json
+{
+  "username": "26A2510410114"
+}
+```
+- **说明**：登录提交前调用，用于判断本次是否会创建新的学生账号。该接口不接收、不返回密码。
+- **Response**:
+```json
+{
+  "username": "26A2510410114",
+  "is_student_login": true,
+  "account_exists": false,
+  "requires_school_credential_confirmation": true
+}
+```
+- **前端规则**：只有 `requires_school_credential_confirmation=true` 时，前端才弹出账号密码确认框；用户确认后再调用正式登录接口。已存在账号、admin、reviewer 不弹出该确认框。
+
 - **Endpoint**: `POST /api/v1/auth/login`
 - **Payload**: `{ "username": "xxx", "password": "xxx" }`
-- **Student 规则**：当 `username` 符合学号格式时，后端按 `student_no` 查找或创建学生用户；学校系统密码策略为同学号，但平台登录接口仍接收 OAuth2 password 字段。
+- **Student 规则**：当 `username` 符合学号格式时，后端按 `student_no` 查找或创建学生用户；`password` 同时作为平台登录密码和学校实验系统密码保存。后端写入 `hashed_password=hash(password)` 和 `encrypted_school_password=encrypt(password)`。
 - **Admin / Reviewer 规则**：按 `username` 查找平台账号并校验平台密码哈希。
 - **Response**:
 ```json
@@ -564,7 +607,7 @@ created_at
 {
   "id": 1,
   "name": "default",
-  "schema_version": "1.3",
+  "schema_version": "1.5",
   "is_active": true,
   "created_by": 1,
   "updated_by": 1,
@@ -574,20 +617,11 @@ created_at
       "baseUrl": "http://10.25.77.60:8001",
       "loginUrl": "http://10.25.77.60:8001/Login"
     },
-    "networkPolicy": {
-      "_comment": "学校系统网络入口策略。当前阶段直连内网，VPN 字段只保存环境变量名。",
-      "phase": "direct_intranet_only",
-      "directLoginUrl": "http://10.25.77.60:8001/Login",
-      "vpnLoginUrl": "https://10-25-77-60-8001-p.vpn.cumtb.edu.cn:8118/",
-      "vpnUsernameEnv": "CUMTB_VPN_USERNAME",
-      "vpnPasswordEnv": "CUMTB_VPN_PASSWORD",
-      "probeTimeoutMs": 3000
-    },
     "identity": {
-      "_comment": "学校系统账号使用 users.student_no，密码固定与学号一致；登录后姓名写入 users.real_name。",
+      "_comment": "学校系统账号使用 users.student_no，密码使用 users.encrypted_school_password 解密结果；登录后姓名写入 users.real_name。",
       "studentNoField": "users.student_no",
       "realNameField": "users.real_name",
-      "passwordPolicy": "same_as_student_no"
+      "passwordPolicy": "encrypted_user_password"
     },
     "selectors": {
       "_comment": "学校系统 DOM 选择器。重复节点后续使用 selector + index 或所在行定位。",
@@ -641,14 +675,14 @@ created_at
     "syncPolicy": {
       "initialSync": "identity_and_report_list",
       "detailSync": "on_demand",
-      "listCacheTtlSeconds": 600
+      "listCacheTtlSeconds": 600,
+      "syncCooldownSeconds": 1800
     },
     "retryPolicy": {
       "captchaMaxRetries": 3,
       "credentialMaxRetries": 1,
       "networkMaxRetries": 2,
-      "selectorMaxRetries": 1,
-      "syncCooldownSeconds": 600
+      "selectorMaxRetries": 1
     },
     "runtime": {
       "_comment": "headless=false 表示打开可视浏览器窗口；userSessionIdleTtlSeconds=0 表示平台不主动关闭会话。",
@@ -687,13 +721,12 @@ created_at
 ```json
 {
   "name": "default",
-  "schema_version": "1.3",
+  "schema_version": "1.5",
   "is_active": true,
   "config_json": {
     "schoolSystem": {},
-    "networkPolicy": {},
     "identity": {
-      "passwordPolicy": "same_as_student_no"
+      "passwordPolicy": "encrypted_user_password"
     },
     "selectors": {},
     "safety": {},
@@ -707,12 +740,13 @@ created_at
 ```
 - **Validation**:
   - `config_json` 必须是 JSON object。
-  - 顶层必须包含 `schoolSystem`、`networkPolicy`、`identity`、`selectors`、`safety`、`captcha`、`syncPolicy`、`retryPolicy`、`runtime`、`waitPolicy`。
-  - `identity.passwordPolicy` 必须为 `same_as_student_no`。
-  - `networkPolicy.probeTimeoutMs`、`runtime.defaultTimeoutMs`、`runtime.postLoginSettleMs`、`runtime.postLoginWaitMs` 和 `waitPolicy` 中关键超时字段必须为正整数。
+  - 顶层必须包含 `schoolSystem`、`identity`、`selectors`、`safety`、`captcha`、`syncPolicy`、`retryPolicy`、`runtime`、`waitPolicy`。
+  - `identity.passwordPolicy` 必须为 `encrypted_user_password`。
+  - `syncPolicy.syncCooldownSeconds` 必须为非负整数；自动同步概览只读取这个字段，不读取 `retryPolicy`。
+  - `runtime.defaultTimeoutMs`、`runtime.postLoginSettleMs`、`runtime.postLoginWaitMs` 和 `waitPolicy` 中关键超时字段必须为正整数。
   - 不允许在配置中保存具体 Playwright 脚本代码。
   - JSONB 不支持 `//` 注释；可使用 `_comment`、`description` 等普通字段作为可保存注释。
-- **Compatibility**：不兼容旧配置结构；后端以 `schema_version=1.3` 的当前结构为准。读取默认配置时，如果数据库中的 `default` 配置仍是旧结构或旧版本，将直接替换为当前默认结构。
+- **Compatibility**：不兼容旧配置结构；后端以 `schema_version=1.5` 的当前结构为准。读取默认配置时，如果数据库中的 `default` 配置仍是旧结构或旧版本，将直接替换为当前默认结构。
 - **列下标约定**：`selectors.reportList.columns` 使用 0 基下标；`experimentName=0` 表示读取学校列表第 1 列 `PaperName`，不要读取第 3 列 `LabName`，因为部分报告名会带批次后缀（例如 `0625`）。
 - **State Change**：写入或更新 `automation_engine_configs`，并写入 `audit_logs(action=automation_config_updated)`。
 - **Not Included**：当前阶段不提供 `test-login` 接口；后续如需连通性检查，再单独设计 `validate-login`。
@@ -773,7 +807,7 @@ AI_CAPTCHA_MODEL=zai-org/GLM-4.5V
 {
   "lastSyncedAt": "2026-07-05T10:00:00Z",
   "shouldSync": false,
-  "cooldownSeconds": 600,
+  "cooldownSeconds": 1800,
   "remainingCooldownSeconds": 120,
   "summary": {
     "source": "school_complete_report_list",
@@ -797,7 +831,7 @@ AI_CAPTCHA_MODEL=zai-org/GLM-4.5V
 
 - **规则**:
   - 没有同步记录时 `shouldSync=true`。
-  - 距离最近同步超过 `syncCooldownSeconds` 时 `shouldSync=true`。
+  - 距离最近同步超过 `syncPolicy.syncCooldownSeconds` 时 `shouldSync=true`。
   - 冷却期内 `shouldSync=false`，除非用户点击手动同步按钮并调用 `POST /overview` 的 `force=true`。
   - `experiments` 来自最近一次学校概览快照，仅包含学生端可展示的实验名、学校原始状态文本和归一化学校状态；前端可用它合并展示“学校提交状态”，但不得用它覆盖平台 `Submission.status`。
 

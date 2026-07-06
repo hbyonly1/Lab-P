@@ -89,9 +89,20 @@ export default function StudentExperimentsPage() {
 
   const handleModalSubmit = async (batchImages, targetStudent, isHungup = false) => {
     try {
-      for (const target of submitTargets) {
-        const expImages = batchImages[target.id] || {};
-        const imagePaths = Object.values(expImages).flat().map(img => img.url).filter(Boolean);
+      const targetsWithImages = submitTargets
+        .map((target) => {
+          const expImages = batchImages[target.id] || {};
+          const imagePaths = Object.values(expImages).flat().map(img => img.url).filter(Boolean);
+          return { target, imagePaths };
+        })
+        .filter(({ imagePaths }) => imagePaths.length > 0);
+
+      if (targetsWithImages.length === 0) {
+        message.warning('请至少上传一个实验的图片');
+        return;
+      }
+
+      for (const { target, imagePaths } of targetsWithImages) {
         await submitExperiment(target.id, targetStudent, isHungup, imagePaths);
       }
       message.success('提交成功，后台正在处理中！');

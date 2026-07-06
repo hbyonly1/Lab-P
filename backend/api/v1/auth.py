@@ -6,7 +6,8 @@ from typing import Any, Optional
 import re
 
 from core.db import get_session
-from core.security import verify_password, create_access_token
+from core.security import verify_password, create_access_token, get_password_hash
+from core.school_password import encrypt_school_password
 from core.config import settings
 from models.core import User
 from pydantic import BaseModel
@@ -35,7 +36,35 @@ class TokenResponse(BaseModel):
     role: str
     capabilities: dict
 
-STUDENT_REGEX = re.compile(r"^26A25\d{8}$")
+class LoginPreviewRequest(BaseModel):
+    username: str
+
+class LoginPreviewResponse(BaseModel):
+    username: str
+    is_student_login: bool
+    account_exists: bool
+    requires_school_credential_confirmation: bool
+
+STUDENT_REGEX = re.compile(r"^26A\d{10}$")
+
+@router.post("/login-preview", response_model=LoginPreviewResponse)
+def preview_login(
+    payload: LoginPreviewRequest,
+    session: Session = Depends(get_session),
+) -> Any:
+    login_name = payload.username.strip()
+    is_student_login = bool(STUDENT_REGEX.match(login_name))
+    account_exists = False
+
+    if is_student_login:
+        account_exists = session.exec(select(User.id).where(User.student_no == login_name)).first() is not None
+
+    return {
+        "username": login_name,
+        "is_student_login": is_student_login,
+        "account_exists": account_exists,
+        "requires_school_credential_confirmation": is_student_login and not account_exists,
+    }
 
 @router.post("/login", response_model=TokenResponse)
 def login_access_token(
@@ -51,17 +80,19 @@ def login_access_token(
     if STUDENT_REGEX.match(login_name):
         user = session.exec(select(User).where(User.student_no == login_name)).first()
         if not user:
-            from core.security import get_password_hash
             user = User(
                 username=login_name,
                 student_no=login_name,
-                hashed_password=get_password_hash(login_name),
+                hashed_password=get_password_hash(form_data.password),
+                encrypted_school_password=encrypt_school_password(form_data.password),
                 role="student",
                 capabilities={"max_computes": 100, "ai_model": "gpt-4"}
             )
             session.add(user)
             session.commit()
             session.refresh(user)
+        elif not verify_password(form_data.password, user.hashed_password):
+            raise HTTPException(status_code=400, detail="Incorrect username or password")
     else:
         user = session.exec(select(User).where(User.username == login_name)).first()
         # Admin or invalid format

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, message, Input } from 'antd';
-import { CrownOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { CrownOutlined } from '@ant-design/icons';
 import { getAdminUserRole } from '../../auth.js';
 import { uploadFile } from '../../services/uploadApi.js';
 import { ExperimentImageUploader } from './ExperimentImageUploader.jsx';
@@ -15,6 +15,7 @@ import { PaywallModal } from '../ui/index.js';
  */
 export function ProSubmitModal({ open, experiments: propExperiments, onCancel, onSubmit }) {
   const [experiments, setExperiments] = useState(propExperiments || []);
+  const [activeExperimentId, setActiveExperimentId] = useState(null);
   const [batchImageSlots, setBatchImageSlots] = useState({});
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -27,14 +28,16 @@ export function ProSubmitModal({ open, experiments: propExperiments, onCancel, o
   // 每次打开弹窗时，重置状态并同步传入的实验数据
   useEffect(() => {
     if (open) {
+      const nextExperiments = propExperiments || [];
       setStep(1);
-      setExperiments(propExperiments || []);
+      setExperiments(nextExperiments);
+      setActiveExperimentId(nextExperiments[0]?.id || null);
       setBatchImageSlots({});
       setIsSubmitting(false);
       setIsPaywallOpen(false);
       setTargetStudent('');
     }
-  }, [open, experiments]);
+  }, [open, propExperiments]);
 
   // 处理图片真实上传
   const handleImageUpload = async (expId, slotId, file) => {
@@ -88,6 +91,9 @@ export function ProSubmitModal({ open, experiments: propExperiments, onCancel, o
     const expSlots = batchImageSlots[expId] || {};
     return Object.values(expSlots).reduce((total, files) => total + files.length, 0);
   };
+
+  const activeExperimentIndex = Math.max(0, experiments.findIndex(exp => exp.id === activeExperimentId));
+  const activeExperiment = experiments[activeExperimentIndex] || experiments[0] || null;
 
   const handleNextStep = () => {
     setStep(2);
@@ -156,100 +162,111 @@ export function ProSubmitModal({ open, experiments: propExperiments, onCancel, o
 
   const renderStep1 = () => (
     <div className="pro-submit-step1">
-      <div style={{ marginBottom: 16, color: '#696969' }}>
-        请分别上传实验对应的原始数据记录，无需担心任何事情，我们会接管后续所有流程。
-      </div>
-      <div style={{ maxHeight: '50vh', overflowY: 'auto', paddingRight: '8px' }}>
-        {experiments.map(exp => (
-          <div key={exp.id} style={{ marginBottom: '24px', background: '#f8fafc', padding: '16px', borderRadius: '8px' }}>
-            <h3 style={{ marginTop: 0, color: '#141413', fontSize: '15px' }}>
-              {exp.name} - 签字原始数据上传
-            </h3>
+      {experiments.length > 0 ? (
+        <div className="pro-submit-upload-layout">
+          <div className="pro-submit-experiment-list">
+            {experiments.map((exp, index) => {
+              const imageCount = getExperimentImageCount(exp.id);
+              const isActive = activeExperiment?.id === exp.id;
+              return (
+                <button
+                  key={exp.id}
+                  type="button"
+                  className={`pro-submit-experiment-item ${isActive ? 'is-active' : ''}`}
+                  onClick={() => setActiveExperimentId(exp.id)}
+                >
+                  <span className="pro-submit-experiment-index">{index + 1}</span>
+                  <span className="pro-submit-experiment-main">
+                    <strong>{exp.name}</strong>
+                    <span className={imageCount > 0 ? 'is-ready' : ''}>
+                      {imageCount > 0 ? `已上传 ${imageCount} 张` : '未上传'}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="pro-submit-active-panel">
+            <div className="pro-submit-active-head">
+              <h3>{activeExperiment?.name} - 签字原始数据上传</h3>
+            </div>
             <ExperimentImageUploader
-              images={exp.inputs?.images || []}
-              imageSlots={batchImageSlots[exp.id] || {}}
-              onImageUpload={(slotId, file) => handleImageUpload(exp.id, slotId, file)}
-              onRemoveImage={(slotId, uid) => handleRemoveImage(exp.id, slotId, uid)}
+              images={activeExperiment?.inputs?.images || []}
+              imageSlots={batchImageSlots[activeExperiment?.id] || {}}
+              onImageUpload={(slotId, file) => handleImageUpload(activeExperiment.id, slotId, file)}
+              onRemoveImage={(slotId, uid) => handleRemoveImage(activeExperiment.id, slotId, uid)}
               recognitionDef={null} // 屏蔽 AI 一键识别按钮，弹窗内仅做上传
             />
           </div>
-        ))}
-        {experiments.length === 0 && (
-          <div style={{ color: '#999', textAlign: 'center', padding: '20px' }}>暂无待提交的实验</div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div style={{ color: '#999', textAlign: 'center', padding: '20px' }}>暂无待提交的实验</div>
+      )}
     </div>
   );
 
   const renderStep2 = () => {
     return (
       <div className="pro-submit-step2">
-        <h3 style={{ marginTop: 0, fontSize: '16px', fontWeight: 600 }}>即将提交</h3>
-        <ul style={{ listStyle: 'none', padding: 0, margin: '16px 0', background: '#f8fafc', borderRadius: '8px', overflow: 'hidden' }}>
-          {experiments.map((exp, index) => {
-            const count = getExperimentImageCount(exp.id);
-            const isSubmittingExp = count > 0;
-            return (
-              <li key={exp.id} style={{
-                padding: '12px 16px',
-                borderBottom: index < experiments.length - 1 ? '1px solid #e1e7f0' : 'none',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <span style={{ fontSize: '15px', color: '#333' }}>{exp.name}</span>
-                {isSubmittingExp ? (
-                  <span style={{ color: '#52c41a', fontWeight: 500 }}>{count} 张图片</span>
-                ) : (
-                  <span style={{ color: '#faad14', fontWeight: 500 }}>不提交 (留空)</span>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-
-        <div style={{
-          marginTop: '24px',
-          padding: '12px 16px',
-          background: '#fff2f0',
-          border: '1px solid #ffccc7',
-          borderRadius: '6px',
-          display: 'flex',
-          gap: '8px',
-          alignItems: 'flex-start'
-        }}>
-          <ExclamationCircleOutlined style={{ color: '#ff4d4f', fontSize: '16px', marginTop: '2px' }} />
-          <span style={{ color: '#cf1322', fontSize: '14px', lineHeight: 1.5 }}>
-            <strong>警告：</strong> 选择提交的实验将会覆写系统中已存在的数据，进入后台人工复核流程并正式提交，正式提交后你无需任何操作！此操作不可逆，请再三确认！
-          </span>
+        <div className="pro-submit-confirm-head">
+          <h3>即将提交</h3>
         </div>
-        
-        {['admin', 'reviewer'].includes(userRole) && (
-          <div style={{ marginTop: '24px' }}>
-            <div style={{ marginBottom: '8px', fontWeight: 'bold' }}>管理员代交设置 (可选)</div>
-            <Input 
-              placeholder="请输入代交的目标学号，留空则绑定在当前账号下" 
-              value={targetStudent}
-              onChange={(e) => setTargetStudent(e.target.value)}
-            />
+
+        <div className="pro-submit-confirm-list-shell">
+          <ul className="pro-submit-confirm-list">
+            {experiments.map((exp) => {
+              const count = getExperimentImageCount(exp.id);
+              const isSubmittingExp = count > 0;
+              return (
+                <li key={exp.id} className="pro-submit-confirm-row">
+                  <span className="pro-submit-confirm-name">{exp.name}</span>
+                  <span className={`pro-submit-confirm-pill ${isSubmittingExp ? 'is-ready' : 'is-empty'}`}>
+                    {isSubmittingExp ? `${count} 张图片` : '不提交 (留空)'}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        <div className="pro-submit-confirm-bottom">
+          {['admin', 'reviewer'].includes(userRole) && (
+            <div className="pro-submit-admin-handoff">
+              <div>管理员代交设置 (可选)</div>
+              <Input
+                placeholder="请输入代交的目标学号，留空则绑定在当前账号下"
+                value={targetStudent}
+                onChange={(e) => setTargetStudent(e.target.value)}
+              />
+            </div>
+          )}
+
+          <div className="pro-submit-confirm-warning">
+            <strong>警告：</strong> 选择提交的实验将会覆写系统中已存在的数据，进入后台人工复核流程并正式提交，正式提交后你无需任何操作！此操作不可逆，请再三确认！
           </div>
-        )}
+        </div>
       </div>
     );
   };
 
   return (
     <Modal
+      rootClassName="pro-submit-modal-root"
+      className={`pro-submit-fullscreen-modal ${step === 1 ? 'is-upload-step' : 'is-confirm-step'}`}
       open={open}
       title={
-        <span style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#c49021' }}>
-          <CrownOutlined /> {step === 1 ? '一键批量提交 - 上传数据' : '一键批量提交 - 最终确认'}
-        </span>
+        <div className="pro-submit-modal-title">
+          <span>
+            <CrownOutlined /> 一键批量提交 - 上传数据
+          </span>
+          <p>请分别上传实验对应的原始数据记录，无需担心任何事情，我们会接管后续所有流程。</p>
+        </div>
       }
       onCancel={!isSubmitting ? onCancel : undefined}
       closable={!isSubmitting}
       maskClosable={!isSubmitting}
-      width={700}
+      width="100vw"
       footer={
         step === 1 ? (
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>

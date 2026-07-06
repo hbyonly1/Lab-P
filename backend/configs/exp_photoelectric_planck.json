@@ -895,5 +895,232 @@
       "imageRef": "IMG_RAW_DATA"
     }
   },
-  "formulas": {}
+  "formulas": {},
+  "automation": {
+    "mappings": [
+      {
+        "sourceId": "SYMD_Fill_0",
+        "targetLocator": "#SYMD_Fill_0"
+      },
+      {
+        "sourceId": "SYYL_Fill_0",
+        "targetLocator": "#SYYL_Fill_0"
+      },
+      {
+        "sourceId": "SYYL_Fill_1",
+        "targetLocator": "#SYYL_Fill_1"
+      },
+      {
+        "sourceId": "SYYL_Fill_2",
+        "targetLocator": "#SYYL_Fill_2"
+      },
+      {
+        "sourceId": "SYYL_Fill_3",
+        "targetLocator": "#SYYL_Fill_3"
+      },
+      {
+        "sourceId": "SYBZ_Fill_0",
+        "targetLocator": "#SYBZ_Fill_0"
+      },
+      {
+        "sourceId": "SYBZ_Fill_1",
+        "targetLocator": "#SYBZ_Fill_1"
+      },
+      {
+        "sourceId": "SYBZ_Fill_2",
+        "targetLocator": "#SYBZ_Fill_2"
+      },
+      {
+        "sourceId": "YSSJDrawingAreaArea",
+        "targetLocator": "#YSSJDrawingAreaArea",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "G10-0",
+        "targetLocator": "#G10-0"
+      },
+      {
+        "sourceId": "G10-1",
+        "targetLocator": "#G10-1"
+      },
+      {
+        "sourceId": "G10-2",
+        "targetLocator": "#G10-2"
+      },
+      {
+        "sourceId": "G10-3",
+        "targetLocator": "#G10-3"
+      },
+      {
+        "sourceId": "G10-4",
+        "targetLocator": "#G10-4"
+      },
+      {
+        "sourceId": "G10-5",
+        "targetLocator": "#G10-5"
+      },
+      {
+        "sourceId": "G10-6",
+        "targetLocator": "#G10-6"
+      },
+      {
+        "sourceId": "G10-7",
+        "targetLocator": "#G10-7"
+      },
+      {
+        "sourceId": "G10-8",
+        "targetLocator": "#G10-8"
+      },
+      {
+        "sourceId": "G11-0",
+        "targetLocator": "#G11-0"
+      },
+      {
+        "sourceId": "G11-1",
+        "targetLocator": "#G11-1"
+      },
+      {
+        "sourceId": "G11-2",
+        "targetLocator": "#G11-2"
+      },
+      {
+        "sourceId": "G11-3",
+        "targetLocator": "#G11-3"
+      },
+      {
+        "sourceId": "G11-4",
+        "targetLocator": "#G11-4"
+      },
+      {
+        "sourceId": "G11-5",
+        "targetLocator": "#G11-5"
+      },
+      {
+        "sourceId": "G11-6",
+        "targetLocator": "#G11-6"
+      },
+      {
+        "sourceId": "G11-7",
+        "targetLocator": "#G11-7"
+      },
+      {
+        "sourceId": "G11-8",
+        "targetLocator": "#G11-8"
+      },
+      {
+        "sourceId": "G12-0",
+        "targetLocator": "#G12-0"
+      },
+      {
+        "sourceId": "G12-1",
+        "targetLocator": "#G12-1"
+      },
+      {
+        "sourceId": "G12-2",
+        "targetLocator": "#G12-2"
+      },
+      {
+        "sourceId": "G12-3",
+        "targetLocator": "#G12-3"
+      },
+      {
+        "sourceId": "G12-4",
+        "targetLocator": "#G12-4"
+      },
+      {
+        "sourceId": "G12-5",
+        "targetLocator": "#G12-5"
+      },
+      {
+        "sourceId": "G12-6",
+        "targetLocator": "#G12-6"
+      },
+      {
+        "sourceId": "G12-7",
+        "targetLocator": "#G12-7"
+      },
+      {
+        "sourceId": "G12-8",
+        "targetLocator": "#G12-8"
+      },
+      {
+        "sourceId": "G20-0",
+        "targetLocator": "#G20-0"
+      },
+      {
+        "sourceId": "G20-1",
+        "targetLocator": "#G20-1"
+      },
+      {
+        "sourceId": "G20-2",
+        "targetLocator": "#G20-2"
+      },
+      {
+        "sourceId": "G3",
+        "targetLocator": "#G3"
+      },
+      {
+        "sourceId": "G4",
+        "targetLocator": "#G4"
+      },
+      {
+        "sourceId": "G5",
+        "targetLocator": "#G5"
+      },
+      {
+        "sourceId": "G60-0",
+        "targetLocator": "#G60-0"
+      },
+      {
+        "sourceId": "G60-1",
+        "targetLocator": "#G60-1"
+      },
+      {
+        "sourceId": "G60-2",
+        "targetLocator": "#G60-2"
+      },
+      {
+        "sourceId": "G60-3",
+        "targetLocator": "#G60-3"
+      },
+      {
+        "sourceId": "G60-4",
+        "targetLocator": "#G60-4"
+      },
+      {
+        "sourceId": "G61-0",
+        "targetLocator": "#G61-0"
+      },
+      {
+        "sourceId": "G61-1",
+        "targetLocator": "#G61-1"
+      },
+      {
+        "sourceId": "G61-2",
+        "targetLocator": "#G61-2"
+      },
+      {
+        "sourceId": "G61-3",
+        "targetLocator": "#G61-3"
+      },
+      {
+        "sourceId": "G61-4",
+        "targetLocator": "#G61-4"
+      },
+      {
+        "sourceId": "G7",
+        "targetLocator": "#G7"
+      },
+      {
+        "sourceId": "G8",
+        "targetLocator": "#G8"
+      },
+      {
+        "sourceId": "skt0Area",
+        "targetLocator": "#skt0Area",
+        "targetType": "wysiwyg_text"
+      }
+    ],
+    "submitLocator": "a:has-text(\"提交\")"
+  }
 }

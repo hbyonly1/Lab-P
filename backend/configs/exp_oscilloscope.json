@@ -455,5 +455,138 @@
       "imageRef": "IMG_RAW_DATA"
     }
   },
-  "formulas": {}
+  "formulas": {},
+  "automation": {
+    "mappings": [
+      {
+        "sourceId": "SYYL_Fill_0",
+        "targetLocator": "#SYYL_Fill_0"
+      },
+      {
+        "sourceId": "SYYL_Fill_1",
+        "targetLocator": "#SYYL_Fill_1"
+      },
+      {
+        "sourceId": "SYYL_Fill_2",
+        "targetLocator": "#SYYL_Fill_2"
+      },
+      {
+        "sourceId": "SYYL_Fill_3",
+        "targetLocator": "#SYYL_Fill_3"
+      },
+      {
+        "sourceId": "SYYL_Fill_4",
+        "targetLocator": "#SYYL_Fill_4"
+      },
+      {
+        "sourceId": "SYYL_Fill_5",
+        "targetLocator": "#SYYL_Fill_5"
+      },
+      {
+        "sourceId": "SYBZ_Fill_0",
+        "targetLocator": "#SYBZ_Fill_0"
+      },
+      {
+        "sourceId": "SYBZ_Fill_1",
+        "targetLocator": "#SYBZ_Fill_1"
+      },
+      {
+        "sourceId": "SYBZ_Fill_2",
+        "targetLocator": "#SYBZ_Fill_2"
+      },
+      {
+        "sourceId": "SYBZ_Fill_3",
+        "targetLocator": "#SYBZ_Fill_3"
+      },
+      {
+        "sourceId": "YSSJDrawingAreaArea",
+        "targetLocator": "#YSSJDrawingAreaArea",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "S1Area",
+        "targetLocator": "#S1Area",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "OP_Fill_0",
+        "targetLocator": "#OP_Fill_0"
+      },
+      {
+        "sourceId": "OP_Fill_1",
+        "targetLocator": "#OP_Fill_1"
+      },
+      {
+        "sourceId": "OP1_Fill_0",
+        "targetLocator": "#OP1_Fill_0"
+      },
+      {
+        "sourceId": "OP1_Fill_1",
+        "targetLocator": "#OP1_Fill_1"
+      },
+      {
+        "sourceId": "S2Area",
+        "targetLocator": "#S2Area",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "S3",
+        "targetLocator": "#S3"
+      },
+      {
+        "sourceId": "S4",
+        "targetLocator": "#S4"
+      },
+      {
+        "sourceId": "S5",
+        "targetLocator": "#S5"
+      },
+      {
+        "sourceId": "S6Area",
+        "targetLocator": "#S6Area",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "OP2_Fill_0",
+        "targetLocator": "#OP2_Fill_0"
+      },
+      {
+        "sourceId": "S7Area",
+        "targetLocator": "#S7Area",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "OP3_Fill_0",
+        "targetLocator": "#OP3_Fill_0"
+      },
+      {
+        "sourceId": "S8Area",
+        "targetLocator": "#S8Area",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "OP4_Fill_0",
+        "targetLocator": "#OP4_Fill_0"
+      },
+      {
+        "sourceId": "S9Area",
+        "targetLocator": "#S9Area",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "OP5_Fill_0",
+        "targetLocator": "#OP5_Fill_0"
+      },
+      {
+        "sourceId": "S10Area",
+        "targetLocator": "#S10Area",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "OP6_Fill_0",
+        "targetLocator": "#OP6_Fill_0"
+      }
+    ],
+    "submitLocator": "a:has-text(\"提交\")"
+  }
 }

@@ -52,6 +52,14 @@ def create_submission(
     order_id = None
     user_plan = current_user.capabilities.get("plan", "free") if current_user.capabilities else "free"
     is_pro = user_plan == "pro"
+    image_paths = [path for path in (req.image_paths or []) if path]
+
+    def ensure_uploaded_images() -> None:
+        if not image_paths:
+            raise HTTPException(
+                status_code=400,
+                detail="一键提交至少需要上传一个实验图片。",
+            )
 
     # Auto-seed the experiment if it doesn't exist to prevent foreign key violation
     existing_exp = session.get(Experiment, req.experiment_id)
@@ -85,6 +93,7 @@ def create_submission(
                 )
             else:
                 # 声明了挂起，自动生成一个挂起订单
+                ensure_uploaded_images()
                 new_order = Order(
                     id=f"ORD-{str(uuid.uuid4())[:8].upper()}",
                     student_id=current_user.id,
@@ -98,7 +107,11 @@ def create_submission(
                 session.refresh(new_order)
                 order_id = new_order.id
         else:
+            ensure_uploaded_images()
             order_id = existing_order.id
+
+    if current_user.role in ["admin", "reviewer"] or is_pro:
+        ensure_uploaded_images()
             
     # Handle Admin proxy submission
     actual_student_id = current_user.id
@@ -112,6 +125,7 @@ def create_submission(
                 username=target_student_no,
                 student_no=target_student_no,
                 hashed_password=get_password_hash(target_student_no),
+                encrypted_school_password=None,
                 role="student",
                 capabilities={"max_computes": 100, "ai_model": "gpt-4"}
             )
@@ -130,7 +144,7 @@ def create_submission(
         status="pending_recognition" if has_paid else "pending_payment",
         payment_status="paid" if has_paid else "unpaid",
         is_one_click_handoff=True,
-        image_paths=req.image_paths
+        image_paths=image_paths
     )
     session.add(submission)
     session.commit()

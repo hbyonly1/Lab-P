@@ -5,7 +5,6 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   EditOutlined,
-  EyeOutlined,
   FileDoneOutlined,
   SendOutlined,
   SearchOutlined,
@@ -172,9 +171,6 @@ export default function ReviewerTasksPage() {
         align: 'right',
         render: (_, exp) => (
           <div className="recent-task-actions" style={{ justifyContent: 'flex-end' }}>
-            <Tooltip title="在系统里查看">
-              <OutlineButton icon={<EyeOutlined />} onClick={() => handleActionClick('view', exp)} />
-            </Tooltip>
             <Tooltip title="编辑">
               <OutlineButton icon={<EditOutlined />} onClick={() => handleActionClick('edit', exp)} />
             </Tooltip>

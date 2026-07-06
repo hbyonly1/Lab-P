@@ -138,7 +138,7 @@
 
 - 核对后端 SQLModel 与初始 migration 后确认，当前 `users` 表只有 `username`，没有 `name` 字段；前一版计划中把 `users.name` 当作真实姓名字段不符合现状。
 - 修正 `implementation_plan.md`、`DECISIONS.md` 和 `产品技术规划.md`：`username` 定义为平台登录账号，后续新增 `student_no` 表达学号，新增 `real_name` 表达学校系统同步到的真实姓名。
-- 明确学校系统登录只使用 `student_no`，密码同 `student_no`；不兼容旧数据，必要时直接清表或重建数据库。
+- 明确学校系统登录账号只使用 `student_no`；当时密码策略曾按学号派生，已在 2026-07-06 改为解密 `users.encrypted_school_password`。不兼容旧数据，必要时直接清表或重建数据库。
 - 验证：已检查 `backend/models/core.py` 与 `backend/alembic/versions/27ff1475f5fd_initial_schema.py` 的 `users` 表结构；本次未改代码，未运行构建。
 
 ### 身份字段与自动化配置后端底座落地
@@ -162,7 +162,7 @@
 
 - 新增 `backend/tools/school_portal_probe.py`，用于抓取学校报告系统登录页截图、HTML、DOM 摘要、验证码小图和登录后页面证据。
 - 真实登录页字段已确认：用户名 `#userName`、密码 `#userPass`、验证码输入 `#checkCode`、验证码图片 `#imgCheckCode`、登录按钮 `.loginBut`。
-- 脚本默认不提交登录；传入 `--attempt-login` 后会填写学号和同值密码，若未获得验证码识别结果则停在提交前并清空账号密码。
+- 脚本默认不提交登录；传入 `--attempt-login` 后必须显式传入 `--password`，若未获得验证码识别结果则停在提交前并清空账号密码。
 - 验证码流程已预留 AI API：`--captcha-source ai` 会将验证码图片通过 OpenAI-compatible Chat Completions 发送给视觉模型，默认读取本地 AI Key 环境配置，不会把 API Key、学校密码或验证码文本写入报告。
 - 使用调试验证码完成一次真实登录验证，登录成功落点为 `/ReportStudent/CompleteReport/`，页面标题为“完成报告”；脚本会等待登录后 loading 遮罩消失再截图。
 - 采集产物示例：`backend/tmp/school_portal_probe/20260702_111636_26A****0207/`，包含登录页、验证码、登录后完成报告列表截图和 DOM 摘要。
@@ -319,13 +319,13 @@
 - 修正学生详情页提交付费语义：临时保存 / 正式提交属于自助提交，创建 `payment_status=not_required` 的 self-managed submission，不再生成待支付订单；只有一键代写 / 一键提交图片交给后台处理时才走付费挂起订单。
 - 接入临时 / 正式提交的学校自动化 job 壳：新增 `POST /api/v1/school-sync/experiments/{experiment_id}/submit`，前端保存平台数据后创建 `draft_submit` 或 `final_submit` job，并通过 `AutomationProgressModal` 阻塞展示标准步骤和轮询公开状态。
 - 历史阶段为避免伪造学校提交结果，真实 Playwright 提交未接入时，submit job 曾保存 `platform_before_submit` 快照后以 `SCHOOL_SUBMIT_NOT_IMPLEMENTED` 失败退出；该占位壳已在后续“单实验读取与临时提交真实链路起步”中替换为真实临时提交 service。
-- 落地第 4 节概览同步垂直切片：新增 `GET /api/v1/school-sync/overview/latest`，按 `syncCooldownSeconds` 返回 `shouldSync`；学生仪表盘进入时自动检查并触发概览同步 stub，通知按钮左侧新增“同步状态”手动同步按钮，手动同步使用 `force=true` 忽略冷却。
+- 落地第 4 节概览同步垂直切片：新增 `GET /api/v1/school-sync/overview/latest`，按 `syncPolicy.syncCooldownSeconds` 返回 `shouldSync`；学生仪表盘进入时自动检查并触发概览同步 stub，通知按钮左侧新增“同步状态”手动同步按钮，手动同步使用 `force=true` 忽略冷却。
 - 补齐真实 Playwright 接入前的单实验同步壳：新增 `POST /api/v1/school-sync/experiments/{experiment_id}` 创建 `school_detail_sync` public job，当前写入空快照 stub；学生实验详情页进入时会触发该 job，并复用 `AutomationProgressModal` 展示同步步骤。
 - 补齐刷新恢复和提交前快照：学生仪表盘 / 实验详情页会先查询 active automation job 并恢复进度弹窗；创建临时 / 正式提交 job 前写入 `submission_versions(source=platform_before_submit)`，便于学校系统失败后追踪平台侧提交数据。
 
 ### 学校概览同步真实 service 接入
 
-- 新增 `backend/services/school_overview_sync.py`，将概览同步从 API 内部 stub 抽成后端 service：读取 Admin 自动化配置、探测内网登录 URL、使用 Playwright 打开学校登录页、按 `users.student_no` 填写账号和同值密码、截图验证码并调用 OpenAI-compatible 视觉模型识别、读取右上角真实姓名和完成报告列表。
+- 新增 `backend/services/school_overview_sync.py`，将概览同步从 API 内部 stub 抽成后端 service：读取 Admin 自动化配置、探测内网登录 URL、使用 Playwright 打开学校登录页、按 `users.student_no` 填写账号、按当前密码策略填写学校密码、截图验证码并调用 OpenAI-compatible 视觉模型识别、读取右上角真实姓名和完成报告列表。
 - `POST /api/v1/school-sync/overview` 已切换为调用真实概览同步 service；真实链路失败时 job 进入 `failed` 并写入 `error_code`、脱敏 public message 和 `school_overview_sync_failed` 审计日志，不再把概览同步伪装成 stub 成功。
 - 同步成功时写入 `school_sync_snapshots.snapshot_json`，实验列表项统一保存 `experimentName`、`originalStatusText`、`schoolStatus`；`summary_json.source` 改为 `school_complete_report_list`，并统计未提交、临时提交、正常提交和未知状态。
 - 后端 `core/messages.py` 补齐 `school.overview.connecting/openingLogin/recognizingCaptcha/loggingIn/readingList/savingSnapshot` 标准提示码，以及概览同步常见错误码到 `school.overview.failed` 的映射。
@@ -353,7 +353,7 @@
 
 ### 学校同步状态规则整理
 
-- 概览同步冷却时间调整为 10 分钟：默认 `syncCooldownSeconds=600`，后端无配置时也按 600 秒兜底。
+- 概览同步冷却时间调整为 30 分钟：默认 `syncPolicy.syncCooldownSeconds=1800`，后端无配置时也按 1800 秒兜底。
 - 提交后的状态确认以学校系统为最终事实来源：临时 / 正式提交 job 必须在同一浏览器会话内读取学校反馈或列表状态，保存 `school_sync_snapshots` 后再更新平台 `Submission.status`。
 - 平台不能仅凭“已点击提交按钮”判断提交成功；真实 submit job 必须先等待学校提交反馈，再返回完成报告列表读取对应实验状态。例行概览同步负责刷新整体列表，但不替代提交 job 的即时学校状态确认。
 
@@ -517,3 +517,35 @@
 - 修复 Playwright `wait_for_function` 参数兼容问题：图片上传后等待 editor `<img>`、提交反馈等待、通用 DOM 等待均改为使用 `arg=` 传参，避免当前 Playwright Python 版本抛出 `wait_for_function() takes 2 positional arguments...`。
 - 操作日志详情弹窗改为复用 Monaco JSON 编辑器只读展示完整 details，不再用普通文本块承载长 JSON；长字段可滚动、折叠和复制，暂不做摘要裁剪。
 - 验证：`py_compile backend/services/school_report_sync.py backend/services/school_dom.py backend/tests/test_e2e_flow.py` 通过；提交反馈定向测试 2 项通过；`pytest backend/tests/test_e2e_flow.py -q` 通过 35 项；`frontend/ npm run build` 通过。
+- 新增独立脚本 `tools/complete_automation_mappings.mjs`，只基于现有 `backend/configs/*.json` 补齐 `automation.mappings`，不重新抽取、不重建 `inputs/ui/ai/formulas`，避免覆盖手动调整过的实验配置。
+- 按电表已验证逻辑批量补齐其余实验配置：普通字段生成 `#sourceId` mapping，`ui.questions[].nodeId` 生成 `wysiwyg_text`，`image_upload` 生成 `wysiwyg_image`；已覆盖空气比热容比、落球法、液晶、示波器、光电效应、补偿法、声速、杨氏模量、三线摆等配置。
+- 新增配置完整性测试，确保每个 `inputs.fields` / `ui.questions` 节点都有 automation mapping，图片节点 targetType 为 `wysiwyg_image`，问题节点 targetType 为 `wysiwyg_text`，mapping 不重复且 `targetLocator=#sourceId`。
+- 验证：`node tools/complete_automation_mappings.mjs --check` 通过；所有 `backend/configs/*.json` 通过 `python3 -m json.tool`；配置完整性测试通过；`pytest backend/tests/test_e2e_flow.py -q` 通过 36 项；本地数据库实验配置已执行 `seed_experiment_configs` 同步检查。
+- 调整学生密码策略：平台登录密码与学校实验系统密码统一，学生首次登录创建账号时同时写入 `hashed_password` 和 `encrypted_school_password`；学校 Playwright 登录改为解密 `users.encrypted_school_password` 填入 `#userPass`，不再使用学号派生学校密码。
+- 学号识别规则放宽为 `^26A\d{10}$`，不再硬编码 `26A25`；自动化配置 `identity.passwordPolicy` 更新为 `encrypted_user_password`，诊断脚本 `school_portal_probe.py` 改为 `--attempt-login` 时显式要求 `--password`。
+- 新增 Alembic 迁移 `b9f1e2c3d4a5_add_encrypted_school_password.py`，本地数据库已执行 `alembic upgrade head`；不兼容旧用户数据，后续可按需要清库重建。
+- 验证：`py_compile backend/core/school_password.py backend/api/v1/auth.py backend/services/school_overview_sync.py backend/tools/school_portal_probe.py backend/tests/test_e2e_flow.py` 通过；学生自定义密码加密保存测试通过；`pytest backend/tests/test_e2e_flow.py -q` 通过 37 项。
+
+- 登录页新增首次学生账号创建确认：前端先调用 `POST /api/v1/auth/login-preview`，仅当后端判定该学号尚未创建且将写入学校系统凭据时，弹出账号/密码确认框；确认后才调用正式登录接口。已存在学生账号、admin、reviewer 不弹窗。
+
+- 移除学校系统登录前的 `urllib` 预探测：自动化配置 schema 升级到 `1.4`，默认配置和校验删除 `networkPolicy/probeTimeoutMs`；网络可达性只以 Playwright 实际打开 `schoolSystem.loginUrl` 的结果为准，打开失败时才报 `NETWORK_UNREACHABLE`。
+- 一键批量提交上传弹窗调整为全屏视口高度：顶部固定展示“一键批量提交 - 上传数据”和上传说明，底部固定保留取消 / 下一步确认清单操作，中间上传内容作为唯一滚动区域；移动端改为单列布局并允许底部按钮换行。
+- 验证：`frontend/ npm run build` 通过；本地 Vite 开发服务运行在 `http://localhost:5174/`，首页 `curl -I` 返回 200。
+- 修正一键提交全屏 Modal 的 Ant Design 6 DOM 层级适配：真实内容容器为 `.ant-modal-container`，已将 flex 高度、`padding: 0` 和 `overflow: hidden` 应用到该层，同时禁止 `.ant-modal-wrap` 外层滚动，确保只有 `.ant-modal-body` 中间区域滚动、footer 固定在底部。
+- 验证：`frontend/ npm run build` 通过；相关文件 `git diff --check` 通过。
+- 细化一键批量提交上传弹窗布局：header padding 调整为 `10px 30px`；实验列表序号改为固定圆形；右侧上传面板标题去除 `1 / 10` 和 `x 张图片`；桌面上传步骤改为左侧实验列表独立滚动、右侧上传控件固定，确认步骤仍保留中间区域滚动。
+- 验证：`frontend/ npm run build` 通过；相关文件 `git diff --check` 通过。
+- 重做一键批量提交最终确认页样式：移除 inline 列表样式，改为标题栏、白底实验清单卡片、右侧状态胶囊和底部固定警告区；确认步骤禁止整体 body 滚动，仅实验清单区域可滚动；未加入参考图中的圆形实验 icon。
+- 验证：`frontend/ npm run build` 通过；相关文件 `git diff --check` 通过。
+- 修复一键批量提交只上传部分实验图片却创建全部待提交实验审核任务的问题：仪表盘和实验列表入口现在只提交有图片 URL 的实验；后端 `/api/v1/submissions/submit` 对空 `image_paths` 返回 `400`，且不创建订单或 submission。
+- 验证：`py_compile backend/api/v1/submissions.py backend/tests/test_e2e_flow.py` 通过；`backend/venv/bin/python -m pytest backend/tests/test_e2e_flow.py::test_one_click_submission_requires_uploaded_images backend/tests/test_e2e_flow.py::test_student_payment_flow -q` 通过；`frontend/ npm run build` 通过。
+- Admin 订单管理页新增单次代劳合并收款展示：同一学生在 10 秒内创建的多笔 `pay_per_use` 订单会聚合成一行显示合计金额，父行显示短批次号 `BATCH-xxxxxx`，展开后展示各实验的原始订单、plan、金额和状态；确认收款或驳回合并行时会依次处理全部子订单。
+- 验证：`frontend/ npm run build` 通过。
+- 审核任务列表的实验展开行移除“在系统里查看”按钮，保留编辑、识别和提交等审核处理动作。
+- 验证：`frontend/ npm run build` 通过。
+- 修复 Celery AI 任务拿不到 `AI_API_KEY` 的问题：`docker-compose.yml` 现在通过根目录 `.env` 为 `backend` 和 `celery_worker` 注入同一套 AI 环境变量；`ai_service` 的识别/生成异常会保留底层错误类型和信息，后台日志不再只剩泛化文案。
+- 验证：`python3 -m py_compile backend/services/ai_service.py` 通过；`docker-compose config --quiet` 通过；已重建 `backend` / `celery_worker`；worker 内确认 `AI_API_KEY=present`、answer/image/captcha 三个 AI profile 均可加载；在 worker 内用 answer_generation profile 发起最小 JSON Chat Completions 请求成功返回 `{"1":"ok"}`。
+- 验证码识别迁移到 Celery worker：学校同步流程仍负责 Playwright 截图和结果解析，但 AI 调用改为投递 `recognize_captcha_task`；任务参数传 base64，避免本机 8001 后端与 Docker worker 之间共享文件路径的问题。
+- 验证：`py_compile backend/services/captcha_ai.py backend/worker/ai_tasks.py backend/services/school_overview_sync.py` 通过；已重建 `backend` / `celery_worker`；用历史验证码截图经 base64 投递 worker 成功返回 OCR 文本；直接调用 `recognize_captcha()` 成功解析出验证码 `87NM`。
+- 自动同步冷却字段迁移到 `syncPolicy.syncCooldownSeconds`：自动化配置 schema 升级到 `1.5`，默认配置、校验、运行时读取、失败诊断和文档均移除 `retryPolicy.syncCooldownSeconds`；本地数据库当前 default 配置已确认是新结构。
+- 验证：`python3 -m py_compile backend/api/v1/automation_config.py backend/api/v1/school_sync.py backend/services/school_overview_sync.py` 通过；`backend/venv/bin/pytest -q tests/test_e2e_flow.py -k "admin_automation_config or school_sync_cooldown_reads_sync_policy_only"` 通过。

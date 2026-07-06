@@ -358,5 +358,99 @@
       "prompt": "基于落球法测粘滞系数实验原理，用中文学术性语言回答实验分析与拓展题。"
     }
   },
-  "formulas": {}
+  "formulas": {},
+  "automation": {
+    "mappings": [
+      {
+        "sourceId": "SYYL_Fill_0",
+        "targetLocator": "#SYYL_Fill_0"
+      },
+      {
+        "sourceId": "SYYL_Fill_1",
+        "targetLocator": "#SYYL_Fill_1"
+      },
+      {
+        "sourceId": "SYYL_Fill_2",
+        "targetLocator": "#SYYL_Fill_2"
+      },
+      {
+        "sourceId": "SYYL_Fill_3",
+        "targetLocator": "#SYYL_Fill_3"
+      },
+      {
+        "sourceId": "SYYL_Fill_4",
+        "targetLocator": "#SYYL_Fill_4"
+      },
+      {
+        "sourceId": "SYYL_Fill_5",
+        "targetLocator": "#SYYL_Fill_5"
+      },
+      {
+        "sourceId": "SYYL_Fill_6",
+        "targetLocator": "#SYYL_Fill_6"
+      },
+      {
+        "sourceId": "SYYL_Fill_7",
+        "targetLocator": "#SYYL_Fill_7"
+      },
+      {
+        "sourceId": "YSSJDrawingAreaArea",
+        "targetLocator": "#YSSJDrawingAreaArea"
+      },
+      {
+        "sourceId": "L1",
+        "targetLocator": "#L1"
+      },
+      {
+        "sourceId": "L20-0",
+        "targetLocator": "#L20-0"
+      },
+      {
+        "sourceId": "L21-0",
+        "targetLocator": "#L21-0"
+      },
+      {
+        "sourceId": "L22-0",
+        "targetLocator": "#L22-0"
+      },
+      {
+        "sourceId": "L23-0",
+        "targetLocator": "#L23-0"
+      },
+      {
+        "sourceId": "L24-0",
+        "targetLocator": "#L24-0"
+      },
+      {
+        "sourceId": "L25-0",
+        "targetLocator": "#L25-0"
+      },
+      {
+        "sourceId": "L26-0",
+        "targetLocator": "#L26-0"
+      },
+      {
+        "sourceId": "L27-0",
+        "targetLocator": "#L27-0"
+      },
+      {
+        "sourceId": "L3Area",
+        "targetLocator": "#L3Area",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "OP_Fill_0",
+        "targetLocator": "#OP_Fill_0"
+      },
+      {
+        "sourceId": "OP1_Fill_0",
+        "targetLocator": "#OP1_Fill_0"
+      },
+      {
+        "sourceId": "OP2_Fill_0",
+        "targetLocator": "#OP2_Fill_0"
+      }
+    ],
+    "submitLocator": "a:has-text(\"提交\")"
+  }
 }

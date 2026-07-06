@@ -87,11 +87,12 @@ def _sync_cooldown_seconds(session: Session) -> int:
         .where(AutomationEngineConfig.name == "default")
         .where(AutomationEngineConfig.is_active == True)  # noqa: E712
     ).first()
-    value = (((config.config_json or {}).get("retryPolicy") or {}).get("syncCooldownSeconds") if config else None)
+    config_json = (config.config_json or {}) if config else {}
+    value = (config_json.get("syncPolicy") or {}).get("syncCooldownSeconds")
     try:
         seconds = int(value)
     except (TypeError, ValueError):
-        seconds = 600
+        seconds = 1800
     return max(seconds, 0)
 
 

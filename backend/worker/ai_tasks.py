@@ -3,7 +3,12 @@ from worker.celery_app import celery_app
 from sqlmodel import Session
 from core.db import engine
 from models.core import AuditLog, Submission
-from services import ai_service
+from services import ai_service, captcha_ai
+
+@celery_app.task(bind=True, max_retries=3)
+def recognize_captcha_task(self, image_b64: str, config: dict):
+    """学校登录验证码识别。所有验证码 AI 调用统一在 worker 内执行。"""
+    return captcha_ai.recognize_captcha_image_b64(image_b64, config or {})
 
 @celery_app.task(bind=True, max_retries=3)
 def recognize_images_task(self, experiment_id: str, image_paths: list[str], user_id: int):

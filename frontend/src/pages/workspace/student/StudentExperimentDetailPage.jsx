@@ -240,9 +240,9 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
       }
       setFormValues((prev) => ({ ...prev, ...nextValues }));
       setAppliedDetailSyncJobId(job.jobId);
-      message.success('学校系统已填写内容已回填到当前页面。');
+      message.success('学校系统数据已加载到当前页面。');
     } catch (err) {
-      message.warning(`学校数据已同步，但回填到页面失败: ${err.response?.data?.detail || err.message}`);
+      message.warning(`学校数据已同步，但加载到页面失败: ${err.response?.data?.detail || err.message}`);
     }
   };
 

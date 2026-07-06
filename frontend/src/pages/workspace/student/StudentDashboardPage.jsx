@@ -255,10 +255,6 @@ export default function StudentDashboardPage() {
   }, [refreshOverviewLatest]);
 
   const handleBatchSubmitClick = () => {
-    if (['free', 'plus'].includes(currentPlan)) {
-      message.warning(`当前套餐 (${currentPlan}) 不支持一键填空，请升级至 Pro。`);
-      return;
-    }
     const pendingExps = experiments.filter(exp => ['not_started', 'need_upload'].includes(exp.status));
 
     setSubmitTargets(pendingExps);
@@ -267,9 +263,20 @@ export default function StudentDashboardPage() {
 
   const handleModalSubmit = async (batchImages, targetStudent, isHungup = false, planName = 'pay_per_use') => {
     try {
-      for (const target of submitTargets) {
-        const expImages = batchImages[target.id] || {};
-        const imagePaths = Object.values(expImages).flat().map(img => img.url).filter(Boolean);
+      const targetsWithImages = submitTargets
+        .map((target) => {
+          const expImages = batchImages[target.id] || {};
+          const imagePaths = Object.values(expImages).flat().map(img => img.url).filter(Boolean);
+          return { target, imagePaths };
+        })
+        .filter(({ imagePaths }) => imagePaths.length > 0);
+
+      if (targetsWithImages.length === 0) {
+        message.warning('请至少上传一个实验的图片');
+        return;
+      }
+
+      for (const { target, imagePaths } of targetsWithImages) {
         await submitExperiment(target.id, targetStudent, isHungup, imagePaths, planName);
       }
       message.success('批量提交成功！任务已进入处理队列。');

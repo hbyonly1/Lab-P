@@ -9,6 +9,9 @@ from services.ai_provider import (
     get_ai_provider,
 )
 
+def ai_error_detail(prefix: str, error: Exception) -> str:
+    return f"{prefix}: {type(error).__name__}: {error}"
+
 async def recognize_images(experiment_id: str, image_paths: list[str], session: Session) -> dict:
     from services.experimentConfigStore import get_experiment_config, collect_ai_recognition_node_ids
     
@@ -66,8 +69,9 @@ async def recognize_images(experiment_id: str, image_paths: list[str], session: 
         return filtered
         
     except Exception as e:
-        print(f"AI Recognition Error: {e}")
-        raise ValueError("AI 识别失败，请检查配置或稍后重试")
+        detail = ai_error_detail("AI 识别失败", e)
+        print(f"AI Recognition Error: {detail}")
+        raise ValueError(detail)
 
 def parse_numbered_answers(text: str, questions: list[dict]) -> list[dict]:
     import re
@@ -148,8 +152,9 @@ async def generate_answers(experiment_id: str, questions: list[dict], form_value
                 })
         return answers
     except Exception as e:
-        print(f"AI Batch Generation Error: {e}")
-        raise ValueError("AI 生成失败，请检查配置或稍后重试")
+        detail = ai_error_detail("AI 生成失败", e)
+        print(f"AI Batch Generation Error: {detail}")
+        raise ValueError(detail)
 
 async def get_fixed_fill(experiment_id: str) -> dict:
     from services.experimentConfigStore import get_experiment_config

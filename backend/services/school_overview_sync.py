@@ -4,21 +4,21 @@ import asyncio
 import base64
 import json
 import re
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
+from celery.exceptions import TimeoutError as CeleryTimeoutError
 
 from api.v1.automation_config import CONFIG_SCHEMA_VERSION, default_automation_config
 from core.db import engine
+from core.school_password import SchoolPasswordError, decrypt_school_password
 from models.core import AuditLog, AutomationEngineConfig, AutomationJob, SchoolSyncSnapshot, User, get_utc_now
-from services.ai_provider import AI_TASK_CAPTCHA, AiProviderConfigError, get_ai_provider
 from services.school_dom import SchoolDomTimeout, read_non_empty_text, wait_for_selector_count
 from services.school_session_manager import school_session_manager, school_user_session_key
+from worker.ai_tasks import recognize_captcha_task
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -172,40 +172,16 @@ def extract_captcha_candidate(raw_text: str, expected_length: int = 4) -> Option
 
 
 async def recognize_captcha(captcha_path: Path, config: Dict[str, Any]) -> CaptchaRecognitionResult:
-    image_b64 = base64.b64encode(captcha_path.read_bytes()).decode("ascii")
     try:
-        with Session(engine) as session:
-            provider = get_ai_provider(session)
-            profile = provider.get_profile(AI_TASK_CAPTCHA)
-            if not profile.prompt:
-                raise SchoolAutomationError(
-                    "CONFIG_INVALID",
-                    "验证码识别 Prompt 未配置",
-                    current_step="school.overview.recognizingCaptcha",
-                )
-            response = await provider.chat_completion(
-                task=AI_TASK_CAPTCHA,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image_url",
-                                "image_url": {"url": f"data:image/png;base64,{image_b64}"},
-                            },
-                            {"type": "text", "text": profile.prompt},
-                        ],
-                    }
-                ],
-                max_tokens=64,
-            )
-    except SchoolAutomationError:
-        raise
-    except AiProviderConfigError as exc:
+        timeout_seconds = safe_int(deep_get(config, "captcha.timeoutSeconds"), 30) + 15
+        image_b64 = base64.b64encode(captcha_path.read_bytes()).decode("ascii")
+        task = recognize_captcha_task.delay(image_b64, config)
+        result = await asyncio.to_thread(task.get, timeout=timeout_seconds, propagate=True)
+    except CeleryTimeoutError as exc:
         raise SchoolAutomationError(
             "CAPTCHA_RETRY_EXHAUSTED",
-            "验证码识别服务未配置",
-            message=str(exc),
+            "验证码识别超时",
+            message=f"worker task timeout: {exc}",
             current_step="school.overview.recognizingCaptcha",
         ) from exc
     except Exception as exc:
@@ -216,8 +192,8 @@ async def recognize_captcha(captcha_path: Path, config: Dict[str, Any]) -> Captc
             current_step="school.overview.recognizingCaptcha",
         ) from exc
 
-    content = str(response.choices[0].message.content or "")
-    cleaned = re.sub(r"[^0-9A-Za-z]", "", content).upper()
+    content = str((result or {}).get("raw_text") or "")
+    cleaned = str((result or {}).get("cleaned_text") or "")
     expected_length = get_captcha_expected_length(config)
     captcha = extract_captcha_candidate(content, expected_length)
     if not captcha:
@@ -234,27 +210,6 @@ async def recognize_captcha(captcha_path: Path, config: Dict[str, Any]) -> Captc
 def write_debug_json(path: Path, payload: Dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
-def ensure_login_url_reachable(config: Dict[str, Any]) -> None:
-    login_url = deep_get(config, "schoolSystem.loginUrl")
-    if not login_url:
-        raise SchoolAutomationError("NETWORK_UNREACHABLE", "学校系统登录地址未配置")
-
-    timeout_ms = safe_int(deep_get(config, "networkPolicy.probeTimeoutMs"), 3000)
-    request = urllib.request.Request(login_url, method="GET")
-    try:
-        with urllib.request.urlopen(request, timeout=max(timeout_ms, 500) / 1000):
-            return
-    except urllib.error.HTTPError:
-        return
-    except Exception as exc:
-        raise SchoolAutomationError(
-            "NETWORK_UNREACHABLE",
-            "服务器网络不可达",
-            message=f"{type(exc).__name__}: {exc}",
-            current_step="school.overview.connecting",
-        ) from exc
-
-
 def build_overview_failure_diagnostic(
     *,
     job: AutomationJob,
@@ -264,9 +219,9 @@ def build_overview_failure_diagnostic(
 ) -> Dict[str, Any]:
     config = config or {}
     school_system = config.get("schoolSystem") or {}
-    network_policy = config.get("networkPolicy") or {}
     runtime = config.get("runtime") or {}
     wait_policy = config.get("waitPolicy") or {}
+    sync_policy = config.get("syncPolicy") or {}
     retry_policy = config.get("retryPolicy") or {}
     captcha = config.get("captcha") or {}
     return {
@@ -287,11 +242,6 @@ def build_overview_failure_diagnostic(
                 "baseUrl": school_system.get("baseUrl"),
                 "loginUrl": school_system.get("loginUrl"),
             },
-            "networkPolicy": {
-                "phase": network_policy.get("phase"),
-                "directLoginUrl": network_policy.get("directLoginUrl"),
-                "probeTimeoutMs": network_policy.get("probeTimeoutMs"),
-            },
             "runtime": {
                 "headless": runtime.get("headless"),
                 "slowMoMs": runtime.get("slowMoMs"),
@@ -309,10 +259,15 @@ def build_overview_failure_diagnostic(
                 "overviewStableMs": wait_policy.get("overviewStableMs"),
                 "overviewPollMs": wait_policy.get("overviewPollMs"),
             },
+            "syncPolicy": {
+                "initialSync": sync_policy.get("initialSync"),
+                "detailSync": sync_policy.get("detailSync"),
+                "listCacheTtlSeconds": sync_policy.get("listCacheTtlSeconds"),
+                "syncCooldownSeconds": sync_policy.get("syncCooldownSeconds"),
+            },
             "retryPolicy": {
                 "captchaMaxRetries": retry_policy.get("captchaMaxRetries"),
                 "networkMaxRetries": retry_policy.get("networkMaxRetries"),
-                "syncCooldownSeconds": retry_policy.get("syncCooldownSeconds"),
             },
             "captcha": {
                 "task": captcha.get("task"),
@@ -671,6 +626,18 @@ async def save_overview_read_failure_artifacts(
         pass
 
 
+def school_login_password_for_user(user: User) -> str:
+    try:
+        return decrypt_school_password(user.encrypted_school_password)
+    except SchoolPasswordError as exc:
+        raise SchoolAutomationError(
+            "CREDENTIAL_FAILED",
+            "当前账号缺少可用的学校系统密码",
+            message=str(exc),
+            current_step="school.overview.openingLogin",
+        ) from exc
+
+
 async def perform_school_overview_sync(
     *,
     job_id: str,
@@ -679,9 +646,9 @@ async def perform_school_overview_sync(
 ) -> SchoolOverviewResult:
     if not user.student_no:
         raise SchoolAutomationError("CREDENTIAL_FAILED", "当前账号缺少学号")
+    school_password = school_login_password_for_user(user)
 
     set_job_progress(job_id, "school.overview.connecting")
-    await asyncio.to_thread(ensure_login_url_reachable, config)
 
     try:
         from playwright.async_api import TimeoutError as PlaywrightTimeoutError
@@ -695,6 +662,12 @@ async def perform_school_overview_sync(
         ) from exc
 
     login_url = deep_get(config, "schoolSystem.loginUrl")
+    if not login_url:
+        raise SchoolAutomationError(
+            "NETWORK_UNREACHABLE",
+            "学校系统登录地址未配置",
+            current_step="school.overview.openingLogin",
+        )
     login_selectors = deep_get(config, "selectors.login", {}) or {}
     username_selector = login_selectors.get("username") or "#userName"
     password_selector = login_selectors.get("password") or "#userPass"
@@ -810,7 +783,15 @@ async def perform_school_overview_sync(
 
     try:
         set_job_progress(job_id, "school.overview.openingLogin")
-        await page.goto(login_url, wait_until="domcontentloaded")
+        try:
+            await page.goto(login_url, wait_until="domcontentloaded")
+        except Exception as exc:
+            raise SchoolAutomationError(
+                "NETWORK_UNREACHABLE",
+                "学校系统登录页无法打开",
+                message=f"{type(exc).__name__}: {exc}",
+                current_step="school.overview.openingLogin",
+            ) from exc
         try:
             await page.wait_for_load_state("networkidle", timeout=network_idle_timeout_ms)
         except PlaywrightTimeoutError:
@@ -842,7 +823,7 @@ async def perform_school_overview_sync(
                 )
 
             await page.locator(username_selector).fill(user.student_no)
-            await page.locator(password_selector).fill(user.student_no)
+            await page.locator(password_selector).fill(school_password)
 
             if await page.locator(captcha_selector).count() > 0:
                 if await page.locator(captcha_image_selector).count() == 0:

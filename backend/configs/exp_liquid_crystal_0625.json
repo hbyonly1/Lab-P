@@ -653,7 +653,7 @@
             "emptyTitle": "上传透光率上升的相应曲线照片",
             "emptyHint": ""
           },
-          "（5）从响应曲线照片读出 Rise（ms）=",
+          "（4）从响应曲线照片读出 Rise（ms）=",
           {
             "nodeId": "Y8",
             "width": "80px"
@@ -668,5 +668,210 @@
       "imageRef": "IMG_RAW_DATA"
     }
   },
-  "formulas": {}
+  "formulas": {},
+  "automation": {
+    "mappings": [
+      {
+        "sourceId": "SYMD_Fill_0",
+        "targetLocator": "#SYMD_Fill_0"
+      },
+      {
+        "sourceId": "SYMD_Fill_1",
+        "targetLocator": "#SYMD_Fill_1"
+      },
+      {
+        "sourceId": "SYMD_Fill_2",
+        "targetLocator": "#SYMD_Fill_2"
+      },
+      {
+        "sourceId": "SYYL_Fill_0",
+        "targetLocator": "#SYYL_Fill_0"
+      },
+      {
+        "sourceId": "SYYL_Fill_1",
+        "targetLocator": "#SYYL_Fill_1"
+      },
+      {
+        "sourceId": "SYYL_Fill_2",
+        "targetLocator": "#SYYL_Fill_2"
+      },
+      {
+        "sourceId": "SYYL_Fill_3",
+        "targetLocator": "#SYYL_Fill_3"
+      },
+      {
+        "sourceId": "SYYL_Fill_4",
+        "targetLocator": "#SYYL_Fill_4"
+      },
+      {
+        "sourceId": "SYYL_Fill_5",
+        "targetLocator": "#SYYL_Fill_5"
+      },
+      {
+        "sourceId": "SYYL_Fill_6",
+        "targetLocator": "#SYYL_Fill_6"
+      },
+      {
+        "sourceId": "SYYL_Fill_7",
+        "targetLocator": "#SYYL_Fill_7"
+      },
+      {
+        "sourceId": "YSSJDrawingAreaArea",
+        "targetLocator": "#YSSJDrawingAreaArea",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "Y10-0",
+        "targetLocator": "#Y10-0"
+      },
+      {
+        "sourceId": "Y10-1",
+        "targetLocator": "#Y10-1"
+      },
+      {
+        "sourceId": "Y11-0",
+        "targetLocator": "#Y11-0"
+      },
+      {
+        "sourceId": "Y11-1",
+        "targetLocator": "#Y11-1"
+      },
+      {
+        "sourceId": "Y12-0",
+        "targetLocator": "#Y12-0"
+      },
+      {
+        "sourceId": "Y12-1",
+        "targetLocator": "#Y12-1"
+      },
+      {
+        "sourceId": "Y13-0",
+        "targetLocator": "#Y13-0"
+      },
+      {
+        "sourceId": "Y13-1",
+        "targetLocator": "#Y13-1"
+      },
+      {
+        "sourceId": "Y14-0",
+        "targetLocator": "#Y14-0"
+      },
+      {
+        "sourceId": "Y14-1",
+        "targetLocator": "#Y14-1"
+      },
+      {
+        "sourceId": "Y15-0",
+        "targetLocator": "#Y15-0"
+      },
+      {
+        "sourceId": "Y15-1",
+        "targetLocator": "#Y15-1"
+      },
+      {
+        "sourceId": "Y16-0",
+        "targetLocator": "#Y16-0"
+      },
+      {
+        "sourceId": "Y16-1",
+        "targetLocator": "#Y16-1"
+      },
+      {
+        "sourceId": "Y17-0",
+        "targetLocator": "#Y17-0"
+      },
+      {
+        "sourceId": "Y17-1",
+        "targetLocator": "#Y17-1"
+      },
+      {
+        "sourceId": "Y18-0",
+        "targetLocator": "#Y18-0"
+      },
+      {
+        "sourceId": "Y18-1",
+        "targetLocator": "#Y18-1"
+      },
+      {
+        "sourceId": "Y19-0",
+        "targetLocator": "#Y19-0"
+      },
+      {
+        "sourceId": "Y19-1",
+        "targetLocator": "#Y19-1"
+      },
+      {
+        "sourceId": "Y110-0",
+        "targetLocator": "#Y110-0"
+      },
+      {
+        "sourceId": "Y110-1",
+        "targetLocator": "#Y110-1"
+      },
+      {
+        "sourceId": "Y111-0",
+        "targetLocator": "#Y111-0"
+      },
+      {
+        "sourceId": "Y111-1",
+        "targetLocator": "#Y111-1"
+      },
+      {
+        "sourceId": "Y112-0",
+        "targetLocator": "#Y112-0"
+      },
+      {
+        "sourceId": "Y112-1",
+        "targetLocator": "#Y112-1"
+      },
+      {
+        "sourceId": "Y113-0",
+        "targetLocator": "#Y113-0"
+      },
+      {
+        "sourceId": "Y113-1",
+        "targetLocator": "#Y113-1"
+      },
+      {
+        "sourceId": "Y114-0",
+        "targetLocator": "#Y114-0"
+      },
+      {
+        "sourceId": "Y114-1",
+        "targetLocator": "#Y114-1"
+      },
+      {
+        "sourceId": "Y2Area",
+        "targetLocator": "#Y2Area",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "Y3",
+        "targetLocator": "#Y3"
+      },
+      {
+        "sourceId": "Y4",
+        "targetLocator": "#Y4"
+      },
+      {
+        "sourceId": "Y5Area",
+        "targetLocator": "#Y5Area",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "Y6",
+        "targetLocator": "#Y6"
+      },
+      {
+        "sourceId": "Y7Area",
+        "targetLocator": "#Y7Area",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "Y8",
+        "targetLocator": "#Y8"
+      }
+    ],
+    "submitLocator": "a:has-text(\"提交\")"
+  }
 }

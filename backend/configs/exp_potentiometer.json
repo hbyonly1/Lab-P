@@ -539,5 +539,141 @@
       "imageRef": "IMG_RAW_DATA"
     }
   },
-  "formulas": {}
+  "formulas": {},
+  "automation": {
+    "mappings": [
+      {
+        "sourceId": "SYBZ_Fill_0",
+        "targetLocator": "#SYBZ_Fill_0"
+      },
+      {
+        "sourceId": "SYBZ_Fill_1",
+        "targetLocator": "#SYBZ_Fill_1"
+      },
+      {
+        "sourceId": "SYBZ_Fill_2",
+        "targetLocator": "#SYBZ_Fill_2"
+      },
+      {
+        "sourceId": "SYBZ_Fill_3",
+        "targetLocator": "#SYBZ_Fill_3"
+      },
+      {
+        "sourceId": "SYBZ_Fill_4",
+        "targetLocator": "#SYBZ_Fill_4"
+      },
+      {
+        "sourceId": "SYBZ_Fill_5",
+        "targetLocator": "#SYBZ_Fill_5"
+      },
+      {
+        "sourceId": "SYBZ_Fill_6",
+        "targetLocator": "#SYBZ_Fill_6"
+      },
+      {
+        "sourceId": "SYBZ_Fill_7",
+        "targetLocator": "#SYBZ_Fill_7"
+      },
+      {
+        "sourceId": "SYBZ_Fill_8",
+        "targetLocator": "#SYBZ_Fill_8"
+      },
+      {
+        "sourceId": "SYBZ_Fill_9",
+        "targetLocator": "#SYBZ_Fill_9"
+      },
+      {
+        "sourceId": "SYBZ_Fill_10",
+        "targetLocator": "#SYBZ_Fill_10"
+      },
+      {
+        "sourceId": "YSSJDrawingAreaArea",
+        "targetLocator": "#YSSJDrawingAreaArea",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "D1Area",
+        "targetLocator": "#D1Area",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "D2",
+        "targetLocator": "#D2"
+      },
+      {
+        "sourceId": "D30-0",
+        "targetLocator": "#D30-0"
+      },
+      {
+        "sourceId": "D30-1",
+        "targetLocator": "#D30-1"
+      },
+      {
+        "sourceId": "D30-2",
+        "targetLocator": "#D30-2"
+      },
+      {
+        "sourceId": "D30-3",
+        "targetLocator": "#D30-3"
+      },
+      {
+        "sourceId": "D30-4",
+        "targetLocator": "#D30-4"
+      },
+      {
+        "sourceId": "D30-5",
+        "targetLocator": "#D30-5"
+      },
+      {
+        "sourceId": "D31-0",
+        "targetLocator": "#D31-0"
+      },
+      {
+        "sourceId": "D31-1",
+        "targetLocator": "#D31-1"
+      },
+      {
+        "sourceId": "D31-2",
+        "targetLocator": "#D31-2"
+      },
+      {
+        "sourceId": "D31-3",
+        "targetLocator": "#D31-3"
+      },
+      {
+        "sourceId": "D31-4",
+        "targetLocator": "#D31-4"
+      },
+      {
+        "sourceId": "D31-5",
+        "targetLocator": "#D31-5"
+      },
+      {
+        "sourceId": "D7",
+        "targetLocator": "#D7"
+      },
+      {
+        "sourceId": "D8",
+        "targetLocator": "#D8"
+      },
+      {
+        "sourceId": "D9",
+        "targetLocator": "#D9"
+      },
+      {
+        "sourceId": "D10Area",
+        "targetLocator": "#D10Area",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "D11",
+        "targetLocator": "#D11"
+      },
+      {
+        "sourceId": "D12",
+        "targetLocator": "#D12"
+      }
+    ],
+    "submitLocator": "a:has-text(\"提交\")"
+  }
 }

@@ -13,14 +13,15 @@ from api.v1 import school_sync
 from api.v1.automation_config import CONFIG_SCHEMA_VERSION, default_automation_config
 from core.config import settings
 from core.db import get_session
-from models.core import Experiment, User, Order, Submission, SubmissionVersion, AuditLog, AutomationJob, SchoolSyncSnapshot, get_utc_now
+from models.core import Experiment, User, Order, Submission, SubmissionVersion, AuditLog, AutomationEngineConfig, AutomationJob, SchoolSyncSnapshot, get_utc_now
 from core.security import get_password_hash
+from core.school_password import decrypt_school_password, encrypt_school_password
 from services.automation_job_service import (
     AutomationJobConflict,
     create_or_reuse_automation_job,
     make_idempotency_key,
 )
-from services.school_overview_sync import SchoolAutomationError, extract_captcha_candidate, extract_report_list, mark_overview_failed
+from services.school_overview_sync import SchoolAutomationError, extract_captcha_candidate, extract_report_list, mark_overview_failed, school_login_password_for_user
 import services.school_report_sync as school_report_sync_service
 from services.school_report_sync import SchoolReportOpenResult
 from services.school_dom import wait_for_locator_value
@@ -254,6 +255,46 @@ def test_mapping_audit_reports_meter_image_mapping():
     assert item["targetType"] == "wysiwyg_image"
 
 
+def test_experiment_configs_have_automation_mappings_for_configured_nodes():
+    config_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "configs")
+    for filename in sorted(os.listdir(config_dir)):
+        if not filename.endswith(".json"):
+            continue
+        with open(os.path.join(config_dir, filename), "r", encoding="utf-8") as handle:
+            config = json.load(handle)
+        fields = (config.get("inputs") or {}).get("fields") or []
+        field_by_id = {field.get("id"): field for field in fields if field.get("id")}
+        question_ids = {
+            question.get("nodeId")
+            for question in ((config.get("ui") or {}).get("questions") or [])
+            if question.get("nodeId")
+        }
+        mappings = ((config.get("automation") or {}).get("mappings") or [])
+        mapping_by_source = {mapping.get("sourceId"): mapping for mapping in mappings}
+
+        assert len(mapping_by_source) == len(mappings), f"{filename} has duplicate automation mapping sourceId"
+
+        for image in (config.get("inputs") or {}).get("images") or []:
+            target_node_id = image.get("targetNodeId")
+            if target_node_id:
+                assert target_node_id in field_by_id, f"{filename} image targetNodeId missing field: {target_node_id}"
+
+        required_ids = set(field_by_id) | question_ids
+        missing_ids = sorted(required_ids - set(mapping_by_source))
+        assert missing_ids == [], f"{filename} missing automation mappings: {missing_ids}"
+
+        for source_id in required_ids:
+            mapping = mapping_by_source[source_id]
+            assert mapping.get("targetLocator") == f"#{source_id}", f"{filename} {source_id} targetLocator mismatch"
+            field_type = (field_by_id.get(source_id) or {}).get("type")
+            if field_type == "image_upload":
+                assert mapping.get("targetType") == "wysiwyg_image", f"{filename} {source_id} should be wysiwyg_image"
+            elif source_id in question_ids:
+                assert mapping.get("targetType") == "wysiwyg_text", f"{filename} {source_id} should be wysiwyg_text"
+            else:
+                assert mapping.get("targetType") in [None, "text"], f"{filename} {source_id} unexpected targetType"
+
+
 def test_local_upload_path_resolution_prefers_existing_upload(tmp_path, monkeypatch):
     upload_dir = tmp_path / "uploads" / "2026-07"
     upload_dir.mkdir(parents=True)
@@ -344,6 +385,7 @@ def setup_test_data():
                 username=STUDENT_NO,
                 student_no=STUDENT_NO,
                 hashed_password=get_password_hash(STUDENT_NO),
+                encrypted_school_password=encrypt_school_password(STUDENT_NO),
                 role="student",
             )
             session.add(student)
@@ -355,6 +397,7 @@ def setup_test_data():
                 username=FREE_STUDENT_NO,
                 student_no=FREE_STUDENT_NO,
                 hashed_password=get_password_hash(FREE_STUDENT_NO),
+                encrypted_school_password=encrypt_school_password(FREE_STUDENT_NO),
                 role="student",
             )
             session.add(student_free)
@@ -402,6 +445,60 @@ def test_student_auth_response_includes_synced_identity():
     me_data = res.json()
     assert me_data["student_no"] == STUDENT_NO
     assert me_data["real_name"] == "同步姓名"
+
+
+def test_student_login_creates_user_with_encrypted_school_password():
+    student_no = "26A2512345678"
+    plain_password = "changed-school-password"
+    with next(get_session()) as session:
+        existing = session.exec(select(User).where(User.student_no == student_no)).first()
+        if existing:
+            session.delete(existing)
+            session.commit()
+
+    res = client.post("/api/v1/auth/login", data={"username": student_no, "password": plain_password})
+    assert res.status_code == 200, res.text
+
+    with next(get_session()) as session:
+        user = session.exec(select(User).where(User.student_no == student_no)).first()
+        assert user is not None
+        assert user.encrypted_school_password
+        assert user.encrypted_school_password != plain_password
+        assert decrypt_school_password(user.encrypted_school_password) == plain_password
+        assert school_login_password_for_user(user) == plain_password
+
+    bad_res = client.post("/api/v1/auth/login", data={"username": student_no, "password": student_no})
+    assert bad_res.status_code == 400
+
+
+def test_login_preview_marks_first_student_login_for_confirmation():
+    student_no = "26A2599999999"
+    with next(get_session()) as session:
+        existing = session.exec(select(User).where(User.student_no == student_no)).first()
+        if existing:
+            session.delete(existing)
+            session.commit()
+
+    res = client.post("/api/v1/auth/login-preview", json={"username": student_no})
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["username"] == student_no
+    assert data["is_student_login"] is True
+    assert data["account_exists"] is False
+    assert data["requires_school_credential_confirmation"] is True
+
+    existing_res = client.post("/api/v1/auth/login-preview", json={"username": STUDENT_NO})
+    assert existing_res.status_code == 200, existing_res.text
+    existing_data = existing_res.json()
+    assert existing_data["is_student_login"] is True
+    assert existing_data["account_exists"] is True
+    assert existing_data["requires_school_credential_confirmation"] is False
+
+    admin_res = client.post("/api/v1/auth/login-preview", json={"username": "admin_e2e_flow"})
+    assert admin_res.status_code == 200, admin_res.text
+    admin_data = admin_res.json()
+    assert admin_data["is_student_login"] is False
+    assert admin_data["requires_school_credential_confirmation"] is False
 
 
 def test_review_pool_does_not_mock_missing_real_name(admin_token):
@@ -498,6 +595,31 @@ def test_student_payment_flow(student_token, admin_token):
         assert "submission_created" in actions
         assert "status_changed" in actions
 
+def test_one_click_submission_requires_uploaded_images(student_token):
+    experiment_id = "exp_empty_image_guard"
+    with next(get_session()) as session:
+        if not session.get(Experiment, experiment_id):
+            session.add(Experiment(id=experiment_id, title="Empty Image Guard"))
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        session.exec(delete(Submission).where(Submission.student_id == student.id).where(Submission.experiment_id == experiment_id))
+        session.exec(delete(Order).where(Order.student_id == student.id).where(Order.experiment_id == experiment_id))
+        session.commit()
+
+    res = client.post(
+        "/api/v1/submissions/submit",
+        json={"experiment_id": experiment_id, "is_hungup": True, "image_paths": []},
+        headers={"Authorization": f"Bearer {student_token}"}
+    )
+    assert res.status_code == 400, res.text
+    assert "至少需要上传一个实验图片" in res.json()["detail"]
+
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        order = session.exec(select(Order).where(Order.student_id == student.id).where(Order.experiment_id == experiment_id)).first()
+        submission = session.exec(select(Submission).where(Submission.student_id == student.id).where(Submission.experiment_id == experiment_id)).first()
+        assert order is None
+        assert submission is None
+
 def test_upgrade_plus_flow(free_student_token):
     # 1. Free student upgrades to Plus
     res = client.post(
@@ -527,12 +649,14 @@ def test_admin_automation_config(admin_token, student_token):
     res = client.get("/api/v1/admin/automation-config", headers={"Authorization": f"Bearer {admin_token}"})
     assert res.status_code == 200, res.text
     config = res.json()
-    assert config["config_json"]["identity"]["passwordPolicy"] == "same_as_student_no"
+    assert config["config_json"]["identity"]["passwordPolicy"] == "encrypted_user_password"
 
     config_json = default_automation_config()
     assert config_json["captcha"]["expectedLength"] == 4
     assert config_json["runtime"]["keepBrowserOpenAfterLogin"] is True
-    assert config_json["networkPolicy"]["phase"] == "direct_intranet_only"
+    assert config_json["syncPolicy"]["syncCooldownSeconds"] == 1800
+    assert "syncCooldownSeconds" not in config_json["retryPolicy"]
+    assert "networkPolicy" not in config_json
     assert config_json["waitPolicy"]["listRefreshTimeoutMs"] == 30000
     config_json["runtime"]["slowMoMs"] = 123
     payload = {
@@ -563,6 +687,46 @@ def test_admin_automation_config(admin_token, student_token):
             },
             headers={"Authorization": f"Bearer {admin_token}"},
         )
+
+
+def test_school_sync_cooldown_reads_sync_policy_only():
+    with next(get_session()) as session:
+        config = session.exec(
+            select(AutomationEngineConfig).where(AutomationEngineConfig.name == "default")
+        ).first()
+        original_config_json = dict(config.config_json or {}) if config else None
+        original_schema_version = config.schema_version if config else None
+
+        if not config:
+            config = AutomationEngineConfig(
+                name="default",
+                config_json=default_automation_config(),
+                schema_version=CONFIG_SCHEMA_VERSION,
+                is_active=True,
+            )
+            session.add(config)
+            session.commit()
+            session.refresh(config)
+
+        config_json = default_automation_config()
+        config_json["syncPolicy"]["syncCooldownSeconds"] = 7
+        config_json["retryPolicy"]["syncCooldownSeconds"] = 99
+        config.config_json = config_json
+        config.schema_version = CONFIG_SCHEMA_VERSION
+        config.is_active = True
+        session.add(config)
+        session.commit()
+
+        try:
+            assert school_sync._sync_cooldown_seconds(session) == 7
+        finally:
+            if original_config_json is None:
+                session.delete(config)
+            else:
+                config.config_json = original_config_json
+                config.schema_version = original_schema_version
+                session.add(config)
+            session.commit()
 
 
 def test_captcha_candidate_requires_exact_expected_length():
@@ -1132,7 +1296,6 @@ def test_school_overview_failure_audit_contains_diagnostic_payload(student_token
     config_json = default_automation_config()
     config_json["schoolSystem"]["baseUrl"] = "http://10.25.77.60:8001"
     config_json["schoolSystem"]["loginUrl"] = "http://10.25.77.60:8001/Login"
-    config_json["networkPolicy"] = {"phase": "direct_intranet_only", "probeTimeoutMs": 3000}
 
     with next(get_session()) as session:
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
@@ -1175,7 +1338,7 @@ def test_school_overview_failure_audit_contains_diagnostic_payload(student_token
         assert details["errorCode"] == "NETWORK_UNREACHABLE"
         assert details["message"] == "TimeoutError: timed out"
         assert details["config"]["schoolSystem"]["loginUrl"] == "http://10.25.77.60:8001/Login"
-        assert details["config"]["networkPolicy"]["phase"] == "direct_intranet_only"
+        assert "networkPolicy" not in details["config"]
         assert details["config"]["waitPolicy"]["listRefreshTimeoutMs"] == 30000
         assert job.result_payload["diagnosticPayload"]["errorCode"] == "NETWORK_UNREACHABLE"
 

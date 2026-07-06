@@ -65,20 +65,17 @@ manual_verification_required
     "baseUrl": "http://10.25.77.60:8001",
     "loginUrl": "http://10.25.77.60:8001/Login"
   },
-  "networkPolicy": {
-    "phase": "direct_intranet_only",
-    "directLoginUrl": "http://10.25.77.60:8001/Login",
-    "vpnLoginUrl": "https://10-25-77-60-8001-p.vpn.cumtb.edu.cn:8118/",
-    "vpnUsernameEnv": "CUMTB_VPN_USERNAME",
-    "vpnPasswordEnv": "CUMTB_VPN_PASSWORD",
-    "probeTimeoutMs": 3000
+  "syncPolicy": {
+    "initialSync": "identity_and_report_list",
+    "detailSync": "on_demand",
+    "listCacheTtlSeconds": 600,
+    "syncCooldownSeconds": 1800
   },
   "retryPolicy": {
     "captchaMaxRetries": 3,
     "credentialMaxRetries": 1,
     "networkMaxRetries": 2,
-    "selectorMaxRetries": 1,
-    "syncCooldownSeconds": 600
+    "selectorMaxRetries": 1
   },
   "runtime": {
     "headless": false,
@@ -112,7 +109,7 @@ manual_verification_required
 - `defaultTimeoutMs`：Playwright 等待元素、页面加载、网络响应的默认超时时间，单位毫秒。`30000` 表示最多等待 30 秒。
 - `postLoginSettleMs`：登录按钮点击后，页面刚跳转或初始化时额外等待的稳定时间，单位毫秒。它用于等待页面脚本、表格渲染和用户信息挂载。
 - `postLoginWaitMs`：登录后等待进入目标页面或关键元素出现的最长时间，单位毫秒。它和 `postLoginSettleMs` 不同：前者是最长等待窗口，后者是固定稳定延迟。
-- `syncCooldownSeconds`：用户登录平台后 10 分钟内不自动重复同步概览，除非用户手动点击同步。
+- `syncPolicy.syncCooldownSeconds`：用户登录平台后 30 分钟内不自动重复同步概览，除非用户手动点击同步。
 - `userSessionIdleTtlSeconds = 0`：平台不主动关闭学校系统浏览器会话，直到学校登录态自己失效或服务重启。
 - `headless = false`：当前开发阶段打开可视浏览器窗口，方便观察。
 - `vpnUsernameEnv` 指向本地环境变量名，值为固定校园 VPN 认证账号。账号不得硬编码进数据库配置、文档正文以外的代码、日志或前端响应。
@@ -203,8 +200,8 @@ closed/missing -> 新建浏览器并登录
 用户登录平台成功后，后端检查最近一次学校概览同步时间：
 
 - 未同步过：自动同步。
-- 距离上次同步超过 `syncCooldownSeconds`：自动同步。
-- 10 分钟内已同步：不自动同步。
+- 距离上次同步超过 `syncPolicy.syncCooldownSeconds`：自动同步。
+- 30 分钟内已同步：不自动同步。
 - 用户点击“手动同步”：忽略冷却时间，立即同步。
 
 ### 4.2 前端提示
@@ -264,7 +261,7 @@ closed/missing -> 新建浏览器并登录
 
 1. 打开 `schoolSystem.loginUrl`。
 2. 填写用户名：`users.student_no`。
-3. 填写密码：同学号。
+3. 填写密码：解密 `users.encrypted_school_password`，不得回退为学号。
 4. 截取验证码图片节点。
 5. 调用 AI API 识别验证码。
 6. 清洗并校验验证码候选值，必须匹配必填配置 `captcha.expectedLength`，当前配置为 4 位；不匹配时刷新验证码重试，不填写提交。
@@ -884,7 +881,7 @@ final
 ## 15. 第一阶段验收标准
 
 - 内网可达时，学生登录平台后能自动同步学校概览。
-- 10 分钟内不会重复自动同步，手动同步可强制触发。
+- 30 分钟内不会重复自动同步，手动同步可强制触发。
 - 学校实验列表的“未提交 / 临时提交 / 正常提交”能保存并在学生页面展示。
 - 学生点进实验后能打开对应学校 modal 并读取已有节点值。
 - 临时提交能保存平台快照、回填学校系统、逐节点校验写入结果，并读取成功或失败反馈。
@@ -900,7 +897,7 @@ final
 
 已完成的基础能力：
 
-- 自动化配置、重试参数、等待参数和安全红线已文档化；默认概览冷却时间为 `syncCooldownSeconds=600`。
+- 自动化配置、重试参数、等待参数和安全红线已文档化；默认概览冷却时间为 `syncPolicy.syncCooldownSeconds=1800`。
 - 自动化 job 已有脱敏 public DTO、active 查询、幂等键和 active job 唯一约束。
 - 概览同步已有 `GET /api/v1/school-sync/overview/latest` 和 `POST /api/v1/school-sync/overview`；后端已接入 `school_overview_sync` service，负责内网连通性探测、Playwright 登录、验证码 AI 识别、真实姓名和完成报告列表读取。当前仍需在配置 `AI_API_KEY` 且可访问学校内网的环境中做真实端到端验证。
 - 单实验同步已有 `POST /api/v1/school-sync/experiments/{experiment_id}` 真实 service：复用用户级学校浏览器会话，回到完成报告列表，点击对应实验“完成报告”，读取 modal 字段并保存 `school_sync_snapshots(source=school_report_modal)`。

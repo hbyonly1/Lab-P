@@ -10,10 +10,9 @@ from models.core import AuditLog, AutomationEngineConfig, User, get_utc_now
 
 router = APIRouter()
 
-CONFIG_SCHEMA_VERSION = "1.3"
+CONFIG_SCHEMA_VERSION = "1.5"
 REQUIRED_TOP_LEVEL_KEYS = {
     "schoolSystem",
-    "networkPolicy",
     "identity",
     "selectors",
     "safety",
@@ -50,20 +49,11 @@ def default_automation_config() -> Dict[str, Any]:
             "baseUrl": "http://10.25.77.60:8001",
             "loginUrl": "http://10.25.77.60:8001/Login",
         },
-        "networkPolicy": {
-            "_comment": "学校系统网络入口策略。当前阶段直连内网，VPN 字段只保存环境变量名。",
-            "phase": "direct_intranet_only",
-            "directLoginUrl": "http://10.25.77.60:8001/Login",
-            "vpnLoginUrl": "https://10-25-77-60-8001-p.vpn.cumtb.edu.cn:8118/",
-            "vpnUsernameEnv": "CUMTB_VPN_USERNAME",
-            "vpnPasswordEnv": "CUMTB_VPN_PASSWORD",
-            "probeTimeoutMs": 3000,
-        },
         "identity": {
-            "_comment": "学校系统账号使用 users.student_no，密码固定与学号一致；登录后姓名写入 users.real_name。",
+            "_comment": "学校系统账号使用 users.student_no，密码使用 users.encrypted_school_password 解密结果；登录后姓名写入 users.real_name。",
             "studentNoField": "users.student_no",
             "realNameField": "users.real_name",
-            "passwordPolicy": "same_as_student_no",
+            "passwordPolicy": "encrypted_user_password",
         },
         "selectors": {
             "_comment": "学校系统 DOM 选择器。重复节点后续使用 selector + index 或所在行定位。",
@@ -120,13 +110,13 @@ def default_automation_config() -> Dict[str, Any]:
             "initialSync": "identity_and_report_list",
             "detailSync": "on_demand",
             "listCacheTtlSeconds": 600,
+            "syncCooldownSeconds": 1800,
         },
         "retryPolicy": {
             "captchaMaxRetries": 3,
             "credentialMaxRetries": 1,
             "networkMaxRetries": 2,
             "selectorMaxRetries": 1,
-            "syncCooldownSeconds": 600,
         },
         "runtime": {
             "_comment": "headless=false 表示打开可视浏览器窗口；userSessionIdleTtlSeconds=0 表示平台不主动关闭会话。",
@@ -165,8 +155,8 @@ def validate_config_payload(config_json: Dict[str, Any]) -> None:
         raise HTTPException(status_code=422, detail=f"Missing config_json keys: {', '.join(missing)}")
 
     identity = config_json.get("identity") or {}
-    if identity.get("passwordPolicy") != "same_as_student_no":
-        raise HTTPException(status_code=422, detail="identity.passwordPolicy must be same_as_student_no.")
+    if identity.get("passwordPolicy") != "encrypted_user_password":
+        raise HTTPException(status_code=422, detail="identity.passwordPolicy must be encrypted_user_password.")
 
     captcha = config_json.get("captcha") or {}
     if captcha.get("expectedLength") is None:
@@ -178,6 +168,14 @@ def validate_config_payload(config_json: Dict[str, Any]) -> None:
     if expected_length <= 0:
         raise HTTPException(status_code=422, detail="captcha.expectedLength must be a positive integer.")
 
+    sync_policy = config_json.get("syncPolicy") or {}
+    try:
+        sync_cooldown_seconds = int(sync_policy.get("syncCooldownSeconds"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="syncPolicy.syncCooldownSeconds must be a non-negative integer.") from None
+    if sync_cooldown_seconds < 0:
+        raise HTTPException(status_code=422, detail="syncPolicy.syncCooldownSeconds must be a non-negative integer.")
+
     runtime = config_json.get("runtime") or {}
     if "keepBrowserOpenAfterLogin" not in runtime:
         raise HTTPException(status_code=422, detail="runtime.keepBrowserOpenAfterLogin is required.")
@@ -185,7 +183,6 @@ def validate_config_payload(config_json: Dict[str, Any]) -> None:
         raise HTTPException(status_code=422, detail="runtime.keepBrowserOpenAfterLogin must be boolean.")
 
     for group_name, fields in {
-        "networkPolicy": ["probeTimeoutMs"],
         "runtime": ["defaultTimeoutMs", "postLoginSettleMs", "postLoginWaitMs"],
         "waitPolicy": [
             "modalOpenTimeoutMs",

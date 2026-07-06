@@ -13,6 +13,7 @@ class User(SQLModel, table=True):
     student_no: Optional[str] = Field(default=None, index=True, unique=True)
     real_name: Optional[str] = Field(default=None)
     hashed_password: str
+    encrypted_school_password: Optional[str] = Field(default=None)
     role: str = Field(default="student") # student, reviewer, admin
     capabilities: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
     created_at: datetime = Field(default_factory=get_utc_now)

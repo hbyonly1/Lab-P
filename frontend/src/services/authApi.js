@@ -26,6 +26,11 @@ export async function loginAdmin(credentials) {
   return normalizeAuthSession(response.data);
 }
 
+export async function previewLogin(username) {
+  const response = await apiClient.post('/api/v1/auth/login-preview', { username });
+  return response.data;
+}
+
 export async function logoutAdmin() {
   // For JWT, logout is purely client-side by clearing the token
   return Promise.resolve();

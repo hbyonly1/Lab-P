@@ -58,10 +58,10 @@ Playwright 按动态配置填报学校系统
 - 后续真实学校系统接入时，必须把“平台登录名”“学号”“真实姓名”拆清楚，不能继续让 `username` 同时表达所有含义。
 - 建议新增 `users.student_no` 保存学生学号，作为登录学校系统的账号；admin / reviewer 可为空。
 - 建议新增 `users.real_name` 保存从学校系统同步到的真实姓名，只用于展示、同步校验或人工核对，不能当作学校系统登录账号或密码。
-- 当前学校系统密码策略为：学校系统密码与学号一致，即登录学校系统时账号使用 `student_no`，密码也使用同一个 `student_no`。
+- 当前学校系统密码策略为：平台登录密码与学校实验系统密码统一；登录学校系统时账号使用 `student_no`，密码使用解密后的 `users.encrypted_school_password`。
 - 不兼容现有脏数据；如果本地库里有旧数据导致约束或字段语义冲突，直接清表或重建数据库，再按新 migration 初始化。
-- 因为密码可由学号派生，平台无需长期保存学校系统密码。
-- 若未来学校系统密码策略改变，必须新增加密的任务级临时凭据字段，并更新 `DECISIONS.md` 与 `API_CONTRACT.md`。
+- 学校密码不能由学号派生；学生首次登录平台时，后端保存平台密码哈希，并额外保存一份加密后的学校系统密码供 Playwright 使用。
+- 若未来学校系统密码策略改变，必须更新加密凭据字段使用方式，并同步 `DECISIONS.md` 与 `API_CONTRACT.md`。
 - 后端、日志、审计记录和前端响应均不得返回明文学校密码。
 
 ### 1.5 审计日志
@@ -153,7 +153,7 @@ updated_at
   "identity": {
     "studentNoField": "users.student_no",
     "realNameField": "users.real_name",
-    "passwordPolicy": "same_as_student_no"
+    "passwordPolicy": "encrypted_user_password"
   },
   "selectors": {
     "login": {
@@ -174,10 +174,12 @@ updated_at
       "feedback": ".submit-result"
     }
   },
+  "syncPolicy": {
+    "syncCooldownSeconds": 1800
+  },
   "retryPolicy": {
     "captchaMaxRetries": 3,
-    "networkMaxRetries": 2,
-    "syncCooldownSeconds": 600
+    "networkMaxRetries": 2
   },
   "runtime": {
     "headless": true,
@@ -190,7 +192,7 @@ updated_at
 
 - `config_json` 中只能保存选择器、运行参数、重试策略和学校系统入口等配置。
 - `config_json` 不保存具体 Playwright 脚本代码。
-- `passwordPolicy: same_as_student_no` 表示学校系统密码由 `student_no` 派生；`real_name` 只用于展示和同步核对。
+- `passwordPolicy: encrypted_user_password` 表示学校系统密码来自 `users.encrypted_school_password` 解密结果；`real_name` 只用于展示和同步核对。
 - Admin 页面应提供 JSON 格式校验，保存后写入 `audit_logs`；保存配置按钮直接提交，不再弹出二次确认框。
 
 ### 3.2 submission_versions
@@ -409,7 +411,7 @@ Admin 可额外看到：
 
 - 更新 `API_CONTRACT.md`，补齐自动化配置、学校同步、版本选择和自动化提交接口。
 - 更新 `STATE_MACHINE.md`，明确 `pending_recognition`、`reviewing`、`submitting`、`completed`、`error` 的进入条件。
-- 更新 `DECISIONS.md`，记录“当前 `users.username` 是平台账号且曾被学生学号复用，后续新增 `student_no` / `real_name` 拆分语义；不兼容旧数据，必要时清表重建”“学校系统账号为学号、密码与学号一致、真实姓名仅用于展示与核对”“验证码节点截图识别”“自动化配置以 Admin JSON 文本外置”。
+- 更新 `DECISIONS.md`，记录“当前 `users.username` 是平台账号且曾被学生学号复用，后续新增 `student_no` / `real_name` 拆分语义；不兼容旧数据，必要时清表重建”“学校系统账号为学号、密码来自加密保存的用户登录密码、真实姓名仅用于展示与核对”“验证码节点截图识别”“自动化配置以 Admin JSON 文本外置”。
 - 更新 `TASK_BREAKDOWN.md`，把真实学校系统接入拆成可执行任务。
 
 验收：
@@ -452,7 +454,7 @@ Admin 可额外看到：
 - 搭建 Celery Playwright Worker 入口。
 - 根据 `automation_engine_configs` 读取登录选择器。
 - 账号只使用 `users.student_no` 中的学号。
-- 学校系统密码按 `passwordPolicy: same_as_student_no` 从 `student_no` 派生。
+- 学校系统密码按 `passwordPolicy: encrypted_user_password` 从 `users.encrypted_school_password` 解密取得。
 - `users.real_name` 仅用于同步后的真实姓名展示和人工核对，不参与登录。
 - 对验证码图片节点截图并调用 AI 识别模块。
 - 实现验证码错误、账号密码错误、超时网络错误分类。

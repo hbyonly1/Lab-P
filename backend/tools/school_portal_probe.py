@@ -550,8 +550,13 @@ async def probe(args: argparse.Namespace) -> dict[str, Any]:
                 report["messages"].append(f"缺少登录选择器: {', '.join(missing)}")
                 return report
 
+            if not args.password:
+                report["status"] = "login_not_attempted"
+                report["messages"].append("缺少 --password，无法尝试登录")
+                return report
+
             await page.locator(selectors["username"]).fill(args.student_no)
-            await page.locator(selectors["password"]).fill(args.student_no)
+            await page.locator(selectors["password"]).fill(args.password)
 
             if selectors.get("captcha") and not args.captcha and args.captcha_source == "ai":
                 if not captcha_path:
@@ -649,7 +654,8 @@ async def probe(args: argparse.Namespace) -> dict[str, Any]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Capture school report system login page evidence.")
-    parser.add_argument("--student-no", required=True, help="Student number. The school password is assumed equal to it.")
+    parser.add_argument("--student-no", required=True, help="Student number.")
+    parser.add_argument("--password", help="School system password. Required with --attempt-login.")
     parser.add_argument("--config-json", help="Path to automation config JSON. Defaults to backend default config.")
     parser.add_argument("--url", default=None, help=f"Login page URL. Default: config schoolSystem.loginUrl or {DEFAULT_LOGIN_URL}")
     parser.add_argument("--out-dir", default=str(DEFAULT_OUTPUT_ROOT), help="Directory for screenshots and JSON evidence.")

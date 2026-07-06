@@ -778,5 +778,284 @@
       "imageRef": "IMG_RAW_DATA"
     }
   },
-  "formulas": {}
+  "formulas": {},
+  "automation": {
+    "mappings": [
+      {
+        "sourceId": "SYMD_Fill_0",
+        "targetLocator": "#SYMD_Fill_0"
+      },
+      {
+        "sourceId": "SYYL_Fill_0",
+        "targetLocator": "#SYYL_Fill_0"
+      },
+      {
+        "sourceId": "SYBZ_Fill_0",
+        "targetLocator": "#SYBZ_Fill_0"
+      },
+      {
+        "sourceId": "SYBZ_Fill_1",
+        "targetLocator": "#SYBZ_Fill_1"
+      },
+      {
+        "sourceId": "SYBZ_Fill_2",
+        "targetLocator": "#SYBZ_Fill_2"
+      },
+      {
+        "sourceId": "SYBZ_Fill_3",
+        "targetLocator": "#SYBZ_Fill_3"
+      },
+      {
+        "sourceId": "SYBZ_Fill_4",
+        "targetLocator": "#SYBZ_Fill_4"
+      },
+      {
+        "sourceId": "SYBZ_Fill_5",
+        "targetLocator": "#SYBZ_Fill_5"
+      },
+      {
+        "sourceId": "YSSJDrawingAreaArea",
+        "targetLocator": "#YSSJDrawingAreaArea",
+        "targetType": "wysiwyg_image"
+      },
+      {
+        "sourceId": "K10-0",
+        "targetLocator": "#K10-0"
+      },
+      {
+        "sourceId": "K10-1",
+        "targetLocator": "#K10-1"
+      },
+      {
+        "sourceId": "K10-2",
+        "targetLocator": "#K10-2"
+      },
+      {
+        "sourceId": "K10-3",
+        "targetLocator": "#K10-3"
+      },
+      {
+        "sourceId": "K10-4",
+        "targetLocator": "#K10-4"
+      },
+      {
+        "sourceId": "K10-5",
+        "targetLocator": "#K10-5"
+      },
+      {
+        "sourceId": "K10-6",
+        "targetLocator": "#K10-6"
+      },
+      {
+        "sourceId": "K2",
+        "targetLocator": "#K2"
+      },
+      {
+        "sourceId": "K30-0",
+        "targetLocator": "#K30-0"
+      },
+      {
+        "sourceId": "K30-1",
+        "targetLocator": "#K30-1"
+      },
+      {
+        "sourceId": "K30-2",
+        "targetLocator": "#K30-2"
+      },
+      {
+        "sourceId": "K30-3",
+        "targetLocator": "#K30-3"
+      },
+      {
+        "sourceId": "K30-4",
+        "targetLocator": "#K30-4"
+      },
+      {
+        "sourceId": "K30-5",
+        "targetLocator": "#K30-5"
+      },
+      {
+        "sourceId": "K31-0",
+        "targetLocator": "#K31-0"
+      },
+      {
+        "sourceId": "K31-1",
+        "targetLocator": "#K31-1"
+      },
+      {
+        "sourceId": "K31-2",
+        "targetLocator": "#K31-2"
+      },
+      {
+        "sourceId": "K31-3",
+        "targetLocator": "#K31-3"
+      },
+      {
+        "sourceId": "K31-4",
+        "targetLocator": "#K31-4"
+      },
+      {
+        "sourceId": "K31-5",
+        "targetLocator": "#K31-5"
+      },
+      {
+        "sourceId": "K32-0",
+        "targetLocator": "#K32-0"
+      },
+      {
+        "sourceId": "K32-1",
+        "targetLocator": "#K32-1"
+      },
+      {
+        "sourceId": "K32-2",
+        "targetLocator": "#K32-2"
+      },
+      {
+        "sourceId": "K32-3",
+        "targetLocator": "#K32-3"
+      },
+      {
+        "sourceId": "K32-4",
+        "targetLocator": "#K32-4"
+      },
+      {
+        "sourceId": "K32-5",
+        "targetLocator": "#K32-5"
+      },
+      {
+        "sourceId": "K33-0",
+        "targetLocator": "#K33-0"
+      },
+      {
+        "sourceId": "K33-1",
+        "targetLocator": "#K33-1"
+      },
+      {
+        "sourceId": "K33-2",
+        "targetLocator": "#K33-2"
+      },
+      {
+        "sourceId": "K33-3",
+        "targetLocator": "#K33-3"
+      },
+      {
+        "sourceId": "K33-4",
+        "targetLocator": "#K33-4"
+      },
+      {
+        "sourceId": "K33-5",
+        "targetLocator": "#K33-5"
+      },
+      {
+        "sourceId": "K34-0",
+        "targetLocator": "#K34-0"
+      },
+      {
+        "sourceId": "K34-1",
+        "targetLocator": "#K34-1"
+      },
+      {
+        "sourceId": "K34-2",
+        "targetLocator": "#K34-2"
+      },
+      {
+        "sourceId": "K34-3",
+        "targetLocator": "#K34-3"
+      },
+      {
+        "sourceId": "K34-4",
+        "targetLocator": "#K34-4"
+      },
+      {
+        "sourceId": "K34-5",
+        "targetLocator": "#K34-5"
+      },
+      {
+        "sourceId": "K35-0",
+        "targetLocator": "#K35-0"
+      },
+      {
+        "sourceId": "K35-1",
+        "targetLocator": "#K35-1"
+      },
+      {
+        "sourceId": "K35-2",
+        "targetLocator": "#K35-2"
+      },
+      {
+        "sourceId": "K35-3",
+        "targetLocator": "#K35-3"
+      },
+      {
+        "sourceId": "K35-4",
+        "targetLocator": "#K35-4"
+      },
+      {
+        "sourceId": "K35-5",
+        "targetLocator": "#K35-5"
+      },
+      {
+        "sourceId": "K36-0",
+        "targetLocator": "#K36-0"
+      },
+      {
+        "sourceId": "K36-1",
+        "targetLocator": "#K36-1"
+      },
+      {
+        "sourceId": "K36-2",
+        "targetLocator": "#K36-2"
+      },
+      {
+        "sourceId": "K36-3",
+        "targetLocator": "#K36-3"
+      },
+      {
+        "sourceId": "K36-4",
+        "targetLocator": "#K36-4"
+      },
+      {
+        "sourceId": "K36-5",
+        "targetLocator": "#K36-5"
+      },
+      {
+        "sourceId": "K37-0",
+        "targetLocator": "#K37-0"
+      },
+      {
+        "sourceId": "K37-1",
+        "targetLocator": "#K37-1"
+      },
+      {
+        "sourceId": "K37-2",
+        "targetLocator": "#K37-2"
+      },
+      {
+        "sourceId": "K37-3",
+        "targetLocator": "#K37-3"
+      },
+      {
+        "sourceId": "K37-4",
+        "targetLocator": "#K37-4"
+      },
+      {
+        "sourceId": "K37-5",
+        "targetLocator": "#K37-5"
+      },
+      {
+        "sourceId": "K4",
+        "targetLocator": "#K4"
+      },
+      {
+        "sourceId": "K5",
+        "targetLocator": "#K5"
+      },
+      {
+        "sourceId": "skt0Area",
+        "targetLocator": "#skt0Area",
+        "targetType": "wysiwyg_text"
+      }
+    ],
+    "submitLocator": "a:has-text(\"提交\")"
+  }
 }

@@ -37,10 +37,16 @@
 
 - 当前代码和 migration 中 `users` 表只有 `username`，没有 `name` 字段；`username` 是平台登录名，学生账号场景下曾被临时复用为学号。
 - 后续真实学校系统接入必须拆分语义：新增 `users.student_no` 保存学号，新增 `users.real_name` 保存学校系统同步到的真实姓名。
-- 登录学校系统时账号只使用 `student_no`，密码也按当前学校规则使用同一个 `student_no`。
+- 登录学校系统时账号只使用 `student_no`，密码使用用户登录平台时输入密码的加密副本 `users.encrypted_school_password` 解密结果。
 - `real_name` 只用于展示、学校系统同步后的核对和人工确认，不参与学校系统登录。
 - 不兼容旧数据；如果本地库里已有旧用户数据与新字段语义冲突，直接清表或重建数据库。
-- 因为学校密码可由学号派生，当前阶段不长期保存学校系统密码；如果未来规则变化，必须新增加密的任务级临时凭据字段并同步 API 契约。
+- 学校系统密码不再假设等于学号；平台登录密码和学校实验系统密码统一，由后端同时保存哈希和可解密加密副本。明文密码不得返回前端、写入日志或进入 automation job payload。
+
+### 验证码 AI 识别统一进入 Worker
+
+- 学校系统验证码识别不再在 FastAPI / Playwright 同步流程内直接调用大模型；验证码截图由当前流程读取为 base64 后投递给 Celery `recognize_captcha_task`。
+- Worker 侧负责调用统一 AI provider 的 `captcha` profile，避免高并发验证码识别阻塞 API 进程，并保证验证码、实验图片识别和问题生成使用一致的 worker 环境变量与并发控制。
+- 任务参数传 base64，不传本地文件路径；这样本机 `8001` 后端、Docker backend 和 Docker worker 不需要共享 `tmp/` 文件系统。
 
 ## 2026-06-30
 

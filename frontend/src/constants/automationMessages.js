@@ -28,9 +28,9 @@ export const AUTOMATION_MESSAGES = {
   'school.submit.returningList': '正在同步学校提交状态...',
   'school.submit.readingStatus': '正在同步学校提交状态...',
   'school.submit.updatingPlatform': '正在更新平台状态...',
-  'school.submit.success': '提交成功，学校系统状态已更新。',
+  'school.submit.success': '提交成功，学校系统已更新。',
   'school.submit.draftSuccess': '临时提交成功，你可以在学校系统里查看已提交的内容。',
-  'school.submit.finalSuccess': '正式提交成功，学校系统状态已更新。',
+  'school.submit.finalSuccess': '正式提交成功，你可以在学校系统里查看已提交的内容。',
   'school.submit.failed': '提交失败，原因：{reason}，系统已保留本次平台数据快照。',
   'school.submit.verifyFailed': '部分内容未能成功写入学校系统，系统已停止提交。请稍后重试；若持续失败，请反馈并联系管理员。',
 };
