@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { Button, Upload } from 'antd';
+import { Button, Upload, message } from 'antd';
 import {
   CloudUploadOutlined,
   ZoomInOutlined,
   ZoomOutOutlined,
   ReloadOutlined,
-  CameraOutlined
+  CameraOutlined,
+  RotateRightOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../services/apiClient.js';
 
-const resolveImageUrl = (url) => {
+export const resolveImageUrl = (url) => {
   if (!url) return '';
   if (url.startsWith('/')) {
     return `${apiClient.defaults.baseURL || 'http://localhost:8000'}${url}`;
@@ -29,10 +30,43 @@ function RecognizeIcon() {
   );
 }
 
+export const imageUrlToFile = async (image, fileName) => {
+  const response = await fetch(resolveImageUrl(image.url));
+  if (!response.ok) throw new Error('图片读取失败');
+  const blob = await response.blob();
+  return new File([blob], fileName, { type: blob.type || 'image/png' });
+};
+
+export const rotateImageFile = async (file) => {
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.height;
+  canvas.height = bitmap.width;
+  const ctx = canvas.getContext('2d');
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate(Math.PI / 2);
+  ctx.drawImage(bitmap, -bitmap.width / 2, -bitmap.height / 2);
+  bitmap.close?.();
+
+  const outputType = file.type === 'image/jpeg' ? 'image/jpeg' : 'image/png';
+  const blob = await new Promise((resolve, reject) => {
+    canvas.toBlob((result) => {
+      if (result) resolve(result);
+      else reject(new Error('图片旋转失败'));
+    }, outputType, 0.92);
+  });
+
+  const extension = outputType === 'image/jpeg' ? 'jpg' : 'png';
+  const baseName = file.name?.replace(/\.[^.]+$/, '') || 'rotated-image';
+  return new File([blob], `${baseName}-rotated.${extension}`, { type: outputType });
+};
+
 export function ExperimentImageUploader({
   images,
   imageSlots,
   onImageUpload,
+  onImageReplace,
+  onExternalImageDrop,
   onRecognize,
   isRecognizing,
   canUseRecognition,
@@ -54,6 +88,7 @@ export function ExperimentImageUploader({
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const [dragStart, setDragStart] = useState(null);
+  const [isRotating, setIsRotating] = useState(false);
 
   const handleMouseDown = (event) => {
     if (!activeImage) return;
@@ -77,14 +112,59 @@ export function ExperimentImageUploader({
     setDragStart(null);
   };
 
+  const getDefaultSlotId = () => images?.[0]?.id || 'IMG_RAW';
+
+  const handleExternalDrop = async (event) => {
+    const rawPayload = event.dataTransfer?.getData('application/json') || event.dataTransfer?.getData('text/plain');
+    if (!rawPayload || !onExternalImageDrop) return;
+
+    let droppedImage = null;
+    try {
+      droppedImage = JSON.parse(rawPayload);
+    } catch (error) {
+      return;
+    }
+
+    if (!droppedImage?.url) return;
+    event.preventDefault();
+    event.stopPropagation();
+    await onExternalImageDrop(getDefaultSlotId(), droppedImage);
+  };
+
+  const handleRotateImage = async () => {
+    if (!activeImage || !onImageReplace) return;
+    setIsRotating(true);
+    try {
+      const sourceFile = activeImage.originFileObj || await imageUrlToFile(activeImage, activeImage.name || 'image.png');
+      const rotatedFile = await rotateImageFile(sourceFile);
+      const replaced = await onImageReplace(activeImage.slotId, activeImage.uid, rotatedFile);
+      if (replaced === false) return;
+      setScale(1);
+      setOffset({ x: 0, y: 0 });
+    } catch (err) {
+      message.error(err.message || '图片旋转失败');
+    } finally {
+      setIsRotating(false);
+    }
+  };
+
   return (
     <div className={`experiment-image-panel ${className}`.trim()}>
       <div className="experiment-image-head">
         <h3>{title}</h3>
         <div className="image-toolbar">
+          <Button
+            icon={<RotateRightOutlined />}
+            style={{ background: '#fff' }}
+            loading={isRotating}
+            disabled={!activeImage || !onImageReplace}
+            onClick={handleRotateImage}
+          >
+            旋转
+          </Button>
           <Button icon={<ZoomInOutlined />} style={{ background: '#fff' }} onClick={() => setScale(s => Math.min(s + 0.15, 2.4))}>放大</Button>
           <Button icon={<ZoomOutOutlined />} style={{ background: '#fff' }} onClick={() => setScale(s => Math.max(s - 0.15, 0.7))}>缩小</Button>
-          <Button icon={<ReloadOutlined />} style={{ background: '#fff' }} onClick={() => { setScale(1); setOffset({ x: 0, y: 0 }); }}>重置位置</Button>
+          <Button icon={<ReloadOutlined />} style={{ background: '#fff' }} onClick={() => { setScale(1); setOffset({ x: 0, y: 0 }); }}>还原</Button>
         </div>
       </div>
 
@@ -95,6 +175,10 @@ export function ExperimentImageUploader({
           onMouseMove={handleMouseMove}
           onMouseUp={stopDragging}
           onMouseLeave={stopDragging}
+          onDragOver={(event) => {
+            if (onExternalImageDrop) event.preventDefault();
+          }}
+          onDrop={handleExternalDrop}
         >
           <img
             alt={activeImage.name}
@@ -109,6 +193,7 @@ export function ExperimentImageUploader({
           beforeUpload={(file) => onImageUpload(images[0]?.id || 'IMG_RAW', file)}
           multiple
           showUploadList={false}
+          onDrop={handleExternalDrop}
         >
           <div className="image-upload-empty">
             <CloudUploadOutlined />

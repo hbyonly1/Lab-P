@@ -2,8 +2,49 @@ import asyncio
 from worker.celery_app import celery_app
 from sqlmodel import Session
 from core.db import engine
-from models.core import AuditLog, Submission
+from models.core import AuditLog, Submission, get_utc_now
 from services import ai_service, captcha_ai
+
+
+def _extract_assigned_image_paths(submission: Submission, exp_config: dict) -> list[str]:
+    recognition_config = ((exp_config or {}).get("ai") or {}).get("recognition") or {}
+    recognition_image_ref = recognition_config.get("imageRef")
+    image_slots = submission.image_slots or {}
+
+    candidates = []
+    if recognition_image_ref:
+        candidates = image_slots.get(recognition_image_ref) or []
+    elif len(image_slots) == 1:
+        candidates = next(iter(image_slots.values())) or []
+
+    image_paths = []
+    for item in candidates:
+        if isinstance(item, str) and item.strip():
+            image_paths.append(item.strip())
+        elif isinstance(item, dict):
+            value = str(item.get("url") or item.get("path") or "").strip()
+            if value:
+                image_paths.append(value)
+    return image_paths
+
+
+def _questions_for_generation(exp_config: dict) -> list[dict]:
+    image_field_ids = {
+        field.get("id")
+        for field in (exp_config.get("inputs") or {}).get("fields", [])
+        if field.get("type") == "image_upload" and field.get("id")
+    }
+    questions = []
+    for idx, question in enumerate((exp_config.get("ui") or {}).get("questions", [])):
+        node_id = question.get("nodeId")
+        if not node_id or node_id in image_field_ids:
+            continue
+        questions.append({
+            "index": idx + 1,
+            "nodeId": node_id,
+            "title": question.get("title"),
+        })
+    return questions
 
 @celery_app.task(bind=True, max_retries=3)
 def recognize_captcha_task(self, image_b64: str, config: dict):
@@ -121,5 +162,143 @@ def recognize_submission_task(self, submission_id: str, user_id: int):
                            target_id=submission_id, details=str(e))
             session.add(submission)
             session.add(log)
+            session.commit()
+            raise e
+
+
+@celery_app.task(bind=True, max_retries=3)
+def prepare_submission_for_review_task(self, submission_id: str, user_id: int):
+    """审核预处理：复用一键填空、图片识别、生成回答，并写回 submission。"""
+    from services.experimentConfigStore import get_experiment_config
+
+    with Session(engine) as session:
+        submission = session.get(Submission, submission_id)
+        if not submission:
+            raise ValueError("Submission not found")
+
+        exp_config = get_experiment_config(submission.experiment_id)
+        if not exp_config:
+            submission.status = "error"
+            submission.preprocess_status = "failed"
+            submission.preprocess_error = f"Experiment {submission.experiment_id} not found"
+            submission.updated_at = get_utc_now()
+            session.add(submission)
+            session.commit()
+            raise ValueError(submission.preprocess_error)
+
+        try:
+            image_paths = _extract_assigned_image_paths(submission, exp_config)
+            if not image_paths:
+                submission.status = "pending_image_assignment"
+                submission.preprocess_status = "image_assignment_required"
+                submission.preprocess_error = "请先把学生上传图片归位到实验配置的识别图片槽。"
+                submission.updated_at = get_utc_now()
+                session.add(submission)
+                session.add(AuditLog(
+                    user_id=user_id,
+                    action="submission_prepare_review",
+                    status="failed",
+                    target_id=submission_id,
+                    details=submission.preprocess_error,
+                ))
+                session.commit()
+                return {"status": "image_assignment_required"}
+
+            submission.status = "preparing_review"
+            submission.preprocess_status = "running"
+            submission.preprocess_error = None
+            submission.updated_at = get_utc_now()
+            session.add(submission)
+            session.add(AuditLog(
+                user_id=user_id,
+                action="submission_prepare_review_running",
+                status="success",
+                target_id=submission_id,
+                details=f"审核预处理任务已开始执行，Celery task_id={self.request.id}",
+            ))
+            session.commit()
+
+            current_step = "固定填空"
+            fixed_values = asyncio.run(ai_service.get_fixed_fill(submission.experiment_id))
+            session.add(AuditLog(
+                user_id=user_id,
+                action="submission_prepare_review_fixed_fill",
+                status="success",
+                target_id=submission_id,
+                details=f"固定填空完成：{len(fixed_values or {})} 项。",
+            ))
+            session.commit()
+
+            current_step = "AI 图片识别"
+            recognized_values = asyncio.run(ai_service.recognize_images(
+                submission.experiment_id,
+                image_paths,
+                session,
+            ))
+            session.add(AuditLog(
+                user_id=user_id,
+                action="submission_prepare_review_ai_recognize",
+                status="success",
+                target_id=submission_id,
+                details=f"AI 图片识别完成：识别 {len(recognized_values or {})} 项，图片 {len(image_paths)} 张。",
+            ))
+            session.commit()
+
+            working_values = {
+                **(fixed_values or {}),
+                **(recognized_values or {}),
+            }
+            current_step = "AI 回答生成"
+            generated_answers = asyncio.run(ai_service.generate_answers(
+                submission.experiment_id,
+                _questions_for_generation(exp_config),
+                working_values,
+                session,
+            ))
+            answers = {
+                item["nodeId"]: item["answer"]
+                for item in generated_answers
+                if item.get("nodeId")
+            }
+            session.add(AuditLog(
+                user_id=user_id,
+                action="submission_prepare_review_generate_answers",
+                status="success",
+                target_id=submission_id,
+                details=f"AI 回答生成完成：生成 {len(answers)} 项。",
+            ))
+            session.commit()
+
+            final_result = {**working_values, **answers}
+            submission.recognition_json = final_result
+            submission.corrected_json = submission.corrected_json or {}
+            submission.status = "reviewing"
+            submission.preprocess_status = "done"
+            submission.preprocess_error = None
+            submission.updated_at = get_utc_now()
+
+            session.add(submission)
+            session.add(AuditLog(
+                user_id=user_id,
+                action="submission_prepare_review",
+                status="success",
+                target_id=submission_id,
+                details=f"预处理完成：固定填空 {len(fixed_values or {})} 项，识别 {len(recognized_values or {})} 项，生成回答 {len(answers)} 项。",
+            ))
+            session.commit()
+            return {"status": "success", "fields": len(final_result)}
+        except Exception as e:
+            submission.status = "error"
+            submission.preprocess_status = "failed"
+            submission.preprocess_error = str(e)
+            submission.updated_at = get_utc_now()
+            session.add(submission)
+            session.add(AuditLog(
+                user_id=user_id,
+                action="submission_prepare_review",
+                status="failed",
+                target_id=submission_id,
+                details=f"{locals().get('current_step', '预处理')}失败：{str(e)}",
+            ))
             session.commit()
             raise e

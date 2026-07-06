@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlmodel import Session, select
 from core.db import get_session
-from models.core import AuditLog, User
+from models.core import AuditLog, Order, Submission, User
 from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime
@@ -18,9 +19,12 @@ STUDENT_VISIBLE_AUDIT_ACTIONS = {
     "ai_recognition_started",
     "ai_recognition_completed",
     "ai_recognition_failed",
-    "auto_submit_started",
-    "auto_submit_completed",
-    "auto_submit_failed",
+    "school_draft_submit_started",
+    "school_draft_submit_completed",
+    "school_draft_submit_failed",
+    "school_final_submit_started",
+    "school_final_submit_completed",
+    "school_final_submit_failed",
 }
 
 class AuditLogResponse(BaseModel):
@@ -61,6 +65,7 @@ def get_audit_logs(session: Session = Depends(get_session), current_user: User =
 class StudentAuditLogResponse(BaseModel):
     action: str
     status: str
+    target_id: Optional[str] = None
     details: Optional[str] = None
     created_at: datetime
 
@@ -69,9 +74,21 @@ def get_my_audit_logs(session: Session = Depends(get_session), current_user: Use
     """
     Get audit logs strictly related to the current student, returning minimal info.
     """
+    submission_ids = session.exec(
+        select(Submission.id).where(Submission.student_id == current_user.id)
+    ).all()
+    order_ids = session.exec(
+        select(Order.id).where(Order.student_id == current_user.id)
+    ).all()
+    owned_target_ids = [*submission_ids, *order_ids]
+
+    ownership_filter = AuditLog.user_id == current_user.id
+    if owned_target_ids:
+        ownership_filter = or_(ownership_filter, AuditLog.target_id.in_(owned_target_ids))
+
     logs = session.exec(
         select(AuditLog)
-        .where(AuditLog.user_id == current_user.id)
+        .where(ownership_filter)
         .where(AuditLog.action.in_(STUDENT_VISIBLE_AUDIT_ACTIONS))
         .order_by(AuditLog.created_at.desc())
         .limit(10)
@@ -82,6 +99,7 @@ def get_my_audit_logs(session: Session = Depends(get_session), current_user: Use
         result.append({
             "action": log.action,
             "status": log.status,
+            "target_id": log.target_id,
             "details": log.details,
             "created_at": log.created_at
         })

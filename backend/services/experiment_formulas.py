@@ -1,3 +1,4 @@
+import math
 from typing import Any, Dict, List, Tuple
 
 
@@ -96,7 +97,22 @@ def linear_r2(x_values: List[Any], y_values: List[Any]) -> float:
 
 
 def format_sig(value: Any, digits: int = 3) -> str:
-    return f"{float(value):.{int(digits)}g}"
+    digits = int(digits)
+    number = float(value)
+    if digits <= 0:
+        raise ValueError("digits must be positive")
+    if number == 0:
+        return f"{0:.{digits - 1}f}"
+    rounded = float(f"{number:.{digits}g}")
+    decimals = max(digits - 1 - math.floor(math.log10(abs(rounded))), 0)
+    return f"{rounded:.{decimals}f}"
+
+
+def format_fixed(value: Any, digits: int = 0) -> str:
+    digits = int(digits)
+    if digits < 0:
+        raise ValueError("digits must not be negative")
+    return f"{float(value):.{digits}f}"
 
 
 def build_formula_functions(values: Dict[str, Any]) -> Dict[str, Any]:
@@ -108,4 +124,5 @@ def build_formula_functions(values: Dict[str, Any]) -> Dict[str, Any]:
         "linear_intercept": linear_intercept,
         "linear_r2": linear_r2,
         "format_sig": format_sig,
+        "format_fixed": format_fixed,
     }

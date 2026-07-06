@@ -44,6 +44,22 @@ SCHOOL_AUTOMATION_ACTIONS = {
 }
 
 
+def _automation_failed_audit_action(job_action: str) -> str:
+    if job_action == "draft_submit":
+        return "school_draft_submit_failed"
+    if job_action == "final_submit":
+        return "school_final_submit_failed"
+    return f"{job_action}_failed"
+
+
+def _automation_audit_target_id(job: AutomationJob) -> str:
+    if job.action in {"draft_submit", "final_submit"}:
+        if not job.submission_id:
+            raise ValueError(f"{job.action} job {job.id} is missing submission_id")
+        return job.submission_id
+    return job.id
+
+
 def mark_job_failed(
     session: Session,
     job: AutomationJob,
@@ -78,9 +94,9 @@ def mark_job_failed(
     session.add(
         AuditLog(
             user_id=job.actor_user_id,
-            action=f"{job.action}_failed",
+            action=_automation_failed_audit_action(job.action),
             status="failed",
-            target_id=job.id,
+            target_id=_automation_audit_target_id(job),
             details=details,
         )
     )

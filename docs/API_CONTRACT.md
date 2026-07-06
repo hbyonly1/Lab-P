@@ -113,6 +113,72 @@
   2. `image_paths` 至少包含一个已上传图片 URL；空数组或全空值请求返回 `400`，不得创建订单或审核任务。
   3. 学生不是 Pro 且没有已支付单次订单时，只有 `is_hungup=true` 才允许创建待付款订单。
   4. 前端批量提交时只能对已上传图片的实验调用该接口，未上传图片的实验必须留空，不进入人工审核池。
+  5. 一键托管提交不再自动触发盲 AI 识别；已支付 / Pro / 内部创建的任务进入 `pending_image_assignment`，等待管理员完成图片归位。
+
+- **新增字段**：
+  - `submission_batch_id`: 同一批量提交的聚合 id；前端传入则复用，未传则后端生成。
+  - `image_slots`: 管理员图片归位结果，默认 `{}`。
+  - `preprocess_status`: 预处理阶段状态，例如 `waiting_for_image_assignment`、`queued`、`running`、`done`、`failed`。
+  - `preprocess_error`: 预处理失败或缺少图片归位时的错误说明。
+
+### 3.0.2 保存一键托管图片归位
+
+- **Endpoint**: `PATCH /api/v1/submissions/{submission_id}/image-slots`
+- **Auth Required**: Yes (Admin / Reviewer)
+- **Payload**:
+
+```json
+{
+  "image_slots": {
+    "IMG_RAW_DATA": [
+      {
+        "url": "/uploads/2026-07/raw.jpg",
+        "name": "raw.jpg",
+        "sourceIndex": 1
+      }
+    ]
+  }
+}
+```
+
+- **后端执行的严格逻辑**：
+  1. 只允许保存 `is_one_click_handoff=true` 的 submission。
+  2. student 不可调用该接口修改托管任务图片归位。
+  3. 只保存带有效 `url` 的图片条目。
+  4. 保存后更新 `preprocess_status` 为 `image_assigned` 或 `waiting_for_image_assignment`。
+
+### 3.0.3 批量启动审核预处理
+
+- **Endpoint**: `POST /api/v1/submissions/batches/{batch_id}/prepare-review`
+- **Auth Required**: Yes (Admin / Reviewer)
+- **Payload**:
+
+```json
+{
+  "assignments": {
+    "SUB-1": {
+      "IMG_RAW_DATA": [{ "url": "/uploads/2026-07/raw-1.jpg" }]
+    }
+  }
+}
+```
+
+- **Response**:
+
+```json
+{
+  "batch_id": "BATCH-XXXX",
+  "status": "queued",
+  "submission_ids": ["SUB-1"]
+}
+```
+
+- **后端执行的严格逻辑**：
+  1. 校验 batch 存在，且 `assignments` 中的 submission 都属于该 batch。
+  2. 保存归位结果后，将有图片槽的任务置为 `preparing_review` / `preprocess_status=queued`。
+  3. 后台任务复用现有 `ai_service.get_fixed_fill()`、`ai_service.recognize_images()`、`ai_service.generate_answers()`。
+  4. 识别图片只读取实验配置 `ai.recognition.imageRef` 对应的 `submission.image_slots`。
+  5. 预处理结果写入 `submission.recognition_json`，完成后进入 `reviewing`；缺少归位图片时回到 `pending_image_assignment`。
 
 ### 3.1 临时保存 (Save Draft / Auto-save)
 - **Endpoint**: `PATCH /api/v1/submissions/{id}/correction`
@@ -154,40 +220,47 @@
 ## 4. 实验辅助工具 API (AI & 算力引擎)
 
 在实验详情页中，学生或审核员可以调用以下接口来实现自动填表、识别和计算。这也是区分 Plus/Pro 订阅的核心权益接口，**所有接口必须校验用户的 `capabilities`**。
-**注意：AI 识别、计算和生成均为强同步接口（Blocking），必须等待 AI 和引擎算完后才返回数据。**
+**注意：AI 识别、固定填空和生成式回答当前返回 Celery `task_id`，前端通过 `/api/v1/ai/task/{task_id}` 轮询结果，并用非阻塞后台任务浮窗持续展示状态；公式计算接口当前仍为同步返回，但前端也纳入同一浮窗反馈，不再只依赖按钮 loading。**
 
 ### 4.1 一键填空 (Fixed Params)
 获取该实验固定的常量数据（如默认器材参数）。
-- **Endpoint**: `GET /api/v1/experiments/{exp_id}/fixed-params`
+- **Endpoint**: `POST /api/v1/ai/fixed-fill/{experiment_id}`
 - **Response**:
 ```json
 {
-  "code": 200,
-  "data": {
-    "SYMD_Fill_0": "电压表和欧姆表",
-    "SYMD_Fill_1": "1500"
-  }
+  "task_id": "celery-task-id"
+}
+```
+- **Task Result**:
+```json
+{
+  "SYMD_Fill_0": "电压表和欧姆表",
+  "SYMD_Fill_1": "1500"
 }
 ```
 
 ### 4.2 AI 图像识别 (OCR & Extraction)
 根据上传的原始数据图片，调用大模型提取结构化数据。
-- **Endpoint**: `POST /api/v1/experiments/{exp_id}/recognize`
+- **Endpoint**: `POST /api/v1/ai/recognize-direct`
 - **Payload**:
 ```json
 {
-  "image_urls": ["https://oss.example.com/img1.jpg"]
+  "experiment_id": "exp_meter_modification",
+  "image_paths": ["/uploads/2026-07/raw.jpg"]
 }
 ```
 - **Response**:
 ```json
 {
-  "code": 200,
-  "data": {
-    "Ig": "100",
-    "Rg": "1500",
-    "E": "1.5"
-  }
+  "task_id": "celery-task-id"
+}
+```
+- **Task Result**:
+```json
+{
+  "Ig": "100",
+  "Rg": "1500",
+  "E": "1.5"
 }
 ```
 
@@ -208,8 +281,9 @@
 - **Response**:
 ```json
 {
-  "code": 200,
-  "data": {
+  "computed_values": {
+    "A": "1.0",
+    "D": "2.5",
     "B": "3.5",
     "Result": "1.2"
   }
@@ -242,7 +316,7 @@
   }
 }
 ```
-- **核心逻辑说明（零信任）**：前端不传递核心 Prompt！后端使用实验配置页“Prompt 模板配置”的生成式回答模板，按 `AiPromptTemplate -> 系统默认模板` 的优先级组合提示词。实验 JSON 的 `ai` 只声明图片槽位和目标节点等结构绑定，不保存 Prompt 内容。后端要求模型返回简洁 JSON object，例如 `{ "1": "...", "2": "..." }`，再按题号转换为对应 `nodeId`。
+- **核心逻辑说明（零信任）**：前端不传递核心 Prompt！后端使用实验配置页“Prompt 模板配置”的生成式回答模板，按 `AiPromptTemplate -> 系统默认模板` 的优先级组合提示词。实验 JSON 的 `ai` 只声明图片槽位、目标节点和生成式回答需要附带的数据节点等结构绑定，不保存 Prompt 文本。后端要求模型返回简洁 JSON object，例如 `{ "1": "...", "2": "..." }`，再按题号转换为对应 `nodeId`。
 - **Response**:
 ```json
 {
@@ -259,6 +333,35 @@
   ]
 }
 ```
+
+### 4.5 AI 辅助任务状态查询
+用于一键填空、AI 图像识别和实验问题生成的前端轮询。
+- **Endpoint**: `GET /api/v1/ai/task/{task_id}`
+- **Response: pending**
+```json
+{
+  "status": "pending"
+}
+```
+- **Response: done**
+```json
+{
+  "status": "done",
+  "result": {}
+}
+```
+- **Response: error**
+```json
+{
+  "status": "error",
+  "message": "处理失败，请稍后重试"
+}
+```
+- **前端展示约束**：
+  - 一键填空、识别、计算、生成回答都必须在触发后展示右下角非阻塞后台任务浮窗。
+  - 浮窗运行期间不阻塞表单编辑和页面滚动。
+  - 任务完成后保留成功摘要，用户可关闭；失败时展示可行动错误和重试入口。
+  - 学校系统提交、正式提交等高风险任务继续使用专门的自动化进度弹窗，不复用 AI 辅助浮窗。
 
 ## 5. 实验项目配置 API (Experiment Configs)
 
@@ -325,6 +428,7 @@
 - 实验配置 `meta` 不保存学生完成状态；学生维度的 `unsubmitted/reviewing/completed` 等状态来自 `submissions`，由前端在学生页面合并展示。
 - 节点类型语义：`ai_recognize` 是唯一图像识别节点类型；图像识别 Prompt schema、生成式回答附加数据节点下拉和生成式回答关键数据默认范围都只读取该类型。`fixed` 为固定填空节点，一键填空读取其 `value`；`computed` 为公式计算节点；`generated` 为生成式文本回答节点；`image_upload` 为学生/审核员单独上传图片并写回对应 `nodeId` 的图片答案节点。旧 `extract` 类型已删除，不再作为识别节点来源。
 - 图片槽位语义：`inputs.images[].id` 可被 `ai.recognition.imageRef` 绑定为表格/数据识别图片；也可通过 `inputs.images[].targetNodeId` 或 `inputs.fields[].imageSlotId` 绑定到 `image_upload` 节点。识别图片不会自动混入图片答案节点，图片答案节点保存为对应节点的图片 URL。
+- 生成式回答附带数据节点：`ai.generation.dataNodes` 可选，用于声明生成实验回答时传给 AI 的平台节点列表。该列表可以包含 `ai_recognize`、`computed`、`fixed` 等 `inputs.fields[].id`，后端只会取当前表单中有值的节点。若配置未声明，默认按当前实验 `inputs.fields` 顺序取前 3 个 `ai_recognize` 节点；数据库 Prompt 模板不再保存或覆盖数据节点选择。
 - 学校 DOM 写入策略语义：`automation.mappings[].targetType` 是可选字段，用于告诉后端怎样把平台节点写入学校系统节点；它不是平台节点类型，不能和 `generated`、`image_upload`、`ai_recognize` 混用含义。缺省值一律按 `text` 处理，只有富文本等特殊学校控件才显式配置。
 - 当前支持的 `targetType` 只有三种：
 
@@ -607,7 +711,7 @@ created_at
 {
   "id": 1,
   "name": "default",
-  "schema_version": "1.5",
+  "schema_version": "1.6",
   "is_active": true,
   "created_by": 1,
   "updated_by": 1,
@@ -675,6 +779,8 @@ created_at
     "syncPolicy": {
       "initialSync": "identity_and_report_list",
       "detailSync": "on_demand",
+      "autoLoadDetailForStudent": true,
+      "autoLoadDetailForInternalUser": false,
       "listCacheTtlSeconds": 600,
       "syncCooldownSeconds": 1800
     },
@@ -721,7 +827,7 @@ created_at
 ```json
 {
   "name": "default",
-  "schema_version": "1.5",
+  "schema_version": "1.6",
   "is_active": true,
   "config_json": {
     "schoolSystem": {},
@@ -743,10 +849,11 @@ created_at
   - 顶层必须包含 `schoolSystem`、`identity`、`selectors`、`safety`、`captcha`、`syncPolicy`、`retryPolicy`、`runtime`、`waitPolicy`。
   - `identity.passwordPolicy` 必须为 `encrypted_user_password`。
   - `syncPolicy.syncCooldownSeconds` 必须为非负整数；自动同步概览只读取这个字段，不读取 `retryPolicy`。
+  - `syncPolicy.autoLoadDetailForStudent` 和 `syncPolicy.autoLoadDetailForInternalUser` 必须为 boolean；分别控制学生和 admin / reviewer 打开实验详情时是否自动加载学校数据。
   - `runtime.defaultTimeoutMs`、`runtime.postLoginSettleMs`、`runtime.postLoginWaitMs` 和 `waitPolicy` 中关键超时字段必须为正整数。
   - 不允许在配置中保存具体 Playwright 脚本代码。
   - JSONB 不支持 `//` 注释；可使用 `_comment`、`description` 等普通字段作为可保存注释。
-- **Compatibility**：不兼容旧配置结构；后端以 `schema_version=1.5` 的当前结构为准。读取默认配置时，如果数据库中的 `default` 配置仍是旧结构或旧版本，将直接替换为当前默认结构。
+- **Compatibility**：不兼容旧配置结构；后端以 `schema_version=1.6` 的当前结构为准。读取默认配置时，如果数据库中的 `default` 配置仍是旧结构或旧版本，将直接替换为当前默认结构。
 - **列下标约定**：`selectors.reportList.columns` 使用 0 基下标；`experimentName=0` 表示读取学校列表第 1 列 `PaperName`，不要读取第 3 列 `LabName`，因为部分报告名会带批次后缀（例如 `0625`）。
 - **State Change**：写入或更新 `automation_engine_configs`，并写入 `audit_logs(action=automation_config_updated)`。
 - **Not Included**：当前阶段不提供 `test-login` 接口；后续如需连通性检查，再单独设计 `validate-login`。
@@ -783,7 +890,7 @@ AI_PROVIDER=openai_compatible
 AI_API_KEY=<secret>
 AI_BASE_URL=https://api.siliconflow.cn/v1
 AI_DEFAULT_MODEL=deepseek-ai/DeepSeek-V4-Flash
-AI_IMAGE_RECOGNITION_MODEL=deepseek-ai/DeepSeek-OCR
+AI_IMAGE_RECOGNITION_MODEL=zai-org/GLM-4.5V
 AI_ANSWER_GENERATION_MODEL=deepseek-ai/DeepSeek-V4-Flash
 AI_CAPTCHA_MODEL=zai-org/GLM-4.5V
 ```
@@ -794,6 +901,7 @@ AI_CAPTCHA_MODEL=zai-org/GLM-4.5V
 - `GET /api/v1/ai/admin/config`：Admin 获取当前非密钥 AI 配置和 `api_key_configured` 状态，不返回真实 key。
 - `PUT /api/v1/ai/admin/config`：Admin 保存非密钥 AI profile，写入 `ai_config` 并记录 `audit_logs(action=ai_config_updated)`。
 - `POST /api/v1/ai/admin/test-connection`：使用当前 `ai_config` + `.env` 中的 `AI_API_KEY` 发送一条 `hello` 测试请求，返回模型输出；失败时返回 `ok=false`、`error_code` 和具体 `error`，例如缺少密钥时返回 `missing_api_key` 与“请在 .env 中填写 AI_API_KEY，然后重启后端进程”。
+- `GET /api/v1/ai/admin/prompts/{experiment_id}`：Admin 获取实验 Prompt 模板。响应始终包含当前后端默认 `recognition_system_prompt` / `generation_system_prompt`，如果数据库中 `ai_prompt_templates` 已保存非空模板，则以数据库值覆盖默认值；前端不得维护另一份旧默认 Prompt。
 
 ### 6A.4 自动化 Job 公共查询
 
@@ -834,6 +942,26 @@ AI_CAPTCHA_MODEL=zai-org/GLM-4.5V
   - 距离最近同步超过 `syncPolicy.syncCooldownSeconds` 时 `shouldSync=true`。
   - 冷却期内 `shouldSync=false`，除非用户点击手动同步按钮并调用 `POST /overview` 的 `force=true`。
   - `experiments` 来自最近一次学校概览快照，仅包含学生端可展示的实验名、学校原始状态文本和归一化学校状态；前端可用它合并展示“学校提交状态”，但不得用它覆盖平台 `Submission.status`。
+
+#### GET /api/v1/school-sync/settings
+
+- **Auth Required**: Yes (Student / Admin / Reviewer)
+- **Purpose**: 返回当前登录用户打开实验详情页时是否应自动触发学校详情同步。前端必须先读该接口，再决定是否调用 `POST /api/v1/school-sync/experiments/{experiment_id}`。
+- **Response**:
+
+```json
+{
+  "autoLoadDetailForStudent": true,
+  "autoLoadDetailForInternalUser": false,
+  "autoLoadDetail": true
+}
+```
+
+- **规则**:
+  - `autoLoadDetailForStudent` 默认 `true`，对应学生端。
+  - `autoLoadDetailForInternalUser` 默认 `false`，对应 admin / reviewer。
+  - `autoLoadDetail` 是后端根据当前用户角色计算后的最终开关。
+  - 该接口只返回安全策略布尔值，不返回学校账号、选择器、自动化内部配置或密码。
 
 #### POST /api/v1/school-sync/overview
 
@@ -925,6 +1053,17 @@ AI_CAPTCHA_MODEL=zai-org/GLM-4.5V
   - 后台 `automation_jobs.result_payload.sessionDiagnostic` 记录会话复用或重登决策，例如 `reused_existing_session`、`existing_session_recovery_failed`、`relogin_created_session`；该字段不进入 public job DTO。
   - 每次创建、复用或拒绝都写入 `audit_logs`。
 
+#### POST /api/v1/school-sync/experiments/{experiment_id}/submissions/{submission_id}
+
+- **Auth Required**: Yes (Admin / Reviewer)
+- **Purpose**: 审核详情页按 submission 触发学校系统单实验详情同步。虽然请求由 admin / reviewer 发起，但后端使用 `submission.student_id` 对应学生的 `student_no` 和 `encrypted_school_password` 登录或复用学校会话，不使用当前内部账号的学校身份。
+- **Response**: 返回自动化 Job 公共 DTO，前端继续用 `AutomationProgressModal` 展示进度。
+- **规则**:
+  - submission 必须存在，且 `submission.experiment_id` 必须等于路径中的 `experiment_id`。
+  - job 的学校会话归属于 submission 学生。
+  - public DTO 不返回学校账号、密码、验证码、选择器或内部诊断 payload。
+  - 该接口只读取学校详情快照，不触发临时提交或正式提交。
+
 #### GET /api/v1/school-sync/experiments/{experiment_id}/latest
 
 - **Auth Required**: Yes (Student)
@@ -946,6 +1085,14 @@ AI_CAPTCHA_MODEL=zai-org/GLM-4.5V
   }
 }
 ```
+
+- **Admin / Reviewer 对应接口**:
+
+```text
+GET /api/v1/school-sync/experiments/{experiment_id}/submissions/{submission_id}/latest
+```
+
+该接口从 `submission.student_id` 的学校详情快照读取 `formValues`，供审核详情页在同步 job 成功后回填平台表单。
 
 #### POST /api/v1/school-sync/experiments/{experiment_id}/submit
 
@@ -986,6 +1133,8 @@ final
 
 - **状态结果**:
   - `mode=draft` 只有在学校系统反馈或回读状态确认成功后，submission 状态才更新为 `draft_submitted`。
+  - `mode=final` 只有在学校系统反馈或回读状态确认成功后，submission 状态才更新为 `completed`。
+  - 创建提交 job 时写入 `school_draft_submit_started` 或 `school_final_submit_started`；成功写入 `school_draft_submit_completed` 或 `school_final_submit_completed`；失败写入 `school_draft_submit_failed` 或 `school_final_submit_failed`。这些 audit log 的 `target_id` 统一为 submission id，job id 只允许作为 details 中的诊断信息。
   - `mode=final` 复用同一提交链路；只有在学校系统反馈或回读状态确认成功后，submission 状态才更新为 `completed`。
   - 提交 job 必须在同一浏览器会话内等待学校提交完成，再返回完成报告列表读取状态并写入 `school_sync_snapshots`；平台不能仅凭“已点击提交按钮”推断学校提交成功。
   - 如果学校反馈成功但列表状态未能确认，job 可以成功落库，并记录 `statusConfirmation=feedback_only`，方便后续同步或排查确认来源。
@@ -1111,7 +1260,8 @@ sensitive_payload
 
 ### 8.2 获取审核任务池 (管理员/审核员端)
 - **Endpoint**: `GET /api/v1/submissions/review-pool`
-- **限制**：**绝对禁止学生调用！** 仅限 Reviewer/Admin 角色，返回所有 `status=reviewing` 或分配给当前审核员的任务。
+- **限制**：**绝对禁止学生调用！** 仅限 Reviewer/Admin 角色。
+- **状态范围**：审核任务表保留处理中和已完成提交记录，返回 `pending_image_assignment`、`preparing_review`、`pending_recognition`、`recognizing`、`reviewing`、`submitting`、`draft_submitted`、`completed`、`error` 等状态；前端通过状态筛选查看“待人工审核”或“审核完成已提交”。
 
 ## 9. 仪表盘数据盘 (Dashboard Stats)
 **现状缺口**：`StudentDashboardPage` 以及未来的 `AdminDashboard` 上面的进度环、统计卡片需要数据。
@@ -1173,8 +1323,9 @@ sensitive_payload
 - **Endpoint**: `GET /api/v1/audit/my_logs`
 - **Auth Required**: Yes
 - **权限与过滤**:
-  - 只返回当前登录学生自己的日志。
+  - 返回当前登录学生本人发起的日志，以及 `target_id` 指向其 order / submission 的日志；因此 admin / reviewer / worker 对该学生任务产生的完成类日志也会出现在学生最近操作中。
   - 只返回学生可理解的业务动作白名单，例如订单、支付、上传、AI 识别和自动化填报状态。
+  - 学校提交日志统一使用 `school_draft_submit_started/completed/failed` 和 `school_final_submit_started/completed/failed`；`target_id` 必须指向 submission id，不再使用旧的通用 submit action。
   - 不返回内部审计动作，例如 `save_submission_correction`、配置保存、公式保存、刷新配置等；这些仍保留在 Admin / Reviewer 审计日志中。
 - **Response**:
 ```json

@@ -89,7 +89,7 @@
 
 ### Prompt 配置归属
 
-- 实验 JSON 不保存识别或生成 Prompt 文本，只保留 `ai.recognition.imageRef`、`ai.generation.targetRef` 等结构绑定。
+- 实验 JSON 不保存识别或生成 Prompt 文本，只保留 `ai.recognition.imageRef`、`ai.generation.targetRef`、`ai.generation.dataNodes` 等结构绑定。
 - Prompt 内容统一由系统 Prompt 模板页维护，后端按 `AiPromptTemplate -> 系统默认模板` 的优先级生成最终识别和回答 Prompt。
 - 这样避免 raw JSON 与系统设置同时维护 Prompt 文案造成来源不清。
 
@@ -107,6 +107,14 @@
 - `ai.recognition.imageRef` 只指向 AI 识别用图片槽位；单独图片答案通过 `inputs.fields[].type = "image_upload"` 和 `inputs.images[].targetNodeId` / `imageSlotId` 绑定。
 - 前端遇到 `image_upload` 节点时，在该段落位置渲染独立图片上传卡，上传成功后将图片 URL 写回对应 `nodeId`；该节点不进入生成式文本回答 textarea。
 - 落球法测粘滞系数的 `L3Area` 采用该语义，作为“粘滞系数与温度关系曲线”的图片答案节点。
+
+### 审核预处理复用学生侧 AI 能力
+
+- 一键托管提交默认进入 `pending_image_assignment`，等待管理员 / 审核员完成图片归位；`AiConfig.auto_recognize` 保持关闭或内部调试语义，不作为完整提交主链路。
+- 批量预处理只做编排，不重写 AI 能力：固定填空复用 `ai_service.get_fixed_fill()`，图片识别复用 `ai_service.recognize_images()`，生成回答复用 `ai_service.generate_answers()`。
+- AI 识别图片来源以实验配置 `ai.recognition.imageRef` 对应的 `submission.image_slots` 为准，避免对学生上传的整批图片盲识别。
+- 预处理结果第一阶段继续写入扁平 `submission.recognition_json`，以兼容现有审核详情页；长期可升级为 `{ values, _meta }` 结构。
+- 学校详情自动加载属于学校自动化策略，放在 `automation_config.syncPolicy`；学生默认开启，admin / reviewer 默认关闭。
 
 ### 防重发与并发锁定控制（订单与自动化防刷机制）
 

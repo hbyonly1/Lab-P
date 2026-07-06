@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Tabs, Form, Input, Button, message, Space, Card, Typography, Spin, Collapse, Select } from 'antd';
+import { Tabs, Form, Input, Button, message, Space, Card, Typography, Spin, Collapse } from 'antd';
 import { buildExperimentConfig } from '../../../services/experimentConfigStore.js';
 import { ExperimentDetailView } from '../student/StudentExperimentDetailPage.jsx';
 import { experimentsApi } from '../../../services/experimentsApi.js';
@@ -12,8 +12,8 @@ import Editor from '@monaco-editor/react';
 
 const { Title, Text, Paragraph } = Typography;
 
-const DEFAULT_RECOGNITION_SYSTEM = "你是一个严格的实验手写数据提取器。\n- 只从图片提取，不得推断、猜测、虚构\n- 字段看不清则保持为空字符串\"\"\n- 只返回 JSON，不输出任何说明文字";
-const DEFAULT_GENERATION_SYSTEM = "你是一名物理实验助教。用中文学术性语言回答实验思考题，每次视角和侧重点不同。";
+const DEFAULT_RECOGNITION_SYSTEM = "不推断、不补全、不计算；看不清填\"\"；只返回 JSON object。";
+const DEFAULT_GENERATION_SYSTEM = "回答问题时直接输出答案即可，不要采用任何markdown和序号，每一点用句号分割即可。";
 
 function ExperimentRawConfigTab({ experimentId, configJson, onSaved }) {
   const [saving, setSaving] = useState(false);
@@ -135,7 +135,6 @@ function ExperimentSettingsTab({ experimentId }) {
 function ExperimentPromptTab({ experimentId, experimentConfig }) {
   const [promptForm] = Form.useForm();
   const [savingPrompt, setSavingPrompt] = useState(false);
-  const [availableDataNodes, setAvailableDataNodes] = useState([]);
   const [promptPreviews, setPromptPreviews] = useState({ recognition: '', generation: '' });
   const [previewLoading, setPreviewLoading] = useState(false);
   const previewTimer = window.previewTimer || { current: null };
@@ -144,9 +143,6 @@ function ExperimentPromptTab({ experimentId, experimentConfig }) {
     if (!expId) return;
     setPreviewLoading(true);
     const apiValues = { ...currentValues };
-    if (Array.isArray(apiValues.generation_data_nodes)) {
-      apiValues.generation_data_nodes = apiValues.generation_data_nodes.join(',');
-    }
     try {
       const result = await previewAiPromptTemplate(expId, apiValues);
       setPromptPreviews({
@@ -170,22 +166,11 @@ function ExperimentPromptTab({ experimentId, experimentConfig }) {
   const loadPromptConfig = async () => {
     try {
       const template = await getAiPromptTemplate(experimentId);
-      const jsonConfig = experimentConfig || {};
-
-      let nodes = [];
-      const fields = jsonConfig.inputs?.fields || [];
-      fields.forEach(f => {
-        if (f.type === 'ai_recognize') nodes.push(f.id);
-      });
-      setAvailableDataNodes(nodes.map(n => ({ label: n, value: n })));
-      const nodeSet = new Set(nodes);
-
       const newValues = {
         recognition_system_prompt: template.recognition_system_prompt || DEFAULT_RECOGNITION_SYSTEM,
         recognition_extra_prompt: template.recognition_extra_prompt || '',
         generation_system_prompt: template.generation_system_prompt || DEFAULT_GENERATION_SYSTEM,
         generation_extra_prompt: template.generation_extra_prompt || '',
-        generation_data_nodes: template.generation_data_nodes ? template.generation_data_nodes.split(',').filter(n => nodeSet.has(n)) : [],
       };
       promptForm.setFieldsValue(newValues);
       updatePreview(experimentId, newValues);
@@ -202,9 +187,6 @@ function ExperimentPromptTab({ experimentId, experimentConfig }) {
     try {
       setSavingPrompt(true);
       const apiValues = { ...values };
-      if (Array.isArray(apiValues.generation_data_nodes)) {
-        apiValues.generation_data_nodes = apiValues.generation_data_nodes.join(',');
-      }
       await updateAiPromptTemplate(experimentId, apiValues);
       message.success('Prompt 模板已保存');
     } catch (e) {
@@ -249,19 +231,6 @@ function ExperimentPromptTab({ experimentId, experimentConfig }) {
             </Spin>
           </Collapse.Panel>
           <Collapse.Panel header="实验思考题生成 Prompt" key="2">
-            <Form.Item
-              name="generation_data_nodes"
-              label="传递给 AI 的数据节点 (可选)"
-              tooltip="为空则代表传递提取到的所有数据节点。如果你只想给大模型提供指定的几个节点数据，请在此下拉勾选。"
-            >
-              <Select
-                mode="multiple"
-                allowClear
-                placeholder="请选择要传递的数据节点，留空表示全选"
-                options={availableDataNodes}
-                style={{ width: '100%' }}
-              />
-            </Form.Item>
             <Form.Item
               name="generation_system_prompt"
               label="系统指令 (System Prompt)"

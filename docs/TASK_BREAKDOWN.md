@@ -196,15 +196,21 @@ POST  /api/reviewer/tasks/:id/complete
 任务：
 
 - admin 分配 reviewer
+- 按 `submission_batch_id` 聚合一键托管提交批次
+- 管理员 / reviewer 把学生上传图片匹配到实验配置的 `inputs.images` 槽位
+- 保存 `submission.image_slots`
+- 匹配确认后启动审核预处理：固定填空、按 `ai.recognition.imageRef` 识别图片、生成实验问题回答
 - reviewer 对照图片修改识别结果
-- reviewer 补固定填空
-- reviewer 生成或填写实验问题答案
+- reviewer 审核 AI 预处理结果并人工点击一键计算
 - 保存 `corrected_json`
 - 标记审核完成
 
 验收：
 
 - reviewer 只能处理分配任务
+- student 不需要选择具体图片槽位，也不能修改托管任务图片匹配
+- 预处理复用已有 AI service，不复制 prompt、图片解析或 JSON 清洗逻辑
+- `AiConfig.auto_recognize` 默认不承担完整提交主链路
 - 所有修改写入审计日志或版本记录
 - 审核完成后才能进入自动填报
 

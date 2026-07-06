@@ -13,7 +13,7 @@ import { ProSubmitModal } from '../../../components/experiment/index.js';
 import { calculateExperimentMetrics } from '../../../utils/metricsUtils.js';
 
 import { STATUS_META } from '../../../constants/statusEnums.js';
-import { getMySubmissions, submitExperiment } from '../../../services/submissionsApi.js';
+import { createSubmissionBatchId, getMySubmissions, submitExperiment } from '../../../services/submissionsApi.js';
 import { experimentsApi } from '../../../services/experimentsApi.js';
 import { getSchoolOverviewLatest } from '../../../services/schoolSyncApi.js';
 
@@ -102,8 +102,9 @@ export default function StudentExperimentsPage() {
         return;
       }
 
+      const submissionBatchId = createSubmissionBatchId();
       for (const { target, imagePaths } of targetsWithImages) {
-        await submitExperiment(target.id, targetStudent, isHungup, imagePaths);
+        await submitExperiment(target.id, targetStudent, isHungup, imagePaths, 'pay_per_use', submissionBatchId);
       }
       message.success('提交成功，后台正在处理中！');
       await loadData();

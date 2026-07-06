@@ -7,7 +7,7 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
-from api.deps import get_current_user
+from api.deps import get_current_reviewer_or_admin, get_current_user
 from api.v1.automation_jobs import AutomationJobPublic, to_public_job
 from core.db import engine, get_session
 from models.core import AuditLog, AutomationEngineConfig, AutomationJob, SchoolSyncSnapshot, Submission, SubmissionVersion, User, get_utc_now
@@ -54,6 +54,28 @@ class SchoolSubmitRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class SchoolSyncSettings(BaseModel):
+    auto_load_detail_for_student: bool = Field(alias="autoLoadDetailForStudent")
+    auto_load_detail_for_internal_user: bool = Field(alias="autoLoadDetailForInternalUser")
+    auto_load_detail: bool = Field(alias="autoLoadDetail")
+
+    model_config = {"populate_by_name": True}
+
+
+def _active_automation_config_json(session: Session) -> Dict[str, Any]:
+    config = session.exec(
+        select(AutomationEngineConfig)
+        .where(AutomationEngineConfig.name == "default")
+        .where(AutomationEngineConfig.is_active == True)  # noqa: E712
+        .order_by(AutomationEngineConfig.id.desc())
+    ).first()
+    return (config.config_json or {}) if config else {}
+
+
+def _sync_policy(session: Session) -> Dict[str, Any]:
+    return _active_automation_config_json(session).get("syncPolicy") or {}
+
+
 def _automation_conflict_response(exc: AutomationJobConflict) -> HTTPException:
     detail: Dict[str, Any] = {"code": exc.code}
     if exc.job:
@@ -67,7 +89,7 @@ def _add_audit_log(
     user_id: int,
     action: str,
     status: str,
-    job_id: Optional[str] = None,
+    target_id: Optional[str] = None,
     details: str,
 ) -> None:
     session.add(
@@ -75,25 +97,40 @@ def _add_audit_log(
             user_id=user_id,
             action=action,
             status=status,
-            target_id=job_id,
+            target_id=target_id,
             details=details,
         )
     )
 
 
 def _sync_cooldown_seconds(session: Session) -> int:
-    config = session.exec(
-        select(AutomationEngineConfig)
-        .where(AutomationEngineConfig.name == "default")
-        .where(AutomationEngineConfig.is_active == True)  # noqa: E712
-    ).first()
-    config_json = (config.config_json or {}) if config else {}
-    value = (config_json.get("syncPolicy") or {}).get("syncCooldownSeconds")
+    value = _sync_policy(session).get("syncCooldownSeconds")
     try:
         seconds = int(value)
     except (TypeError, ValueError):
         seconds = 1800
     return max(seconds, 0)
+
+
+@router.get("/settings", response_model=SchoolSyncSettings)
+def get_school_sync_settings(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> SchoolSyncSettings:
+    sync_policy = _sync_policy(session)
+    auto_load_student = sync_policy.get("autoLoadDetailForStudent")
+    auto_load_internal = sync_policy.get("autoLoadDetailForInternalUser")
+    if not isinstance(auto_load_student, bool):
+        auto_load_student = True
+    if not isinstance(auto_load_internal, bool):
+        auto_load_internal = False
+
+    is_internal = current_user.role in ["admin", "reviewer"]
+    return SchoolSyncSettings(
+        autoLoadDetailForStudent=auto_load_student,
+        autoLoadDetailForInternalUser=auto_load_internal,
+        autoLoadDetail=auto_load_internal if is_internal else auto_load_student,
+    )
 
 
 def _latest_overview_snapshot(session: Session, user_id: int) -> Optional[SchoolSyncSnapshot]:
@@ -201,7 +238,7 @@ def start_school_experiment_detail_sync(
             user_id=current_user.id,
             action="school_detail_sync_rejected",
             status="failed",
-            job_id=exc.job.id if exc.job else None,
+            target_id=exc.job.id if exc.job else None,
             details=f"学校单实验同步请求被拒绝：{exc.code}",
         )
         session.commit()
@@ -219,7 +256,7 @@ def start_school_experiment_detail_sync(
             user_id=current_user.id,
             action="school_detail_sync_started",
             status="success",
-            job_id=job.id,
+            target_id=job.id,
             details="学校单实验同步任务已创建。",
         )
     else:
@@ -228,8 +265,94 @@ def start_school_experiment_detail_sync(
             user_id=current_user.id,
             action="school_detail_sync_reused",
             status="success",
-            job_id=job.id,
+            target_id=job.id,
             details="复用正在执行的学校单实验同步任务。",
+        )
+
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    return to_public_job(job)
+
+
+@router.post("/experiments/{experiment_id}/submissions/{submission_id}", response_model=AutomationJobPublic)
+def start_school_submission_experiment_detail_sync(
+    experiment_id: str,
+    submission_id: str,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_reviewer_or_admin),
+) -> AutomationJobPublic:
+    submission = session.get(Submission, submission_id)
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found.")
+    if submission.experiment_id != experiment_id:
+        raise HTTPException(status_code=400, detail="Submission does not belong to this experiment.")
+
+    student = session.get(User, submission.student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="Submission student not found.")
+
+    idempotency_key = make_idempotency_key(
+        "school_detail_sync",
+        student.id,
+        experiment_id=experiment_id,
+        submission_id=submission.id,
+    )
+    public_params = {"experimentName": experiment_id}
+
+    try:
+        job, created = create_or_reuse_automation_job(
+            session,
+            actor_user_id=student.id,
+            action="school_detail_sync",
+            idempotency_key=idempotency_key,
+            public_message_code="school.detail.syncing",
+            public_message_params=public_params,
+            experiment_id=experiment_id,
+            submission_id=submission.id,
+            request_payload={
+                "source": "review_submission_detail",
+                "experiment_id": experiment_id,
+                "submission_id": submission.id,
+                "requested_by": current_user.id,
+            },
+        )
+    except AutomationJobConflict as exc:
+        _add_audit_log(
+            session,
+            user_id=current_user.id,
+            action="school_detail_sync_rejected",
+            status="failed",
+            target_id=exc.job.id if exc.job else None,
+            details=f"学校单实验同步请求被拒绝：{exc.code}",
+        )
+        session.commit()
+        raise _automation_conflict_response(exc)
+
+    if created:
+        now = get_utc_now()
+        job.status = "running"
+        job.public_status = "running"
+        job.started_at = now
+        job.updated_at = now
+        background_tasks.add_task(run_school_detail_sync, job.id, student.id, experiment_id)
+        _add_audit_log(
+            session,
+            user_id=current_user.id,
+            action="school_detail_sync_started",
+            status="success",
+            target_id=job.id,
+            details=f"审核页学校单实验同步任务已创建，submission={submission.id}。",
+        )
+    else:
+        _add_audit_log(
+            session,
+            user_id=current_user.id,
+            action="school_detail_sync_reused",
+            status="success",
+            target_id=job.id,
+            details=f"复用学生 {student.id} 正在执行的学校单实验同步任务。",
         )
 
     session.add(job)
@@ -247,6 +370,21 @@ def get_school_experiment_detail_latest(
     if current_user.role != "student":
         raise HTTPException(status_code=403, detail="Only students can view school experiment detail sync status.")
     return _detail_latest_data(session, current_user.id, experiment_id)
+
+
+@router.get("/experiments/{experiment_id}/submissions/{submission_id}/latest", response_model=SchoolExperimentDetailLatest)
+def get_school_submission_experiment_detail_latest(
+    experiment_id: str,
+    submission_id: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_reviewer_or_admin),
+) -> SchoolExperimentDetailLatest:
+    submission = session.get(Submission, submission_id)
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found.")
+    if submission.experiment_id != experiment_id:
+        raise HTTPException(status_code=400, detail="Submission does not belong to this experiment.")
+    return _detail_latest_data(session, submission.student_id, experiment_id)
 
 
 @router.post("/overview", response_model=AutomationJobPublic)
@@ -285,7 +423,7 @@ def start_school_overview_sync(
             user_id=current_user.id,
             action="school_overview_sync_rejected",
             status="failed",
-            job_id=exc.job.id if exc.job else None,
+            target_id=exc.job.id if exc.job else None,
             details=f"学校概览同步请求被拒绝：{exc.code}",
         )
         session.commit()
@@ -303,7 +441,7 @@ def start_school_overview_sync(
             user_id=current_user.id,
             action="school_overview_sync_started",
             status="success",
-            job_id=job.id,
+            target_id=job.id,
             details="学校概览同步任务已创建。",
         )
     else:
@@ -312,7 +450,7 @@ def start_school_overview_sync(
             user_id=current_user.id,
             action="school_overview_sync_reused",
             status="success",
-            job_id=job.id,
+            target_id=job.id,
             details="复用正在执行的学校概览同步任务。",
         )
 
@@ -388,8 +526,11 @@ def start_school_experiment_submit(
             user_id=current_user.id,
             action=f"school_{request.mode}_submit_rejected",
             status="failed",
-            job_id=exc.job.id if exc.job else None,
-            details=f"学校系统{'正式' if request.mode == 'final' else '临时'}提交请求被拒绝：{exc.code}",
+            target_id=submission.id,
+            details=(
+                f"学校系统{'正式' if request.mode == 'final' else '临时'}提交请求被拒绝：{exc.code}。"
+                f"job_id={exc.job.id if exc.job else ''}"
+            ),
         )
         session.commit()
         raise _automation_conflict_response(exc)
@@ -426,8 +567,8 @@ def start_school_experiment_submit(
             user_id=current_user.id,
             action=f"school_{request.mode}_submit_started",
             status="success",
-            job_id=job.id,
-            details=f"学校系统{'正式' if request.mode == 'final' else '临时'}提交任务已创建。",
+            target_id=submission.id,
+            details=f"学校系统{'正式' if request.mode == 'final' else '临时'}提交任务已创建。job_id={job.id}",
         )
         background_tasks.add_task(run_school_experiment_submit, job.id, submission.id, request.mode)
     else:
@@ -436,8 +577,8 @@ def start_school_experiment_submit(
             user_id=current_user.id,
             action=f"school_{request.mode}_submit_reused",
             status="success",
-            job_id=job.id,
-            details=f"复用正在执行的学校系统{'正式' if request.mode == 'final' else '临时'}提交任务。",
+            target_id=submission.id,
+            details=f"复用正在执行的学校系统{'正式' if request.mode == 'final' else '临时'}提交任务。job_id={job.id}",
         )
 
     session.add(job)

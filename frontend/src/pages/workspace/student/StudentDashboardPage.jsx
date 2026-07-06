@@ -26,7 +26,7 @@ import { ProSubmitModal } from '../../../components/experiment/index.js';
 import { calculateExperimentMetrics } from '../../../utils/metricsUtils.js';
 import { auditApi } from '../../../services/auditApi.js';
 import { getMe } from '../../../services/authApi.js';
-import { getMySubmissions, submitExperiment } from '../../../services/submissionsApi.js';
+import { createSubmissionBatchId, getMySubmissions, submitExperiment } from '../../../services/submissionsApi.js';
 import { experimentsApi } from '../../../services/experimentsApi.js';
 import { getSchoolOverviewLatest, startSchoolOverviewSync } from '../../../services/schoolSyncApi.js';
 import { getActiveAutomationJobs } from '../../../services/automationJobsApi.js';
@@ -276,8 +276,9 @@ export default function StudentDashboardPage() {
         return;
       }
 
+      const submissionBatchId = createSubmissionBatchId();
       for (const { target, imagePaths } of targetsWithImages) {
-        await submitExperiment(target.id, targetStudent, isHungup, imagePaths, planName);
+        await submitExperiment(target.id, targetStudent, isHungup, imagePaths, planName, submissionBatchId);
       }
       message.success('批量提交成功！任务已进入处理队列。');
       setTimeout(() => {

@@ -17,6 +17,11 @@ import {
 
 const { Sider, Content } = Layout;
 
+const DETAIL_ROUTE_PATTERNS = [
+  /^\/workspace\/student\/experiments\/[^/]+$/,
+  /^\/workspace\/reviewer\/tasks\/[^/]+$/,
+];
+
 export default function WorkspaceLayout() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -30,6 +35,7 @@ export default function WorkspaceLayout() {
   const userRole = getAdminUserRole();
   const accessibleModules = getWorkspaceModulesForRole(userRole);
   const currentModule = getWorkspaceModuleByPath(location.pathname);
+  const isDetailRoute = DETAIL_ROUTE_PATTERNS.some((pattern) => pattern.test(location.pathname));
   const standardContentModules = [
     'student-dashboard',
     'student-experiments',
@@ -43,6 +49,10 @@ export default function WorkspaceLayout() {
   const primaryUserLabel = realName || (userRole === 'student' ? '姓名未同步' : platformUsername || '账号未同步');
   const secondaryUserLabel = studentNo ? `学号：${studentNo}` : platformUsername ? `账号：${platformUsername}` : '账号待同步';
   const userInitial = (realName || platformUsername || studentNo).trim().charAt(0).toUpperCase() || 'A';
+
+  useEffect(() => {
+    setCollapsed(isDetailRoute);
+  }, [isDetailRoute]);
 
   const menuItems = useMemo(
     () =>
@@ -58,7 +68,7 @@ export default function WorkspaceLayout() {
     <Layout className="workspace-shell">
       <Sider
         width={210}
-        collapsedWidth={76}
+        collapsedWidth={56}
         collapsed={collapsed}
         trigger={null}
         className="workspace-sider"

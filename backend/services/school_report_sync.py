@@ -1250,6 +1250,14 @@ def _field_report_summary(field_report: Any) -> Dict[str, Any]:
     return summary
 
 
+def _submit_audit_action(job_action: str, suffix: str) -> str:
+    if job_action == "draft_submit":
+        return f"school_draft_submit_{suffix}"
+    if job_action == "final_submit":
+        return f"school_final_submit_{suffix}"
+    raise ValueError(f"Unsupported submit job action: {job_action}")
+
+
 def _mark_job_failed(session: Session, job: AutomationJob, error: SchoolAutomationError) -> None:
     now = get_utc_now()
     job.status = "failed"
@@ -1311,9 +1319,9 @@ def _mark_job_failed(session: Session, job: AutomationJob, error: SchoolAutomati
     session.add(
         AuditLog(
             user_id=job.actor_user_id,
-            action=f"{job.action}_failed",
+            action=_submit_audit_action(job.action, "failed"),
             status="failed",
-            target_id=job.id,
+            target_id=job.submission_id,
             details=json.dumps(audit_payload, ensure_ascii=False, indent=2)[:8000],
         )
     )
@@ -1521,8 +1529,19 @@ def run_school_experiment_submit(job_id: str, submission_id: str, mode: str) -> 
             session.add(snapshot)
             session.add(submission)
             session.add(job)
-            audit_details = "学校系统提交状态已确认。" if result.get("statusConfirmation") == "list_confirmed" else "学校系统已返回提交成功，列表状态待后续同步确认。"
-            session.add(AuditLog(user_id=job.actor_user_id, action=f"school_{mode}_submit_completed", status="success", target_id=job.id, details=audit_details))
+            submit_label = "正式提交" if mode == "final" else "临时提交"
+            audit_details = (
+                f"学校系统{submit_label}状态已确认。job_id={job.id}"
+                if result.get("statusConfirmation") == "list_confirmed"
+                else f"学校系统已返回{submit_label}成功，列表状态待后续同步确认。job_id={job.id}"
+            )
+            session.add(AuditLog(
+                user_id=job.actor_user_id,
+                action=f"school_{mode}_submit_completed",
+                status="success",
+                target_id=submission.id,
+                details=audit_details,
+            ))
             session.commit()
     except SchoolAutomationError as exc:
         with Session(engine) as session:

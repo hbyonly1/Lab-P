@@ -18,10 +18,13 @@ export const AUDIT_ACTION_META = {
   ai_recognition_completed: { label: 'AI 图像识别完成', type: 'success' },
   ai_recognition_failed: { label: 'AI 图像识别失败', type: 'error' },
 
-  // === 自动化填报系统 (Automation Worker) ===
-  auto_submit_started: { label: '启动 Playwright 自动化填报', type: 'info' },
-  auto_submit_completed: { label: '自动化填报成功', type: 'success' },
-  auto_submit_failed: { label: '自动化填报异常', type: 'error' }
+  // === 学校系统提交 ===
+  school_draft_submit_started: { label: '学校系统临时提交开始', type: 'info' },
+  school_draft_submit_completed: { label: '学校系统临时提交成功', type: 'success' },
+  school_draft_submit_failed: { label: '学校系统临时提交失败', type: 'error' },
+  school_final_submit_started: { label: '学校系统正式提交开始', type: 'info' },
+  school_final_submit_completed: { label: '学校系统正式提交成功', type: 'success' },
+  school_final_submit_failed: { label: '学校系统正式提交失败', type: 'error' }
 };
 
 export const AUDIT_ACTION_LIST = Object.keys(AUDIT_ACTION_META);

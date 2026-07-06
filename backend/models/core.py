@@ -54,8 +54,12 @@ class Submission(SQLModel, table=True):
     is_one_click_handoff: bool = Field(default=False)
     
     image_paths: List[str] = Field(default_factory=list, sa_column=Column(JSONB))
+    image_slots: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
     recognition_json: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
     corrected_json: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
+    submission_batch_id: Optional[str] = Field(default=None, index=True)
+    preprocess_status: Optional[str] = Field(default=None)
+    preprocess_error: Optional[str] = Field(default=None)
     
     created_at: datetime = Field(default_factory=get_utc_now)
     updated_at: datetime = Field(default_factory=get_utc_now)
@@ -185,5 +189,4 @@ class AiPromptTemplate(SQLModel, table=True):
     recognition_extra_prompt: Optional[str] = None   # 附加说明
     generation_system_prompt: Optional[str] = None
     generation_extra_prompt: Optional[str] = None
-    generation_data_nodes: Optional[str] = None  # 逗号分隔的节点ID列表
     updated_at: datetime = Field(default_factory=get_utc_now)

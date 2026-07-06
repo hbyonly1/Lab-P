@@ -155,6 +155,23 @@ export default function SettingsPage() {
     }
   };
 
+  const handleToggleAutomationSyncPolicy = async (field, checked) => {
+    const nextConfig = {
+      ...automationConfigJson,
+      syncPolicy: {
+        ...(automationConfigJson.syncPolicy || {}),
+        [field]: checked,
+      },
+    };
+    setAutomationConfigJson(nextConfig);
+    try {
+      await handleSaveAutomationConfig(nextConfig);
+      message.success('学校详情自动加载设置已保存');
+    } catch (e) {
+      setAutomationConfigJson(automationConfigJson);
+    }
+  };
+
   const tabItems = [
     {
       key: 'ai_config',
@@ -269,15 +286,51 @@ export default function SettingsPage() {
         </span>
       ),
       children: (
-        <JsonConfigEditor
-          value={automationConfigJson}
-          label="raw JSON"
-          saveText="保存自动化配置"
-          saving={savingAutomation}
-          onSave={handleSaveAutomationConfig}
-          successMessage="自动化配置已保存"
-          fullScreen={true}
-        />
+        <section className="settings-panel">
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 16,
+              padding: '12px 0 18px',
+              borderBottom: '1px solid #eef0f5',
+              marginBottom: 16,
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>学校详情自动加载</div>
+              <div style={{ marginTop: 4, color: '#6b7280' }}>控制打开实验详情页时是否自动读取学校系统已填写数据。</div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                学生
+                <Switch
+                  checked={automationConfigJson.syncPolicy?.autoLoadDetailForStudent ?? true}
+                  loading={savingAutomation}
+                  onChange={(checked) => handleToggleAutomationSyncPolicy('autoLoadDetailForStudent', checked)}
+                />
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                Admin / Reviewer
+                <Switch
+                  checked={automationConfigJson.syncPolicy?.autoLoadDetailForInternalUser ?? false}
+                  loading={savingAutomation}
+                  onChange={(checked) => handleToggleAutomationSyncPolicy('autoLoadDetailForInternalUser', checked)}
+                />
+              </span>
+            </div>
+          </div>
+          <JsonConfigEditor
+            value={automationConfigJson}
+            label="raw JSON"
+            saveText="保存自动化配置"
+            saving={savingAutomation}
+            onSave={handleSaveAutomationConfig}
+            successMessage="自动化配置已保存"
+            fullScreen={true}
+          />
+        </section>
       ),
     },
   ];

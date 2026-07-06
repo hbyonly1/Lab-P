@@ -549,3 +549,42 @@
 - 验证：`py_compile backend/services/captcha_ai.py backend/worker/ai_tasks.py backend/services/school_overview_sync.py` 通过；已重建 `backend` / `celery_worker`；用历史验证码截图经 base64 投递 worker 成功返回 OCR 文本；直接调用 `recognize_captcha()` 成功解析出验证码 `87NM`。
 - 自动同步冷却字段迁移到 `syncPolicy.syncCooldownSeconds`：自动化配置 schema 升级到 `1.5`，默认配置、校验、运行时读取、失败诊断和文档均移除 `retryPolicy.syncCooldownSeconds`；本地数据库当前 default 配置已确认是新结构。
 - 验证：`python3 -m py_compile backend/api/v1/automation_config.py backend/api/v1/school_sync.py backend/services/school_overview_sync.py` 通过；`backend/venv/bin/pytest -q tests/test_e2e_flow.py -k "admin_automation_config or school_sync_cooldown_reads_sync_policy_only"` 通过。
+- 修复管理员打开学生实验详情页时被学生套餐前端拦截的问题：`一键填空`、`一键生成并填入回答`、`一键提交` 现在对 `admin/reviewer` 按内部账号放行，只有 `student` 继续受 `capabilities.plan` 限制；内部账号也不再触发仅学生可用的学校实验详情自动同步。
+- 验证：`frontend/ npm run build` 通过；相关文件 `git diff --check` 通过。
+- 根据 `assets/pdf/电表的改装.pdf` 扫描课件补全 `exp_meter_modification` 配置：修正实验目的第 3 条为测量小灯泡电阻，补充仪器旋钮对应关系、欧姆表刻度与调零原理、课件实验步骤、注意事项，并将数据处理标题和说明纠正为拟合 `Rₓ` 与 `1/Iₓ` 的线性关系。
+- 电表公式仍沿用后端通用 `formulas` 表达式：以 `1/Iₓ` 为横坐标、`Rₓ` 为纵坐标，`DBGZ2` 为斜率 `E/k`，`DBGZ3` 为 `-intercept` 得到的 `Rs`，`DBGZ4` 为 3 位有效数字 `R²`；未新增学校 DOM 不存在的提交节点。
+- 验证：`python3 -m json.tool backend/configs/exp_meter_modification.json` 通过；用后端 venv、`simpleeval` 和 `experiment_formulas` 对 8 个样例电流点计算 `DBGZ2/DBGZ3/DBGZ4` 通过。
+- AI 识别 Prompt 改为配置驱动生成表格轴映射：默认系统提示压缩为禁止推断计算、看不清留空和 JSON 输出规则；后端会从 `ui.dataTable` / `ui.dataTables[].rows[].cells[]` 推导 `target/by/cols/nodes` 或 `row_axis/rows/cols/node_matrix`。电表单行多列生成 `target=I, by=Rₓ, cols=[200,400...], nodes=[DBGZ10-0,DBGZ10-1...]`；多行多列生成 `row_axis=砝码, rows=[1], cols=[上行读数,下行读数], node_matrix=[[A1,A2]]`。显式 `inputs.fields[].recognitionHint` 或 `ai.recognition.nodeHints` 仍可覆盖特殊节点。
+- 验证：`py_compile backend/core/ai_prompts.py backend/tests/test_ai_prompts.py` 通过；`backend/venv/bin/python -m pytest backend/tests/test_ai_prompts.py -q` 通过。
+- 图片结构化识别模型从 `deepseek-ai/DeepSeek-OCR` 切换为 `zai-org/GLM-4.5V`：`.env`、`.env.example`、AI 配置种子、API 契约和管理员 AI 配置测试均已同步；数据库中旧 `deepseek-ai/DeepSeek-OCR` 配置会在读取时归一化为 GLM。
+- AI 返回清洗增强：GLM 这类不走 JSON mode 的视觉模型会跳过 `response_format`，后端解析会剥离 `<|begin_of_box|>` / `<|end_of_box|>` 和 markdown fence，并从混合文本中提取首个完整 JSON object；非 object JSON 会直接拒绝，识别结果只保留实验配置声明的 nodeId。
+- 使用 `assets/11.JPG` 按电表改装实验真实调用后端 `recognize_images()` 验证，清洗后输出 `DBGZ10-0=83.0`、`DBGZ10-1=71.0`、`DBGZ10-2=62.0`、`DBGZ10-3=55.0`、`DBGZ10-4=33.0`、`DBGZ10-5=19.5`、`DBGZ10-6=14.0`、`DBGZ10-7=11.0`。
+- 验证：`python3 -m py_compile backend/core/ai_prompts.py backend/services/ai_service.py backend/services/ai_provider.py backend/tests/test_ai_prompts.py` 通过；`backend/venv/bin/python -m pytest backend/tests/test_ai_prompts.py -q` 通过 5 项；`backend/venv/bin/python -m pytest backend/tests/test_e2e_flow.py::test_admin_ai_config_uses_database_profiles_without_key_leak -q` 通过。
+- 修复 Admin 实验 Prompt 设置页仍显示旧 System Prompt 的问题：`GET /api/v1/ai/admin/prompts/{experiment_id}` 现在在没有数据库模板时返回后端 `core.ai_prompts` 当前默认值，前端兜底常量也同步为新默认值，避免 Python 默认 Prompt 和 React 硬编码默认 Prompt 不一致。
+- 注意：如果某个实验之前保存过旧 Prompt 模板，数据库 `ai_prompt_templates` 里的非空值仍会按设计覆盖系统默认值，需要在页面清空/重存或清理该实验模板后才会回到默认 Prompt。
+- 修复 AI 图片识别向模型传递站内上传路径的问题：上传接口返回并保存的 `/uploads/yyyy-mm/file.JPG` 会在 worker 内解析为本地 `/app/uploads/...` 文件并转换为 `data:image/...;base64,...`，不再把外部模型无法访问的相对 URL 原样作为 `image_url` 发送。
+- 验证：`python3 -m py_compile backend/services/ai_service.py backend/tests/test_ai_prompts.py` 通过；`backend/venv/bin/python -m pytest backend/tests/test_ai_prompts.py -q` 通过 6 项；`git diff --check` 通过。
+
+- 学生实验详情页新增非阻塞后台任务浮窗：一键填空、AI 图片识别、一键计算数据和一键生成回答触发后会在右下角持续显示任务状态、已用时、成功摘要或失败原因，用户仍可继续编辑页面。
+- 现阶段 AI 辅助任务继续复用已有 Celery `task_id` 与 `/api/v1/ai/task/{task_id}` 轮询；公式计算仍为同步接口，但前端统一纳入浮窗反馈。学校系统同步/提交等高风险自动化任务继续使用原有 `AutomationProgressModal`。
+- 同步 `docs/API_CONTRACT.md`：修正旧的“AI/计算强同步 Blocking”描述，记录 AI 辅助任务的 task 查询契约和非阻塞浮窗展示约束。
+- 实验图片上传控件新增真实旋转能力：旋转按钮会将当前图片用 canvas 旋转为新文件、重新上传到后端，并替换当前图片 URL；学生实验详情页、内联图片节点和一键提交上传弹窗共用该能力。图片工具栏按钮尺寸同步收紧，避免四个按钮换行。
+- 生成式回答附带数据节点改为实验配置唯一来源：`ai.generation.dataNodes` 可配置要传给 AI 的 `inputs.fields[].id`，支持识别节点、计算节点和固定节点；数据库 Prompt 模板中的 `generation_data_nodes` 已从模型、API、Admin Prompt 页和 migration 中移除。电表改装默认仅传入 `DBGZ2/DBGZ3/DBGZ4` 三个计算结果节点。
+- 新增 `docs/REVIEW_BATCH_PREPROCESS_AND_SUBMIT_PLAN.md`，明确完整提交模式下一键批量上传后的审核批次聚合、管理员图片匹配弹窗、匹配后自动固定填空 / AI 识别 / 问题回答生成、审核页人工一键计算，以及 admin/reviewer 触发临时 / 正式提交时使用 submission 所属学生学校账号与加密学校密码的全链路方案。
+- 更新审核批量预处理方案：明确 `AiConfig.auto_recognize` 默认保持关闭且不作为完整提交主入口；批量预处理只做编排，复用学生侧已有固定填空、图片识别、问题回答生成服务能力并写入 submission；设置页后续新增学生端和 admin/reviewer 端分别控制“打开实验详情时自动加载学校数据”的开关。
+- 审核预处理后端第一阶段落地：`submissions` 新增 `submission_batch_id`、`image_slots`、`preprocess_status`、`preprocess_error`；一键托管提交创建后进入 `pending_image_assignment`，不再自动盲识别；新增保存图片匹配接口和批量 `prepare-review` 接口；worker 新增 `prepare_submission_for_review_task`，复用固定填空、图片识别、生成回答服务并写回 `recognition_json`。
+- 学校详情自动加载配置落地：自动化配置 schema 升级到 `1.6`，`syncPolicy` 新增 `autoLoadDetailForStudent=true`、`autoLoadDetailForInternalUser=false`；设置页新增两个开关；实验详情页改为先读取 `GET /api/v1/school-sync/settings` 再决定是否自动触发学校详情同步。
+- 文档同步：`docs/REVIEW_BATCH_PREPROCESS_AND_SUBMIT_PLAN.md`、`docs/API_CONTRACT.md`、`docs/DECISIONS.md` 已记录新字段、新接口、新状态和配置决策。
+- 验证：`python3 -m py_compile backend/models/core.py backend/api/v1/submissions.py backend/api/v1/orders.py backend/worker/ai_tasks.py backend/api/v1/automation_config.py backend/api/v1/school_sync.py` 通过。
+- 审核任务页第一版接入批次聚合和图片匹配弹窗：`GET /review-pool` 返回的任务按 `student + submission_batch_id` 聚合；批次操作可打开 `ReviewBatchImageAssignmentModal`，查看学生上传图片池，按实验配置图片槽保存 `image_slots`，并调用 `prepare-review` 启动预处理。
+- 批量图片匹配弹窗增强：支持点击选图放入槽位、图片预览、移除、已使用标记；旋转复用上传控件中的真实旋转逻辑，旋转后重新上传并替换槽位 URL，不做纯 CSS 旋转。
+- 审核详情页回填修正：复用学生 `ExperimentDetailView` 时传入 `initialSubmission` 和 `initialImageSlots`，优先从 `submission.image_slots` 回填图片控件；初始表单值从 `corrected_json.values` / `recognition_json` 解包，避免把 `_meta` 或包装对象塞进节点值。
+- 学校详情手动加载补齐：实验详情页新增“加载学校数据”按钮；学生侧仍调用学生自用详情同步接口，审核详情页通过 `POST /api/v1/school-sync/experiments/{experiment_id}/submissions/{submission_id}` 触发同步并使用 submission 所属学生学校账号，完成后读取 submission 学生的详情快照回填。
+- 一键批量提交批次号补齐：前端 `submitExperiment` 支持 `submission_batch_id`，仪表盘、实验列表和单实验详情提交入口会在同一轮提交中生成并传入同一个 `BATCH-*`，确保审核任务页能按真实提交批次聚合，而不是每个实验各自成批。
+- 服务端图片节点同步补齐：保存审核 correction 时，后端会根据实验配置 `inputs.images[].targetNodeId` 把 `image_slots` 中的图片 URL 同步进 `corrected_json.values[targetNodeId]`，确保学校提交服务只读 `corrected_json.values` 也能写入图片节点。
+- 测试补充：新增覆盖批次图片匹配 / 批量预处理排队、审核页按 submission 触发学校详情同步且使用 submission 学生账号、保存 correction 同步图片 target node 的 e2e 测试。
+- 验证：`backend/venv/bin/python -m pytest backend/tests/test_e2e_flow.py -q` 通过 43 项；`frontend/ npm run build` 通过；`git diff --check` 通过。
+- 遗留：预处理进度当前通过 submission 字段表达，尚未升级为 public job；匹配弹窗后续可继续增强跨实验图片池、键盘操作和更完整的缩放平移预览体验。
+- 审核图片匹配弹窗修正：页面文案统一使用“图片匹配”；弹窗改为复用一键批量提交的全屏 Modal 壳，标题和底部按钮固定，中间工作区滚动；右侧图片槽改为复用实验详情页同一个 `ExperimentImageUploader`，避免重复造槽位 UI；学生上传缩略图改为走统一上传 URL 解析，修复 `/uploads/...` 缩略图不显示；关闭弹窗时增加 `batch` 空值保护，避免点击叉号崩溃。
+- 审核完成后续状态补齐：审核任务池保留 `draft_submitted` 和 `completed` 记录，前端状态文案将 `reviewing` 显示为“待人工审核”、`completed` 显示为“审核完成已提交”；学生最近操作会展示 target 指向其 submission/order 的完成类日志。
+- 学校提交 audit action 统一为 `school_draft_submit_started/completed/failed` 和 `school_final_submit_started/completed/failed`；提交类日志 `target_id` 统一指向 submission id，job id 仅保留在 details 诊断文本中，不再兼容旧的通用 submit action。

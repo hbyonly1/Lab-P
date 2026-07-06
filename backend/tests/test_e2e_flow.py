@@ -10,6 +10,7 @@ import asyncio
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from main import app
 from api.v1 import school_sync
+from api.v1 import submissions as submissions_api
 from api.v1.automation_config import CONFIG_SCHEMA_VERSION, default_automation_config
 from core.config import settings
 from core.db import get_session
@@ -552,7 +553,7 @@ def test_student_payment_flow(student_token, admin_token):
     )
     assert res.status_code == 200, res.text
     submission = res.json()
-    assert submission["status"] in ["pending_payment", "pending_recognition"]
+    assert submission["status"] in ["pending_payment", "pending_image_assignment"]
     
     order_id = submission["order_id"]
     
@@ -578,7 +579,7 @@ def test_student_payment_flow(student_token, admin_token):
     review_pool = res.json()
     sub_found = next((s for s in review_pool if s["id"] == submission["id"]), None)
     assert sub_found is not None
-    assert sub_found["status"] in ["pending_recognition", "recognizing"]
+    assert sub_found["status"] == "pending_image_assignment"
 
     # 4.5 Check the specific submission endpoint returns image_paths
     res = client.get(f"/api/v1/submissions/{submission['id']}", headers={"Authorization": f"Bearer {admin_token}"})
@@ -619,6 +620,121 @@ def test_one_click_submission_requires_uploaded_images(student_token):
         submission = session.exec(select(Submission).where(Submission.student_id == student.id).where(Submission.experiment_id == experiment_id)).first()
         assert order is None
         assert submission is None
+
+
+def test_batch_image_assignment_and_prepare_review(admin_token, monkeypatch):
+    queued_submission_ids = []
+
+    def fake_prepare_delay(submission_id, user_id):
+        queued_submission_ids.append((submission_id, user_id))
+
+    monkeypatch.setattr(submissions_api.prepare_submission_for_review_task, "delay", fake_prepare_delay, raising=False)
+
+    batch_id = f"BATCH-E2E-PREPARE-{os.urandom(4).hex().upper()}"
+    payloads = [
+        {
+            "experiment_id": "exp_meter_modification",
+            "target_student": FREE_STUDENT_NO,
+            "is_hungup": False,
+            "image_paths": ["/uploads/e2e-batch-1.jpg"],
+            "submission_batch_id": batch_id,
+        },
+        {
+            "experiment_id": "exp_sound_velocity",
+            "target_student": FREE_STUDENT_NO,
+            "is_hungup": False,
+            "image_paths": ["/uploads/e2e-batch-2.jpg"],
+            "submission_batch_id": batch_id,
+        },
+    ]
+
+    created = []
+    for payload in payloads:
+        res = client.post(
+            "/api/v1/submissions/submit",
+            json=payload,
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
+        assert res.status_code == 200, res.text
+        created.append(res.json())
+
+    res = client.get("/api/v1/submissions/review-pool", headers={"Authorization": f"Bearer {admin_token}"})
+    assert res.status_code == 200
+    pool_items = [item for item in res.json() if item["submission_batch_id"] == batch_id]
+    assert len(pool_items) >= 2
+    assert {item["id"] for item in pool_items}.issuperset({item["id"] for item in created})
+
+    first_submission_id = created[0]["id"]
+    res = client.patch(
+        f"/api/v1/submissions/{first_submission_id}/image-slots",
+        json={"image_slots": {"IMG_RAW_DATA": [{"url": "/uploads/e2e-batch-1.jpg", "name": "raw.jpg"}]}},
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["image_slots"]["IMG_RAW_DATA"][0]["url"] == "/uploads/e2e-batch-1.jpg"
+    assert res.json()["preprocess_status"] == "image_assigned"
+
+    assignments = {
+        item["id"]: {"IMG_RAW_DATA": [{"url": f"/uploads/{item['id']}.jpg"}]}
+        for item in created
+    }
+    res = client.post(
+        f"/api/v1/submissions/batches/{batch_id}/prepare-review",
+        json={"assignments": assignments},
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["batch_id"] == batch_id
+    assert set(body["submission_ids"]) == {item["id"] for item in created}
+    assert [item[0] for item in queued_submission_ids] == body["submission_ids"]
+
+    with next(get_session()) as session:
+        submissions = session.exec(select(Submission).where(Submission.submission_batch_id == batch_id)).all()
+        statuses = {submission.id: (submission.status, submission.preprocess_status) for submission in submissions}
+        for submission_id in body["submission_ids"]:
+            assert statuses[submission_id] == ("preparing_review", "queued")
+
+
+def test_save_correction_syncs_image_slots_to_target_node(admin_token):
+    res = client.post(
+        "/api/v1/submissions/submit",
+        json={
+            "experiment_id": "exp_meter_modification",
+            "target_student": FREE_STUDENT_NO,
+            "is_hungup": False,
+            "image_paths": ["/uploads/e2e-correction-image.jpg"],
+            "submission_batch_id": f"BATCH-E2E-CORRECTION-{os.urandom(4).hex().upper()}",
+        },
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert res.status_code == 200, res.text
+    submission_id = res.json()["id"]
+
+    res = client.patch(
+        f"/api/v1/submissions/{submission_id}/correction",
+        json={
+            "corrected_json": {
+                "values": {
+                    "DBGZ10-0": "83.0",
+                },
+                "experiment_id": "exp_meter_modification",
+                "experiment_name": "电表的改装",
+            },
+            "image_paths": ["/uploads/e2e-correction-image.jpg"],
+            "image_slots": {
+                "IMG_RAW_DATA": [
+                    {"url": "/uploads/e2e-correction-image.jpg", "name": "raw.jpg"}
+                ]
+            },
+            "save_mode": "draft",
+        },
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert res.status_code == 200, res.text
+    corrected = res.json()["corrected_json"]
+    assert corrected["values"]["DBGZ10-0"] == "83.0"
+    assert corrected["values"]["YSSJDrawingAreaArea"] == "/uploads/e2e-correction-image.jpg"
 
 def test_upgrade_plus_flow(free_student_token):
     # 1. Free student upgrades to Plus
@@ -807,7 +923,7 @@ def test_admin_ai_config_uses_database_profiles_without_key_leak(admin_token, st
         "default_temperature": 0.7,
         "default_max_images_per_task": 8,
         "auto_recognize": False,
-        "image_recognition_model": "deepseek-ai/DeepSeek-OCR",
+        "image_recognition_model": "zai-org/GLM-4.5V",
         "image_recognition_timeout_seconds": 60,
         "image_recognition_temperature": 0,
         "image_recognition_max_images_per_task": 8,
@@ -841,7 +957,7 @@ def test_admin_ai_config_uses_database_profiles_without_key_leak(admin_token, st
     data = res.json()
     assert data["source"] == "database"
     assert data["base_url"] == payload["base_url"]
-    assert data["image_recognition_model"] == "deepseek-ai/DeepSeek-OCR"
+    assert data["image_recognition_model"] == "zai-org/GLM-4.5V"
     assert data["answer_generation_model"] == "deepseek-ai/DeepSeek-V4-Flash"
     assert data["captcha_model"] == "zai-org/GLM-4.5V"
     assert "api_key" not in data
@@ -1397,6 +1513,53 @@ def test_school_detail_sync_does_not_create_stub_snapshot(student_token, monkeyp
         assert snapshot is None
 
 
+def test_reviewer_school_detail_sync_uses_submission_student(admin_token, monkeypatch):
+    captured = {}
+
+    def fake_detail_sync(job_id, user_id, experiment_id):
+        captured["job_id"] = job_id
+        captured["user_id"] = user_id
+        captured["experiment_id"] = experiment_id
+
+    monkeypatch.setattr(school_sync, "run_school_detail_sync", fake_detail_sync)
+
+    experiment_id = "exp_e2e_flow_unique"
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == FREE_STUDENT_NO)).first()
+        admin = session.exec(select(User).where(User.username == "admin_e2e_flow")).first()
+        submission = Submission(
+            id=f"SUB-SYNC-{os.urandom(4).hex().upper()}",
+            student_id=student.id,
+            experiment_id=experiment_id,
+            status="reviewing",
+            payment_status="paid",
+            is_one_click_handoff=True,
+            image_paths=["/uploads/sync-review.jpg"],
+        )
+        session.add(submission)
+        session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
+        session.commit()
+        submission_id = submission.id
+        student_id = student.id
+        admin_id = admin.id
+
+    res = client.post(
+        f"/api/v1/school-sync/experiments/{experiment_id}/submissions/{submission_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 200, res.text
+    job = res.json()
+    assert job["action"] == "school_detail_sync"
+    assert job["submissionId"] == submission_id
+    assert captured["user_id"] == student_id
+    assert captured["experiment_id"] == experiment_id
+
+    with next(get_session()) as session:
+        db_job = session.get(AutomationJob, job["jobId"])
+        assert db_job.actor_user_id == student_id
+        assert db_job.request_payload["requested_by"] == admin_id
+
+
 def test_school_detail_latest_returns_mapped_form_values(student_token):
     with next(get_session()) as session:
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
@@ -1774,8 +1937,8 @@ def test_school_submit_failure_audit_keeps_structured_diagnostics(student_token)
         job = session.get(AutomationJob, "JOB-STRUCTURED-FAIL")
         log = session.exec(
             select(AuditLog)
-            .where(AuditLog.target_id == "JOB-STRUCTURED-FAIL")
-            .where(AuditLog.action == "draft_submit_failed")
+            .where(AuditLog.target_id == "SUB-STRUCTURED-FAIL")
+            .where(AuditLog.action == "school_draft_submit_failed")
         ).first()
         assert job.result_payload["feedback"] == ["实验问题未填写完整，提交失败"]
         assert job.result_payload["fieldWriteReport"]["missingFields"][0]["nodeId"] == "YSSJDrawingAreaArea"
@@ -1838,10 +2001,18 @@ def test_free_to_pro_flow(free_student_token, admin_token):
     )
     assert res.status_code == 200
 
+    upload_res = client.post(
+        "/api/v1/files/upload",
+        files={"file": ("pro_submit.jpg", b"fake_image_bytes", "image/jpeg")},
+        headers={"Authorization": f"Bearer {free_student_token}"}
+    )
+    assert upload_res.status_code == 200
+    image_url = upload_res.json()["url"]
+
     # 4. Student submits again, this time they are Pro, should bypass payment!
     res = client.post(
         "/api/v1/submissions/submit",
-        json={"experiment_id": "exp_e2e_flow_unique", "is_hungup": False},
+        json={"experiment_id": "exp_e2e_flow_unique", "is_hungup": False, "image_paths": [image_url]},
         headers={"Authorization": f"Bearer {free_student_token}"}
     )
     assert res.status_code == 200, "Pro user should be allowed to submit without hungup!"
@@ -1853,4 +2024,4 @@ def test_free_to_pro_flow(free_student_token, admin_token):
     review_pool = res.json()
     sub_found = next((s for s in review_pool if s["id"] == submission["id"]), None)
     assert sub_found is not None
-    assert sub_found["status"] == "pending_recognition"
+    assert sub_found["status"] == "pending_image_assignment"

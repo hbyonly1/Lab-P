@@ -2,11 +2,13 @@ export const STATUS_META = {
   incomplete: { label: '未完成', color: 'gold', tone: 'submit' },
   draft_submitted: { label: '已临时提交', color: 'blue', tone: 'processing' },
   pending_payment: { label: '待核实付款', color: 'orange', tone: 'pending' },
+  pending_image_assignment: { label: '待图片匹配', color: 'orange', tone: 'pending' },
   pending_recognition: { label: '待自动识别', color: 'cyan', tone: 'pending' },
   recognizing: { label: 'AI 识别中', color: 'purple', tone: 'processing' },
-  reviewing: { label: '人工审核中', color: 'processing', tone: 'processing' },
+  preparing_review: { label: 'AI 预处理中', color: 'purple', tone: 'processing' },
+  reviewing: { label: '待人工审核', color: 'processing', tone: 'processing' },
   submitting: { label: '自动填写中', color: 'blue', tone: 'processing' },
-  completed: { label: '已完成', color: 'success', tone: 'completed' },
+  completed: { label: '审核完成已提交', color: 'success', tone: 'completed' },
   error: { label: '处理异常', color: 'error', tone: 'failed' },
 };
 

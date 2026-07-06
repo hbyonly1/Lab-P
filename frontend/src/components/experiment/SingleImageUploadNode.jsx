@@ -7,6 +7,7 @@ export function SingleImageUploadNode({
   imageSlot,
   imageSlots,
   onImageUpload,
+  onImageReplace,
   onRemoveImage,
   title,
   emptyTitle,
@@ -23,6 +24,7 @@ export function SingleImageUploadNode({
         images={[imageSlot]}
         imageSlots={imageSlots}
         onImageUpload={onImageUpload}
+        onImageReplace={onImageReplace}
         onRecognize={null}
         isRecognizing={false}
         canUseRecognition={false}

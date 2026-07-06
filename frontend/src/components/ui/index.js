@@ -9,4 +9,5 @@ export { default as UiPanel } from './UiPanel.jsx';
 export { UpgradePlanModal } from './UpgradePlanModal.jsx';
 export { PaywallModal } from './PaywallModal.jsx';
 export { AutomationProgressModal } from './AutomationProgressModal.jsx';
+export { AsyncJobFloatingPanel } from './AsyncJobFloatingPanel.jsx';
 export { default as AnnouncementDrawer } from './AnnouncementDrawer.jsx';

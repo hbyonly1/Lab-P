@@ -5,7 +5,7 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   EditOutlined,
-  FileDoneOutlined,
+  PictureOutlined,
   SendOutlined,
   SearchOutlined,
   RobotOutlined
@@ -17,6 +17,7 @@ import { STATUS_META, STATUS_LIST, OVERALL_STATUS_LIST, OVERALL_STATUS_META } fr
 import { getReviewPool, approveSubmission } from '../../../services/submissionsApi.js';
 import { triggerSubmissionRecognition } from '../../../services/aiApi.js';
 import { experimentsApi } from '../../../services/experimentsApi.js';
+import { ReviewBatchImageAssignmentModal } from '../../../components/reviewer/ReviewBatchImageAssignmentModal.jsx';
 
 const { Option } = Select;
 
@@ -25,6 +26,7 @@ export default function ReviewerTasksPage() {
 
   const [reviewTasks, setReviewTasks] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [activeBatch, setActiveBatch] = useState(null);
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -36,22 +38,35 @@ export default function ReviewerTasksPage() {
       const configMap = {};
       allConfigs.forEach(c => { configMap[c.id] = c.name; });
 
-      // Group by student_username
+      // Group by student + submission batch.
       const groups = {};
       data.forEach(sub => {
-        if (!groups[sub.student_username]) {
-          groups[sub.student_username] = {
+        const batchId = sub.submission_batch_id || `LEGACY-${sub.student_username}`;
+        const groupKey = `${sub.student_username}-${batchId}`;
+        if (!groups[groupKey]) {
+          groups[groupKey] = {
+            row_key: groupKey,
+            batch_id: batchId,
             student_id: String(sub.student_username), // UI labels it "student_id" but actually shows username
             name: sub.student_name || '姓名未同步',
             overall_status: 'incomplete', // default, evaluate below
+            image_count: 0,
+            assigned_image_count: 0,
             experiments: []
           };
         }
-        groups[sub.student_username].experiments.push({
+        groups[groupKey].image_count += sub.image_count || 0;
+        groups[groupKey].assigned_image_count += sub.assigned_image_count || 0;
+        groups[groupKey].experiments.push({
           id: sub.experiment_id,
           submission_id: sub.id,
           name: configMap[sub.experiment_id] || sub.experiment_id,
           status: sub.status,
+          batch_id: batchId,
+          image_count: sub.image_count || 0,
+          assigned_image_count: sub.assigned_image_count || 0,
+          preprocess_status: sub.preprocess_status,
+          preprocess_error: sub.preprocess_error,
           updated_at: sub.updated_at ? new Date(sub.updated_at.endsWith('Z') ? sub.updated_at : sub.updated_at + 'Z').toLocaleString() : '-',
           submitted_by: sub.submitted_by,
           student_id: sub.student_username
@@ -80,7 +95,7 @@ export default function ReviewerTasksPage() {
   // Metrics calculation
   const allExperiments = reviewTasks.flatMap(task => task.experiments);
   const total = allExperiments.length;
-  const pending = allExperiments.filter(item => ['not_started', 'incomplete', 'recognizing'].includes(item.status)).length;
+  const pending = allExperiments.filter(item => ['not_started', 'incomplete', 'recognizing', 'pending_image_assignment', 'preparing_review'].includes(item.status)).length;
   const reviewing = allExperiments.filter(item => item.status === 'reviewing').length;
   const completed = allExperiments.filter(item => item.status === 'completed').length;
 
@@ -109,7 +124,7 @@ export default function ReviewerTasksPage() {
 
   useEffect(() => {
     if (expStatusFilter) {
-      setExpandedRowKeys(filteredData.map(item => item.student_id));
+      setExpandedRowKeys(filteredData.map(item => item.row_key));
     } else {
       // Optional: Collapse all when filter is cleared, or leave as is. We'll collapse.
       setExpandedRowKeys([]);
@@ -164,6 +179,12 @@ export default function ReviewerTasksPage() {
           return <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>;
         }
       },
+      {
+        title: '图片匹配',
+        key: 'images',
+        align: 'center',
+        render: (_, exp) => `${exp.assigned_image_count || 0}/${exp.image_count || 0}`,
+      },
       { title: '最后更新', dataIndex: 'updated_at', key: 'updated_at' },
       {
         title: '操作',
@@ -210,6 +231,18 @@ export default function ReviewerTasksPage() {
       key: 'name'
     },
     {
+      title: '批次',
+      dataIndex: 'batch_id',
+      key: 'batch_id',
+      render: (batchId) => <Tag color="blue">{batchId}</Tag>
+    },
+    {
+      title: '图片',
+      key: 'images',
+      align: 'center',
+      render: (_, record) => `${record.assigned_image_count || 0}/${record.image_count || 0}`
+    },
+    {
       title: '总进度',
       dataIndex: 'overall_status',
       key: 'overall_status',
@@ -217,6 +250,16 @@ export default function ReviewerTasksPage() {
         const meta = OVERALL_STATUS_META[status] ?? OVERALL_STATUS_META.incomplete;
         return <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>;
       }
+    },
+    {
+      title: '操作',
+      key: 'actions',
+      align: 'right',
+      render: (_, record) => (
+        <Tooltip title="图片匹配 / 批量预处理">
+          <OutlineButton icon={<PictureOutlined />} onClick={() => setActiveBatch(record)} />
+        </Tooltip>
+      )
     }
   ];
 
@@ -301,10 +344,16 @@ export default function ReviewerTasksPage() {
             onExpandedRowsChange: setExpandedRowKeys,
           }}
           dataSource={filteredData}
-          rowKey="student_id"
+          rowKey="row_key"
           pagination={{ pageSize: 10 }}
         />
       </TablePanel>
+      <ReviewBatchImageAssignmentModal
+        open={Boolean(activeBatch)}
+        batch={activeBatch}
+        onClose={() => setActiveBatch(null)}
+        onFinished={fetchTasks}
+      />
     </section>
   );
 }

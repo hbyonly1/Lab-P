@@ -10,6 +10,7 @@ from worker.celery_app import celery_app
 from core.config import settings
 from datetime import datetime
 from services.ai_provider import AI_TASK_ANSWER_GENERATION, AiProviderConfigError, ensure_ai_config, get_ai_provider
+from core.ai_prompts import DEFAULT_GENERATION_SYSTEM, DEFAULT_RECOGNITION_SYSTEM
 
 router = APIRouter()
 
@@ -49,12 +50,18 @@ class AiPromptUpdate(BaseModel):
     recognition_extra_prompt: Optional[str] = None
     generation_system_prompt: Optional[str] = None
     generation_extra_prompt: Optional[str] = None
-    generation_data_nodes: Optional[str] = None
 
 
 class PreviewPromptResponse(BaseModel):
     recognition_prompt: str
     generation_prompt: str
+
+
+class AiPromptTemplateResponse(BaseModel):
+    recognition_system_prompt: str
+    recognition_extra_prompt: str = ""
+    generation_system_prompt: str
+    generation_extra_prompt: str = ""
 
 
 class AiConnectionTestResponse(BaseModel):
@@ -262,16 +269,35 @@ async def test_ai_connection(
             base_url=profile.base_url if profile else None,
         )
 
-@router.get("/admin/prompts/{experiment_id}")
+@router.get("/admin/prompts/{experiment_id}", response_model=AiPromptTemplateResponse)
 def get_prompt_template(
     experiment_id: str,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_admin)
 ):
     template = session.get(AiPromptTemplate, experiment_id)
-    if not template:
-        return {}
-    return template
+    return AiPromptTemplateResponse(
+        recognition_system_prompt=(
+            template.recognition_system_prompt
+            if template and template.recognition_system_prompt
+            else DEFAULT_RECOGNITION_SYSTEM
+        ),
+        recognition_extra_prompt=(
+            template.recognition_extra_prompt
+            if template and template.recognition_extra_prompt
+            else ""
+        ),
+        generation_system_prompt=(
+            template.generation_system_prompt
+            if template and template.generation_system_prompt
+            else DEFAULT_GENERATION_SYSTEM
+        ),
+        generation_extra_prompt=(
+            template.generation_extra_prompt
+            if template and template.generation_extra_prompt
+            else ""
+        ),
+    )
 
 @router.put("/admin/prompts/{experiment_id}")
 def update_prompt_template(
@@ -288,7 +314,6 @@ def update_prompt_template(
     template.recognition_extra_prompt = req.recognition_extra_prompt
     template.generation_system_prompt = req.generation_system_prompt
     template.generation_extra_prompt = req.generation_extra_prompt
-    template.generation_data_nodes = req.generation_data_nodes
     template.updated_at = datetime.utcnow()
     
     session.add(template)
@@ -316,7 +341,6 @@ def preview_prompt_template(
         recognition_extra_prompt=req.recognition_extra_prompt,
         generation_system_prompt=req.generation_system_prompt,
         generation_extra_prompt=req.generation_extra_prompt,
-        generation_data_nodes=req.generation_data_nodes
     )
     
     recognition_node_ids = collect_ai_recognition_node_ids(exp_config)
@@ -327,6 +351,9 @@ def preview_prompt_template(
     mock_form_values = {}
     for nid in recognition_node_ids:
         mock_form_values[nid] = "【填入的数据】"
+    for nid in exp_config.get("ai", {}).get("generation", {}).get("dataNodes") or []:
+        if isinstance(nid, str) and nid.strip():
+            mock_form_values[nid.strip()] = "【配置节点数据】"
         
     questions = [
         {

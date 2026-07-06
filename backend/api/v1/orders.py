@@ -128,8 +128,10 @@ def verify_payment(
     submission = session.exec(select(Submission).where(Submission.order_id == order.id)).first()
     if submission:
         if action_req.action == "verify":
-            submission.status = "recognizing"
+            submission.status = "pending_image_assignment" if submission.is_one_click_handoff else "incomplete"
             submission.payment_status = "paid"
+            submission.preprocess_status = "waiting_for_image_assignment" if submission.is_one_click_handoff else None
+            submission.preprocess_error = None
         else:
             submission.status = "error"
         session.add(submission)

@@ -16,6 +16,8 @@ AI_TASK_CAPTCHA = "captcha"
 
 DEFAULT_AI_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_AI_MODEL = "gpt-4o"
+DEFAULT_IMAGE_RECOGNITION_MODEL = "zai-org/GLM-4.5V"
+LEGACY_IMAGE_RECOGNITION_MODELS = {"deepseek-ai/DeepSeek-OCR"}
 DEFAULT_CAPTCHA_PROMPT = "OCR this captcha. Return exactly one token: the 4-character uppercase code."
 DEFAULT_TIMEOUT_SECONDS = 60
 DEFAULT_TEMPERATURE = 0.7
@@ -29,6 +31,21 @@ DEFAULT_CAPTCHA_TEMPERATURE = 0
 
 class AiProviderConfigError(ValueError):
     pass
+
+
+def normalize_image_recognition_model(model: Optional[str]) -> str:
+    selected = str(model or "").strip() or DEFAULT_IMAGE_RECOGNITION_MODEL
+    if selected in LEGACY_IMAGE_RECOGNITION_MODELS:
+        return DEFAULT_IMAGE_RECOGNITION_MODEL
+    return selected
+
+
+def model_supports_json_mode(model: str) -> bool:
+    model_name = str(model or "").lower()
+    no_json_mode_markers = [
+        "glm-4.5v",
+    ]
+    return not any(marker in model_name for marker in no_json_mode_markers)
 
 
 @dataclass(frozen=True)
@@ -62,7 +79,7 @@ def ai_config_from_settings() -> AiConfig:
         default_temperature=DEFAULT_TEMPERATURE,
         default_max_images_per_task=DEFAULT_MAX_IMAGES_PER_TASK,
         auto_recognize=DEFAULT_AUTO_RECOGNIZE,
-        image_recognition_model=settings.AI_IMAGE_RECOGNITION_MODEL or default_model,
+        image_recognition_model=normalize_image_recognition_model(settings.AI_IMAGE_RECOGNITION_MODEL),
         image_recognition_timeout_seconds=DEFAULT_TIMEOUT_SECONDS,
         image_recognition_temperature=DEFAULT_IMAGE_RECOGNITION_TEMPERATURE,
         image_recognition_max_images_per_task=DEFAULT_MAX_IMAGES_PER_TASK,
@@ -80,6 +97,12 @@ def ai_config_from_settings() -> AiConfig:
 def ensure_ai_config(session: Session) -> AiConfig:
     config = session.get(AiConfig, 1)
     if config:
+        normalized_image_model = normalize_image_recognition_model(config.image_recognition_model)
+        if config.image_recognition_model != normalized_image_model:
+            config.image_recognition_model = normalized_image_model
+            config.updated_at = get_utc_now()
+            session.add(config)
+            session.flush()
         return config
     config = ai_config_from_settings()
     session.add(config)
@@ -162,7 +185,7 @@ class AiProvider:
             "messages": messages,
             "temperature": profile.temperature,
         }
-        if response_format:
+        if response_format and model_supports_json_mode(profile.model):
             payload["response_format"] = response_format
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens

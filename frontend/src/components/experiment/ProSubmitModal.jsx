@@ -71,6 +71,33 @@ export function ProSubmitModal({ open, experiments: propExperiments, onCancel, o
     return false; // 阻止默认自动上传动作
   };
 
+  const handleImageReplace = async (expId, slotId, uidToReplace, file) => {
+    message.loading({ content: '正在旋转并上传...', key: `rotate-${uidToReplace}` });
+    try {
+      const res = await uploadFile(file);
+      setBatchImageSlots(prev => {
+        const expSlots = prev[expId] || {};
+        const slotFiles = expSlots[slotId] || [];
+        return {
+          ...prev,
+          [expId]: {
+            ...expSlots,
+            [slotId]: slotFiles.map(item => (
+              item.uid === uidToReplace
+                ? { ...item, name: file.name, url: res.url, originFileObj: file }
+                : item
+            )),
+          },
+        };
+      });
+      message.success({ content: '图片已旋转并保存', key: `rotate-${uidToReplace}` });
+      return true;
+    } catch (e) {
+      message.error({ content: '旋转失败', key: `rotate-${uidToReplace}` });
+      return false;
+    }
+  };
+
   // 处理图片移除
   const handleRemoveImage = (expId, slotId, uidToRemove) => {
     setBatchImageSlots(prev => {
@@ -195,6 +222,7 @@ export function ProSubmitModal({ open, experiments: propExperiments, onCancel, o
               images={activeExperiment?.inputs?.images || []}
               imageSlots={batchImageSlots[activeExperiment?.id] || {}}
               onImageUpload={(slotId, file) => handleImageUpload(activeExperiment.id, slotId, file)}
+              onImageReplace={(slotId, uid, file) => handleImageReplace(activeExperiment.id, slotId, uid, file)}
               onRemoveImage={(slotId, uid) => handleRemoveImage(activeExperiment.id, slotId, uid)}
               recognitionDef={null} // 屏蔽 AI 一键识别按钮，弹窗内仅做上传
             />

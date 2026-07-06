@@ -10,7 +10,7 @@ from models.core import AuditLog, AutomationEngineConfig, User, get_utc_now
 
 router = APIRouter()
 
-CONFIG_SCHEMA_VERSION = "1.5"
+CONFIG_SCHEMA_VERSION = "1.6"
 REQUIRED_TOP_LEVEL_KEYS = {
     "schoolSystem",
     "identity",
@@ -109,6 +109,8 @@ def default_automation_config() -> Dict[str, Any]:
             "_comment": "首次登录只同步姓名和实验列表；实验详情在用户点进实验时按需打开 modal 读取。",
             "initialSync": "identity_and_report_list",
             "detailSync": "on_demand",
+            "autoLoadDetailForStudent": True,
+            "autoLoadDetailForInternalUser": False,
             "listCacheTtlSeconds": 600,
             "syncCooldownSeconds": 1800,
         },
@@ -175,6 +177,11 @@ def validate_config_payload(config_json: Dict[str, Any]) -> None:
         raise HTTPException(status_code=422, detail="syncPolicy.syncCooldownSeconds must be a non-negative integer.") from None
     if sync_cooldown_seconds < 0:
         raise HTTPException(status_code=422, detail="syncPolicy.syncCooldownSeconds must be a non-negative integer.")
+    for field in ["autoLoadDetailForStudent", "autoLoadDetailForInternalUser"]:
+        if field not in sync_policy:
+            raise HTTPException(status_code=422, detail=f"syncPolicy.{field} is required.")
+        if not isinstance(sync_policy.get(field), bool):
+            raise HTTPException(status_code=422, detail=f"syncPolicy.{field} must be boolean.")
 
     runtime = config_json.get("runtime") or {}
     if "keepBrowserOpenAfterLogin" not in runtime:
