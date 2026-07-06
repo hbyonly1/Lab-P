@@ -17,6 +17,7 @@ export function JsonConfigEditor({
   const [editorText, setEditorText] = useState('{}');
 
   const editorHeight = useMemo(() => `${Math.max(480, rows * 24)}px`, [rows]);
+  const editorClassName = `${className}${fullScreen ? ' settings-json-editor-panel--fullscreen' : ''}`;
 
   useEffect(() => {
     setEditorText(value ? JSON.stringify(value, null, 2) : '{}');
@@ -54,13 +55,13 @@ export function JsonConfigEditor({
 
   return (
     <section 
-      className={className}
-      style={fullScreen ? { display: 'flex', flexDirection: 'column', height: '100%' } : undefined}
+      className={editorClassName}
+      style={fullScreen ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } : undefined}
     >
       {label && <div className="settings-json-editor-label">{label}</div>}
       <div className="settings-json-editor-shell" style={fullScreen ? { flex: 1, minHeight: 0 } : undefined}>
         <Editor
-          height={fullScreen ? "100%" : editorHeight}
+          height={fullScreen ? '100%' : editorHeight}
           language="json"
           theme="vs"
           value={editorText}
@@ -89,7 +90,7 @@ export function JsonConfigEditor({
           }}
         />
       </div>
-      <div className="settings-actions">
+      <div className="settings-actions settings-json-editor-actions">
         <Button onClick={formatJson} disabled={saving}>
           格式化 JSON
         </Button>

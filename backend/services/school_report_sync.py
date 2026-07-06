@@ -108,6 +108,104 @@ async def _wait_bootbox_clear(page: Any, timeout_ms: int) -> None:
         pass
 
 
+BOOTBOX_DIALOG_SCRIPT = """
+    () => {
+      const visible = (el) => {
+        if (!el) return false;
+        const style = window.getComputedStyle(el);
+        const rect = el.getBoundingClientRect();
+        return style.display !== 'none'
+          && style.visibility !== 'hidden'
+          && rect.width > 0
+          && rect.height > 0;
+      };
+      const textOf = (el) => (el?.innerText || el?.textContent || '').replace(/\\s+/g, ' ').trim();
+      const candidates = Array.from(document.querySelectorAll('.bootbox'))
+        .filter(visible)
+        .map((box) => ({
+          className: box.className || '',
+          id: box.id || '',
+          ariaHidden: box.getAttribute('aria-hidden'),
+          bodyText: textOf(box.querySelector('.bootbox-body')).slice(0, 1000),
+          textPreview: textOf(box).slice(0, 1000),
+        }));
+      return candidates.find((item) => item.bodyText || item.textPreview) || null;
+    }
+"""
+
+
+async def _read_visible_bootbox(page: Any) -> Optional[Dict[str, Any]]:
+    try:
+        diagnostic = await page.evaluate(BOOTBOX_DIALOG_SCRIPT)
+    except Exception:
+        return None
+    if not isinstance(diagnostic, dict):
+        return None
+    body_text = str(diagnostic.get("bodyText") or diagnostic.get("textPreview") or "").strip()
+    if not body_text:
+        return None
+    diagnostic["bodyText"] = body_text
+    return diagnostic
+
+
+async def _save_bootbox_artifacts(page: Any, out_dir: Path, prefix: str) -> Dict[str, str]:
+    artifacts: Dict[str, str] = {}
+    screenshot_path = out_dir / f"{prefix}_bootbox.png"
+    html_path = out_dir / f"{prefix}_bootbox.html"
+    try:
+        await page.locator(".bootbox").first.screenshot(path=str(screenshot_path))
+        artifacts[f"{prefix}_bootbox_screenshot"] = str(screenshot_path)
+    except Exception as exc:
+        try:
+            await page.screenshot(path=str(screenshot_path), full_page=True)
+            artifacts[f"{prefix}_page_screenshot"] = str(screenshot_path)
+        except Exception:
+            artifacts[f"{prefix}_screenshot_error"] = f"{type(exc).__name__}: {exc}"
+
+    html: Optional[str] = None
+    try:
+        html = await page.locator(".bootbox").first.evaluate("(el) => el.outerHTML")
+    except Exception as exc:
+        try:
+            html = await page.content()
+        except Exception:
+            artifacts[f"{prefix}_html_error"] = f"{type(exc).__name__}: {exc}"
+    if html:
+        html_path.write_text(html, encoding="utf-8")
+        artifacts[f"{prefix}_bootbox_html"] = str(html_path)
+    return artifacts
+
+
+async def _raise_if_blocking_bootbox(
+    page: Any,
+    *,
+    job_id: str,
+    current_step: str,
+    phase: str,
+    session_diagnostic: Optional[Dict[str, Any]] = None,
+    require_error: bool = False,
+) -> None:
+    bootbox = await _read_visible_bootbox(page)
+    if not bootbox and not require_error:
+        return
+    out_dir = _artifact_dir(job_id)
+    artifacts = await _save_bootbox_artifacts(page, out_dir, phase)
+    body_text = str((bootbox or {}).get("bodyText") or "学校系统出现弹窗").strip()
+    payload = {
+        "phase": phase,
+        "bootbox": bootbox or {},
+        "artifacts": artifacts,
+    }
+    if session_diagnostic:
+        payload["sessionDiagnostic"] = session_diagnostic
+    raise SchoolAutomationError(
+        "SCHOOL_BOOTBOX_ERROR",
+        f"学校系统弹窗提示：{body_text[:200]}",
+        message=json.dumps(payload, ensure_ascii=False),
+        current_step=current_step,
+    )
+
+
 async def _close_modal_if_present(page: Any, config: Dict[str, Any]) -> None:
     close_selector = deep_get(config, "selectors.modal.close", "#ReportModal button:has-text('关闭')")
     for selector in [close_selector, "#ReportModal .close", "#ReportModal button:has-text('关闭')", ".bootbox .close", ".bootbox button:has-text('OK')", ".bootbox button:has-text('确定')"]:
@@ -259,12 +357,19 @@ async def _click_report_open_button(page: Any, config: Dict[str, Any], experimen
     }
 
 
-async def _wait_for_report_modal(page: Any, config: Dict[str, Any], opening_code: str) -> None:
+async def _wait_for_report_modal(page: Any, config: Dict[str, Any], opening_code: str, *, job_id: Optional[str] = None) -> None:
     modal_root = deep_get(config, "selectors.modal.root", "#ReportModal")
     timeout_ms = safe_int(deep_get(config, "waitPolicy.modalOpenTimeoutMs"), safe_int(deep_get(config, "runtime.defaultTimeoutMs"), 30000))
     try:
         await page.locator(modal_root).first.wait_for(state="visible", timeout=timeout_ms)
     except Exception as exc:
+        if job_id:
+            await _raise_if_blocking_bootbox(
+                page,
+                job_id=job_id,
+                current_step=opening_code,
+                phase="wait_report_modal",
+            )
         raise SchoolAutomationError(
             "REPORT_MODAL_NOT_FOUND",
             "学校实验报告窗口未打开",
@@ -378,6 +483,16 @@ async def open_report_modal(
     reused_current_modal = False
     school_status: Optional[Dict[str, str]] = None
 
+    if session and state.get("state") == "bootbox_dialog":
+        await _raise_if_blocking_bootbox(
+            session.page,
+            job_id=job_id,
+            current_step=connecting_code,
+            phase="before_session_reuse",
+            session_diagnostic=state,
+            require_error=True,
+        )
+
     if session and state.get("state") == "report_modal":
         matches, match_diagnostic = await _current_modal_matches_experiment(session.page, config, experiment_name)
         state["modalMatch"] = match_diagnostic
@@ -393,11 +508,36 @@ async def open_report_modal(
         page, session_diagnostic = await get_or_login_school_page(job_id, user, config, connecting_code)
 
     set_job_progress(job_id, opening_code)
+    await _raise_if_blocking_bootbox(
+        page,
+        job_id=job_id,
+        current_step=opening_code,
+        phase="before_open_report",
+        session_diagnostic=session_diagnostic,
+    )
     if not reused_current_modal:
         school_status = await _click_report_open_button(page, config, experiment_name, opening_code)
-        await _wait_for_report_modal(page, config, opening_code)
+        try:
+            await page.wait_for_timeout(300)
+        except Exception:
+            pass
+        await _raise_if_blocking_bootbox(
+            page,
+            job_id=job_id,
+            current_step=opening_code,
+            phase="after_open_report_click",
+            session_diagnostic=session_diagnostic,
+        )
+        await _wait_for_report_modal(page, config, opening_code, job_id=job_id)
     else:
-        await _wait_for_report_modal(page, config, opening_code)
+        await _wait_for_report_modal(page, config, opening_code, job_id=job_id)
+    await _raise_if_blocking_bootbox(
+        page,
+        job_id=job_id,
+        current_step=opening_code,
+        phase="after_report_modal_open",
+        session_diagnostic=session_diagnostic,
+    )
     set_job_progress(job_id, reading_code)
     snapshot = await _read_modal_snapshot(page, config)
     form_values = await _read_mapped_form_values(page, config, experiment_id)
@@ -1258,6 +1398,22 @@ def _submit_audit_action(job_action: str, suffix: str) -> str:
     raise ValueError(f"Unsupported submit job action: {job_action}")
 
 
+def _failed_audit_action(job_action: str) -> str:
+    if job_action in ["draft_submit", "final_submit"]:
+        return _submit_audit_action(job_action, "failed")
+    if job_action == "school_detail_sync":
+        return "school_detail_sync_failed"
+    if job_action == "school_overview_sync":
+        return "school_overview_sync_failed"
+    return f"{job_action}_failed"
+
+
+def _failed_audit_target_id(job: AutomationJob) -> Optional[str]:
+    if job.action in ["draft_submit", "final_submit"]:
+        return job.submission_id
+    return job.id
+
+
 def _mark_job_failed(session: Session, job: AutomationJob, error: SchoolAutomationError) -> None:
     now = get_utc_now()
     job.status = "failed"
@@ -1271,7 +1427,7 @@ def _mark_job_failed(session: Session, job: AutomationJob, error: SchoolAutomati
     if error.message:
         parsed_error_message = _parse_json_object(error.message)
         result_payload["errorDetail"] = parsed_error_message
-        for key in ["fieldWriteReport", "feedback", "submitError", "artifacts", "openedSummary", "status", "statusError", "submitStage"]:
+        for key in ["fieldWriteReport", "feedback", "submitError", "artifacts", "openedSummary", "status", "statusError", "submitStage", "phase", "bootbox", "sessionDiagnostic"]:
             if key in parsed_error_message:
                 result_payload[key] = parsed_error_message[key]
         if "fieldWriteReport" not in parsed_error_message and parsed_error_message.get("nodeId"):
@@ -1319,9 +1475,9 @@ def _mark_job_failed(session: Session, job: AutomationJob, error: SchoolAutomati
     session.add(
         AuditLog(
             user_id=job.actor_user_id,
-            action=_submit_audit_action(job.action, "failed"),
+            action=_failed_audit_action(job.action),
             status="failed",
-            target_id=job.submission_id,
+            target_id=_failed_audit_target_id(job),
             details=json.dumps(audit_payload, ensure_ascii=False, indent=2)[:8000],
         )
     )

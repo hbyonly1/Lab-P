@@ -26,12 +26,13 @@ import { ProSubmitModal } from '../../../components/experiment/index.js';
 import { calculateExperimentMetrics } from '../../../utils/metricsUtils.js';
 import { auditApi } from '../../../services/auditApi.js';
 import { getMe } from '../../../services/authApi.js';
-import { createSubmissionBatchId, getMySubmissions, submitExperiment } from '../../../services/submissionsApi.js';
+import { getMySubmissions } from '../../../services/submissionsApi.js';
 import { experimentsApi } from '../../../services/experimentsApi.js';
 import { getSchoolOverviewLatest, startSchoolOverviewSync } from '../../../services/schoolSyncApi.js';
 import { getActiveAutomationJobs } from '../../../services/automationJobsApi.js';
 import { STATUS_META, OVERALL_STATUS_META } from '../../../constants/statusEnums.js';
 import { AUDIT_ACTION_META } from '../../../constants/auditEnums.js';
+import { submitOneClickExperimentBatch } from '../../../utils/oneClickSubmitUtils.js';
 
 const dashboardData = {
   plan: {
@@ -263,23 +264,19 @@ export default function StudentDashboardPage() {
 
   const handleModalSubmit = async (batchImages, targetStudent, isHungup = false, planName = 'pay_per_use') => {
     try {
-      const targetsWithImages = submitTargets
-        .map((target) => {
-          const expImages = batchImages[target.id] || {};
-          const imagePaths = Object.values(expImages).flat().map(img => img.url).filter(Boolean);
-          return { target, imagePaths };
-        })
-        .filter(({ imagePaths }) => imagePaths.length > 0);
+      const { submittedCount } = await submitOneClickExperimentBatch({
+        targets: submitTargets,
+        batchImages,
+        targetStudent,
+        isHungup,
+        planName,
+      });
 
-      if (targetsWithImages.length === 0) {
+      if (submittedCount === 0) {
         message.warning('请至少上传一个实验的图片');
         return;
       }
 
-      const submissionBatchId = createSubmissionBatchId();
-      for (const { target, imagePaths } of targetsWithImages) {
-        await submitExperiment(target.id, targetStudent, isHungup, imagePaths, planName, submissionBatchId);
-      }
       message.success('批量提交成功！任务已进入处理队列。');
       setTimeout(() => {
         setIsSubmitModalOpen(false);

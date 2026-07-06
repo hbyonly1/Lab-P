@@ -1,5 +1,14 @@
 # Decisions
 
+## 2026-07-07
+
+### 自动草稿与提交历史分离
+
+- 填写页自动保存使用独立 `submission_drafts` 当前草稿，不直接写入 `submissions.corrected_json`，避免逐字输入污染后续提交历史。
+- `submissions.corrected_json` 只表示用户点击临时提交 / 正式提交前确认下来的平台提交态数据；学校提交 job 和 `submission_versions(source=platform_before_submit)` 均以该字段为准。
+- `submission_versions` 继续作为不可变提交历史，只在临时提交或正式提交 job 创建前生成；自动保存、AI 识别、AI 生成和公式计算回填不生成历史版本。
+- 前端采用“两层保存”：浏览器本地草稿即时落盘，后端 `submission_drafts` 防抖同步；页面恢复时比较本地和后端草稿更新时间，优先恢复更新内容。
+
 ## 2026-07-02
 
 ### 学生端保存页 HTML 批量转后端 V2 配置
@@ -89,9 +98,16 @@
 
 ### Prompt 配置归属
 
-- 实验 JSON 不保存识别或生成 Prompt 文本，只保留 `ai.recognition.imageRef`、`ai.generation.targetRef`、`ai.generation.dataNodes` 等结构绑定。
-- Prompt 内容统一由系统 Prompt 模板页维护，后端按 `AiPromptTemplate -> 系统默认模板` 的优先级生成最终识别和回答 Prompt。
-- 这样避免 raw JSON 与系统设置同时维护 Prompt 文案造成来源不清。
+- System Prompt 仍由 Admin Prompt 模板页维护，后端按 `AiPromptTemplate -> Python 默认模板` 的优先级生成识别和回答的系统指令。
+- 实验级附加说明归属于实验 JSON：图像识别读取 `ai.recognition.extraPrompt`，实验思考题生成读取 `ai.generation.extraPrompt`。
+- Admin Prompt 模板页可以编辑附加说明，但保存时直接写回实验 JSON 并同步 `experiments.config_json`，不写入 `ai_prompt_templates`。
+- 数据库 `ai_prompt_templates` 不再保存识别或思考题的 extra prompt，避免实验配置和数据库模板同时维护同一类实验差异说明。
+
+### AI 异步任务运行态
+
+- 一键填空、AI 图像识别和实验思考题生成统一登记到 `ai_task_runs`，以 Celery `task_id` 作为主键。
+- `audit_logs` 继续承担用户可见审计展示；`ai_task_runs` 承担任务状态机、started/finished audit 关联和 Celery 失败兜底，不把 `audit_logs.details` 当作查询索引。
+- Celery `task_failure` signal 负责处理参数绑定失败等未进入业务函数体的异常，避免 started 日志长期停留在 `pending`。
 
 ### 电表改装拟合公式
 

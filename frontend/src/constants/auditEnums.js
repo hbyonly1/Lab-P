@@ -11,12 +11,18 @@ export const AUDIT_ACTION_META = {
   results_corrected: { label: '人工提交纠错', type: 'success' },
 
   // === 实验辅助工具 (Plus/Pro AI & Compute) ===
-  auto_fill: { label: '使用一键填空 (常量)', type: 'info' },
-  calculate_data: { label: '使用公式推导计算', type: 'info' },
-  generate_ai_answer: { label: '生成AI简答题', type: 'info' },
+  ai_fixed_fill_started: { label: '启动一键填空', type: 'info' },
+  ai_fixed_fill_completed: { label: '一键填空完成', type: 'success' },
+  ai_fixed_fill_failed: { label: '一键填空失败', type: 'error' },
   ai_recognition_started: { label: '启动 AI 图像识别', type: 'info' },
   ai_recognition_completed: { label: 'AI 图像识别完成', type: 'success' },
   ai_recognition_failed: { label: 'AI 图像识别失败', type: 'error' },
+  ai_answer_generation_started: { label: '启动 AI 回答生成', type: 'info' },
+  ai_answer_generation_completed: { label: 'AI 回答生成完成', type: 'success' },
+  ai_answer_generation_failed: { label: 'AI 回答生成失败', type: 'error' },
+  formula_compute_started: { label: '启动公式推导计算', type: 'info' },
+  formula_compute_completed: { label: '公式推导计算完成', type: 'success' },
+  formula_compute_failed: { label: '公式推导计算失败', type: 'error' },
 
   // === 学校系统提交 ===
   school_draft_submit_started: { label: '学校系统临时提交开始', type: 'info' },

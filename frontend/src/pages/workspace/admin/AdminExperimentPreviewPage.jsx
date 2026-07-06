@@ -12,7 +12,7 @@ import Editor from '@monaco-editor/react';
 
 const { Title, Text, Paragraph } = Typography;
 
-const DEFAULT_RECOGNITION_SYSTEM = "不推断、不补全、不计算；看不清填\"\"；只返回 JSON object。";
+const DEFAULT_RECOGNITION_SYSTEM = "不推断、不补全、不计算；看不清填\"\"；注意单位，按表头和行名要求换算成目标表格数值，不带单位；只返回 JSON object。";
 const DEFAULT_GENERATION_SYSTEM = "回答问题时直接输出答案即可，不要采用任何markdown和序号，每一点用句号分割即可。";
 
 function ExperimentRawConfigTab({ experimentId, configJson, onSaved }) {
@@ -139,10 +139,17 @@ function ExperimentPromptTab({ experimentId, experimentConfig }) {
   const [previewLoading, setPreviewLoading] = useState(false);
   const previewTimer = window.previewTimer || { current: null };
 
+  const promptPayload = (values = {}) => ({
+    recognition_system_prompt: values.recognition_system_prompt,
+    recognition_extra_prompt: values.recognition_extra_prompt,
+    generation_system_prompt: values.generation_system_prompt,
+    generation_extra_prompt: values.generation_extra_prompt,
+  });
+
   const updatePreview = async (expId, currentValues) => {
     if (!expId) return;
     setPreviewLoading(true);
-    const apiValues = { ...currentValues };
+    const apiValues = promptPayload(currentValues);
     try {
       const result = await previewAiPromptTemplate(expId, apiValues);
       setPromptPreviews({
@@ -186,7 +193,7 @@ function ExperimentPromptTab({ experimentId, experimentConfig }) {
   const handleSavePrompt = async (values) => {
     try {
       setSavingPrompt(true);
-      const apiValues = { ...values };
+      const apiValues = promptPayload(values);
       await updateAiPromptTemplate(experimentId, apiValues);
       message.success('Prompt 模板已保存');
     } catch (e) {
@@ -215,9 +222,12 @@ function ExperimentPromptTab({ experimentId, experimentConfig }) {
             </Form.Item>
             <Form.Item
               name="recognition_extra_prompt"
-              label="附加说明 (追加在用户指令末尾)"
+              label="附加说明 (保存到实验 JSON，追加在用户指令末尾)"
             >
-              <Input.TextArea rows={2} placeholder="例如：表一的电流单位是 mA，请注意转换。" />
+              <Input.TextArea
+                rows={3}
+                placeholder="未配置识别附加说明"
+              />
             </Form.Item>
             <div style={{ marginTop: 16, marginBottom: 8, fontSize: 14, color: '#595959', fontWeight: 500 }}>
               预览：
@@ -239,9 +249,12 @@ function ExperimentPromptTab({ experimentId, experimentConfig }) {
             </Form.Item>
             <Form.Item
               name="generation_extra_prompt"
-              label="附加说明 (追加在用户指令末尾)"
+              label="附加说明 (保存到实验 JSON，追加在用户指令末尾)"
             >
-              <Input.TextArea rows={2} placeholder="例如：要求必须结合实验数据，禁止泛泛而谈。" />
+              <Input.TextArea
+                rows={3}
+                placeholder="未配置思考题附加说明"
+              />
             </Form.Item>
             <div style={{ marginTop: 16, marginBottom: 8, fontSize: 14, color: '#595959', fontWeight: 500 }}>
               预览：

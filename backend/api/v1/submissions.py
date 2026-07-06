@@ -3,7 +3,7 @@ from sqlmodel import Session, select
 from typing import Any, Dict, List, Optional
 
 from core.db import get_session
-from models.core import Submission, User, Order, Experiment, AuditLog
+from models.core import Submission, User, Order, Experiment, AuditLog, SubmissionDraft
 from api.deps import get_current_user, get_current_reviewer_or_admin
 from pydantic import BaseModel
 import uuid
@@ -26,6 +26,21 @@ class CorrectionSaveRequest(BaseModel):
     image_paths: List[str] = []
     image_slots: Dict[str, Any] = {}
     save_mode: str = "draft"
+
+class SubmissionDraftSaveRequest(BaseModel):
+    draft_json: dict
+    image_paths: List[str] = []
+    image_slots: Dict[str, Any] = {}
+    local_revision: int = 0
+
+class SubmissionDraftResponse(BaseModel):
+    submission_id: str
+    draft_json: dict = {}
+    image_paths: List[str] = []
+    image_slots: Dict[str, Any] = {}
+    local_revision: int = 0
+    updated_at: Optional[str] = None
+    updated_by: Optional[int] = None
 
 class SelfManagedSubmissionRequest(BaseModel):
     experiment_id: str
@@ -109,6 +124,36 @@ def _image_slot_target_values(experiment_id: str, image_slots: Dict[str, Any]) -
 
 def _one_click_ready_status(has_paid: bool) -> str:
     return "pending_image_assignment" if has_paid else "pending_payment"
+
+
+def _assert_submission_editable(submission: Submission, current_user: User) -> None:
+    if current_user.role == "student" and submission.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+    if current_user.role == "reviewer" and submission.submitted_by not in [None, current_user.id] and submission.status not in [
+        "reviewing",
+        "pending_recognition",
+        "recognizing",
+        "pending_image_assignment",
+        "preparing_review",
+        "draft_submitted",
+        "completed",
+    ]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+
+
+def _draft_response(submission_id: str, draft: Optional[SubmissionDraft]) -> SubmissionDraftResponse:
+    if not draft:
+        return SubmissionDraftResponse(submission_id=submission_id)
+    return SubmissionDraftResponse(
+        submission_id=submission_id,
+        draft_json=draft.draft_json or {},
+        image_paths=draft.image_paths or [],
+        image_slots=draft.image_slots or {},
+        local_revision=draft.local_revision or 0,
+        updated_at=draft.updated_at.isoformat() if draft.updated_at else None,
+        updated_by=draft.updated_by,
+    )
 
 @router.post("/submit", response_model=Submission)
 def create_submission(
@@ -309,6 +354,81 @@ def submit_to_playwright(
         detail="Legacy Playwright trigger is disabled. Use /api/v1/school-sync/experiments/{experiment_id}/submit.",
     )
 
+
+@router.get("/{submission_id}/draft", response_model=SubmissionDraftResponse)
+def get_submission_draft(
+    submission_id: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> Any:
+    submission = session.get(Submission, submission_id)
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    _assert_submission_editable(submission, current_user)
+
+    draft = session.exec(
+        select(SubmissionDraft).where(SubmissionDraft.submission_id == submission_id)
+    ).first()
+    return _draft_response(submission_id, draft)
+
+
+@router.patch("/{submission_id}/draft", response_model=SubmissionDraftResponse)
+def save_submission_draft(
+    submission_id: str,
+    req: SubmissionDraftSaveRequest,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> Any:
+    submission = session.get(Submission, submission_id)
+    if not submission:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    _assert_submission_editable(submission, current_user)
+
+    image_slots = _normalize_image_slots(req.image_slots)
+    draft_json = dict(req.draft_json or {})
+    if isinstance(draft_json.get("values"), dict):
+        draft_json["values"] = {
+            **draft_json["values"],
+            **_image_slot_target_values(submission.experiment_id, image_slots),
+        }
+    else:
+        draft_json = {
+            **draft_json,
+            **_image_slot_target_values(submission.experiment_id, image_slots),
+        }
+    draft_json["_meta"] = {
+        **(draft_json.get("_meta") or {}),
+        "save_mode": "autosave",
+        "saved_by": current_user.id,
+        "saved_role": current_user.role,
+        "saved_at": get_utc_now().isoformat(),
+    }
+
+    now = get_utc_now()
+    draft = session.exec(
+        select(SubmissionDraft).where(SubmissionDraft.submission_id == submission_id)
+    ).first()
+    if not draft:
+        draft = SubmissionDraft(
+            submission_id=submission_id,
+            created_at=now,
+        )
+
+    draft.draft_json = draft_json
+    draft.image_paths = req.image_paths
+    draft.image_slots = image_slots
+    draft.local_revision = req.local_revision or 0
+    draft.updated_by = current_user.id
+    draft.updated_at = now
+    submission.updated_at = now
+
+    session.add(draft)
+    session.add(submission)
+    session.commit()
+    session.refresh(draft)
+    return _draft_response(submission_id, draft)
+
+
 @router.patch("/{submission_id}/correction", response_model=Submission)
 def save_submission_correction(
     submission_id: str,
@@ -319,12 +439,7 @@ def save_submission_correction(
     submission = session.get(Submission, submission_id)
     if not submission:
         raise HTTPException(status_code=404, detail="Submission not found")
-
-    if current_user.role == "student" and submission.student_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-
-    if current_user.role == "reviewer" and submission.submitted_by not in [None, current_user.id] and submission.status not in ["reviewing", "pending_recognition", "recognizing", "pending_image_assignment", "preparing_review"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    _assert_submission_editable(submission, current_user)
 
     image_slots = _normalize_image_slots(req.image_slots)
     corrected_json = dict(req.corrected_json or {})

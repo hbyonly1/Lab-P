@@ -17,35 +17,43 @@
     "fields": [
       {
         "id": "SYMD_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "B"
       },
       {
         "id": "SYYL_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "A"
       },
       {
         "id": "SYYL_Fill_1",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "B"
       },
       {
         "id": "SYYL_Fill_2",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "A"
       },
       {
         "id": "SYYL_Fill_3",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "A"
       },
       {
         "id": "SYBZ_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "B"
       },
       {
         "id": "SYBZ_Fill_1",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "A"
       },
       {
         "id": "SYBZ_Fill_2",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "B"
       },
       {
         "id": "YSSJDrawingAreaArea",
@@ -86,42 +94,6 @@
       },
       {
         "id": "G10-8",
-        "type": "ai_recognize"
-      },
-      {
-        "id": "G11-0",
-        "type": "ai_recognize"
-      },
-      {
-        "id": "G11-1",
-        "type": "ai_recognize"
-      },
-      {
-        "id": "G11-2",
-        "type": "ai_recognize"
-      },
-      {
-        "id": "G11-3",
-        "type": "ai_recognize"
-      },
-      {
-        "id": "G11-4",
-        "type": "ai_recognize"
-      },
-      {
-        "id": "G11-5",
-        "type": "ai_recognize"
-      },
-      {
-        "id": "G11-6",
-        "type": "ai_recognize"
-      },
-      {
-        "id": "G11-7",
-        "type": "ai_recognize"
-      },
-      {
-        "id": "G11-8",
         "type": "ai_recognize"
       },
       {
@@ -174,35 +146,18 @@
       },
       {
         "id": "G3",
-        "type": "computed"
+        "type": "computed",
+        "fn": "calc_G3"
       },
       {
         "id": "G4",
-        "type": "computed"
+        "type": "computed",
+        "fn": "calc_G4"
       },
       {
         "id": "G5",
-        "type": "computed"
-      },
-      {
-        "id": "G60-0",
-        "type": "ai_recognize"
-      },
-      {
-        "id": "G60-1",
-        "type": "ai_recognize"
-      },
-      {
-        "id": "G60-2",
-        "type": "ai_recognize"
-      },
-      {
-        "id": "G60-3",
-        "type": "ai_recognize"
-      },
-      {
-        "id": "G60-4",
-        "type": "ai_recognize"
+        "type": "computed",
+        "fn": "calc_G5"
       },
       {
         "id": "G61-0",
@@ -226,11 +181,15 @@
       },
       {
         "id": "G7",
-        "type": "computed"
+        "type": "ai_recognize",
+        "label": "普朗克常数计算值 h1",
+        "recognitionHint": "单位按 10^-34 J·S，只返回数值，不带单位。"
       },
       {
         "id": "G8",
-        "type": "computed"
+        "type": "ai_recognize",
+        "label": "普朗克常数相对误差",
+        "recognitionHint": "单位按 %，只返回数值，不带 %。"
       },
       {
         "id": "skt0Area",
@@ -621,37 +580,37 @@
             ]
           },
           {
-            "isHeader": false,
+            "isHeader": true,
             "cells": [
               {
                 "text": "UAK（V）"
               },
               {
-                "nodeId": "G11-0"
+                "text": "6"
               },
               {
-                "nodeId": "G11-1"
+                "text": "8"
               },
               {
-                "nodeId": "G11-2"
+                "text": "10"
               },
               {
-                "nodeId": "G11-3"
+                "text": "13"
               },
               {
-                "nodeId": "G11-4"
+                "text": "16"
               },
               {
-                "nodeId": "G11-5"
+                "text": "19"
               },
               {
-                "nodeId": "G11-6"
+                "text": "22"
               },
               {
-                "nodeId": "G11-7"
+                "text": "26"
               },
               {
-                "nodeId": "G11-8"
+                "text": "30"
               }
             ]
           },
@@ -764,19 +723,19 @@
                 "text": "频率（10¹⁴Hz）"
               },
               {
-                "nodeId": "G60-0"
+                "text": "8.214"
               },
               {
-                "nodeId": "G60-1"
+                "text": "7.408"
               },
               {
-                "nodeId": "G60-2"
+                "text": "6.879"
               },
               {
-                "nodeId": "G60-3"
+                "text": "5.490"
               },
               {
-                "nodeId": "G60-4"
+                "text": "5.196"
               }
             ]
           },
@@ -892,10 +851,29 @@
   },
   "ai": {
     "recognition": {
-      "imageRef": "IMG_RAW_DATA"
+      "imageRef": "IMG_RAW_DATA",
+      "extraPrompt": "若手写为 A 单位科学计数法，按表头单位换算为系数；U0 保留手写正负号。"
+    },
+    "generation": {
+      "targetRef": "skt0Area",
+      "dataNodes": [
+        "G3",
+        "G4",
+        "G5",
+        "G7",
+        "G8"
+      ]
     }
   },
-  "formulas": {},
+  "formulas": {
+    "G3": "format_sig(v('G20-1') / v('G20-0'), 3)",
+    "G4": "format_sig(v('G20-2') / v('G20-1'), 3)",
+    "G5": "format_sig(v('G20-2') / v('G20-0'), 3)"
+  },
+  "archivedFormulas": {
+    "G7": "format_sig(16.02 * (linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')) if linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')) >= 0 else -linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4'))), 3)",
+    "G8": "format_sig((((16.02 * (linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')) if linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')) >= 0 else -linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')))) - 6.626) if (16.02 * (linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')) if linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')) >= 0 else -linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')))) >= 6.626 else (6.626 - (16.02 * (linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')) if linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')) >= 0 else -linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')))))) / 6.626 * 100, 3)"
+  },
   "automation": {
     "mappings": [
       {
@@ -972,42 +950,6 @@
         "targetLocator": "#G10-8"
       },
       {
-        "sourceId": "G11-0",
-        "targetLocator": "#G11-0"
-      },
-      {
-        "sourceId": "G11-1",
-        "targetLocator": "#G11-1"
-      },
-      {
-        "sourceId": "G11-2",
-        "targetLocator": "#G11-2"
-      },
-      {
-        "sourceId": "G11-3",
-        "targetLocator": "#G11-3"
-      },
-      {
-        "sourceId": "G11-4",
-        "targetLocator": "#G11-4"
-      },
-      {
-        "sourceId": "G11-5",
-        "targetLocator": "#G11-5"
-      },
-      {
-        "sourceId": "G11-6",
-        "targetLocator": "#G11-6"
-      },
-      {
-        "sourceId": "G11-7",
-        "targetLocator": "#G11-7"
-      },
-      {
-        "sourceId": "G11-8",
-        "targetLocator": "#G11-8"
-      },
-      {
         "sourceId": "G12-0",
         "targetLocator": "#G12-0"
       },
@@ -1066,26 +1008,6 @@
       {
         "sourceId": "G5",
         "targetLocator": "#G5"
-      },
-      {
-        "sourceId": "G60-0",
-        "targetLocator": "#G60-0"
-      },
-      {
-        "sourceId": "G60-1",
-        "targetLocator": "#G60-1"
-      },
-      {
-        "sourceId": "G60-2",
-        "targetLocator": "#G60-2"
-      },
-      {
-        "sourceId": "G60-3",
-        "targetLocator": "#G60-3"
-      },
-      {
-        "sourceId": "G60-4",
-        "targetLocator": "#G60-4"
       },
       {
         "sourceId": "G61-0",

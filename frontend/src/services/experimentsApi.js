@@ -28,9 +28,10 @@ export const experimentsApi = {
     return response.data;
   },
 
-  computeExperimentData: async (experimentId, currentFormValues) => {
+  computeExperimentData: async (experimentId, currentFormValues, submissionId = null) => {
     const response = await apiClient.post(`/api/v1/experiments/${experimentId}/compute`, {
-      current_form_values: currentFormValues
+      current_form_values: currentFormValues,
+      submission_id: submissionId
     });
     return response.data;
   },

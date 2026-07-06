@@ -10,6 +10,10 @@ import {
 } from '@ant-design/icons';
 import { apiClient } from '../../services/apiClient.js';
 
+const MIN_IMAGE_SCALE = 0.5;
+const MAX_IMAGE_SCALE = 6;
+const IMAGE_SCALE_STEP = 0.5;
+
 export const resolveImageUrl = (url) => {
   if (!url) return '';
   if (url.startsWith('/')) {
@@ -90,6 +94,13 @@ export function ExperimentImageUploader({
   const [dragStart, setDragStart] = useState(null);
   const [isRotating, setIsRotating] = useState(false);
 
+  const updateScale = (delta) => {
+    setScale((current) => {
+      const nextScale = current + delta;
+      return Math.min(MAX_IMAGE_SCALE, Math.max(MIN_IMAGE_SCALE, Number(nextScale.toFixed(2))));
+    });
+  };
+
   const handleMouseDown = (event) => {
     if (!activeImage) return;
     setDragging(true);
@@ -110,6 +121,12 @@ export function ExperimentImageUploader({
   const stopDragging = () => {
     setDragging(false);
     setDragStart(null);
+  };
+
+  const handleWheel = (event) => {
+    if (!activeImage) return;
+    event.preventDefault();
+    updateScale(event.deltaY < 0 ? IMAGE_SCALE_STEP : -IMAGE_SCALE_STEP);
   };
 
   const getDefaultSlotId = () => images?.[0]?.id || 'IMG_RAW';
@@ -162,8 +179,8 @@ export function ExperimentImageUploader({
           >
             旋转
           </Button>
-          <Button icon={<ZoomInOutlined />} style={{ background: '#fff' }} onClick={() => setScale(s => Math.min(s + 0.15, 2.4))}>放大</Button>
-          <Button icon={<ZoomOutOutlined />} style={{ background: '#fff' }} onClick={() => setScale(s => Math.max(s - 0.15, 0.7))}>缩小</Button>
+          <Button icon={<ZoomInOutlined />} style={{ background: '#fff' }} onClick={() => updateScale(IMAGE_SCALE_STEP)}>放大</Button>
+          <Button icon={<ZoomOutOutlined />} style={{ background: '#fff' }} onClick={() => updateScale(-IMAGE_SCALE_STEP)}>缩小</Button>
           <Button icon={<ReloadOutlined />} style={{ background: '#fff' }} onClick={() => { setScale(1); setOffset({ x: 0, y: 0 }); }}>还原</Button>
         </div>
       </div>
@@ -175,6 +192,7 @@ export function ExperimentImageUploader({
           onMouseMove={handleMouseMove}
           onMouseUp={stopDragging}
           onMouseLeave={stopDragging}
+          onWheel={handleWheel}
           onDragOver={(event) => {
             if (onExternalImageDrop) event.preventDefault();
           }}

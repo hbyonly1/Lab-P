@@ -18,11 +18,10 @@ import { buildExperimentConfig, initFixedValues } from '../../../services/experi
 import { AsyncJobFloatingPanel, AutomationProgressModal, GoldButton, StatusBadge } from '../../../components/ui/index.js';
 import { SectionShell, ExperimentDataTable, ExperimentImageUploader, SingleImageUploadNode, ProSubmitModal } from '../../../components/experiment/index.js';
 
-import { createSelfManagedSubmission, createSubmissionBatchId, saveSubmissionCorrection, submitExperiment } from '../../../services/submissionsApi.js';
+import { createSelfManagedSubmission, saveSubmissionCorrection } from '../../../services/submissionsApi.js';
 import { uploadFile } from '../../../services/uploadApi.js';
 import { getMe } from '../../../services/authApi.js';
-import { recognizeDirect, generateAnswerDirect, getFixedFillDirect, getTaskStatus } from '../../../services/aiApi.js';
-import { auditApi } from '../../../services/auditApi.js';
+import { recognizeDirect, generateAnswerDirect, getFixedFillDirect } from '../../../services/aiApi.js';
 import { experimentsApi } from '../../../services/experimentsApi.js';
 import * as submissionsApi from '../../../services/submissionsApi.js';
 import {
@@ -35,6 +34,10 @@ import {
 } from '../../../services/schoolSyncApi.js';
 import { getActiveAutomationJobs } from '../../../services/automationJobsApi.js';
 import { ReviewerNodeHint } from '../../../components/experiment/ReviewerNodeHint.jsx';
+import { submitOneClickExperimentBatch } from '../../../utils/oneClickSubmitUtils.js';
+import { useAsyncTaskRunner } from '../../../hooks/useAsyncTaskRunner.js';
+import { ASYNC_TASK_PROGRESS_PROFILES, getAsyncTaskProgressStage } from '../../../hooks/asyncTaskProgressProfiles.js';
+import { useSubmissionDraftAutosave } from '../../../hooks/useSubmissionDraftAutosave.js';
 
 // Extracted components are imported from components/experiment/index.js
 
@@ -116,6 +119,14 @@ const normalizeInitialImageSlots = (rawSlots = {}) => {
   return normalized;
 };
 
+const unwrapSubmissionValues = (payload) => {
+  if (!payload) return {};
+  if (payload.values && typeof payload.values === 'object') return payload.values;
+  return payload;
+};
+
+const autosaveDisplayState = (status) => (status === 'idle' ? 'unsaved' : 'saved');
+
 export function ExperimentDetailView({ experiment, onBack, isReviewer = false, showNodeInspector = false, initialSubmission = null, initialImagePaths = [], initialImageSlots = {}, initialFormValues = null }) {
 
   // 核心状态：所有的节点值都在这个 formValues 里
@@ -137,55 +148,16 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
   const [isStartingDetailSync, setIsStartingDetailSync] = useState(false);
   const [isFinalConfirmOpen, setIsFinalConfirmOpen] = useState(false);
   const [appliedDetailSyncJobId, setAppliedDetailSyncJobId] = useState(null);
-  const [floatingJobs, setFloatingJobs] = useState([]);
   const isInternalUser = isReviewer || ['admin', 'reviewer'].includes(currentUserRole);
-
-  const upsertFloatingJob = useCallback((job) => {
-    setFloatingJobs((prev) => {
-      const nextJob = { ...job };
-      const exists = prev.some((item) => item.id === nextJob.id);
-      if (!exists) return [nextJob, ...prev].slice(0, 5);
-      return prev.map((item) => (item.id === nextJob.id ? { ...item, ...nextJob } : item));
-    });
-  }, []);
-
-  const startFloatingJob = useCallback((id, payload) => {
-    upsertFloatingJob({
-      id,
-      status: 'running',
-      percent: 15,
-      startedAt: Date.now(),
-      ...payload,
-    });
-  }, [upsertFloatingJob]);
-
-  const finishFloatingJob = useCallback((id, payload = {}) => {
-    upsertFloatingJob({
-      id,
-      status: 'succeeded',
-      percent: 100,
-      message: '任务完成，结果已写入页面，请核对。',
-      ...payload,
-    });
-  }, [upsertFloatingJob]);
-
-  const failFloatingJob = useCallback((id, payload = {}) => {
-    upsertFloatingJob({
-      id,
-      status: 'failed',
-      percent: 100,
-      message: '任务处理失败',
-      ...payload,
-    });
-  }, [upsertFloatingJob]);
-
-  const dismissFloatingJob = useCallback((jobId) => {
-    setFloatingJobs((prev) => prev.filter((job) => job.id !== jobId));
-  }, []);
-
-  const clearFinishedFloatingJobs = useCallback(() => {
-    setFloatingJobs((prev) => prev.filter((job) => !['succeeded', 'failed'].includes(job.status)));
-  }, []);
+  const {
+    jobs: floatingJobs,
+    startJob,
+    finishJob,
+    failJob,
+    dismissJob,
+    clearFinishedJobs,
+    runCeleryTask,
+  } = useAsyncTaskRunner();
 
   const showDetailSyncJob = useCallback((job) => {
     if (['draft_submit', 'final_submit'].includes(job.action)) {
@@ -240,6 +212,10 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
         const latest = experimentSubmissions.find(s => !s.is_one_click_handoff) || experimentSubmissions[0];
         if (latest) {
           setLatestSubmission(latest);
+          const savedValues = unwrapSubmissionValues(latest.corrected_json);
+          if (Object.keys(savedValues || {}).length > 0) {
+            setFormValues((prev) => ({ ...prev, ...savedValues }));
+          }
           const statusMap = {
             'pending_payment': { label: '待支付', tone: 'amber' },
             'incomplete': { label: '未完成', tone: 'pending' },
@@ -346,7 +322,11 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
   }, [computeMissingNodeIds]);
 
   const handleFieldChange = (nodeId, value) => {
-    setFormValues(prev => ({ ...prev, [nodeId]: value }));
+    setFormValues(prev => {
+      const next = { ...prev, [nodeId]: value };
+      scheduleDraftSave(next, imageSlots);
+      return next;
+    });
     setComputeMissingNodeIds(prev => {
       if (!prev.has(nodeId)) return prev;
       const next = new Set(prev);
@@ -389,16 +369,23 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
     const slotDef = (experiment.inputs?.images || []).find(s => s.id === slotId);
     setImageSlots(prev => {
       const nextSlotFiles = (prev[slotId] || []).filter(f => f.uid !== uid);
-      if (slotDef?.targetNodeId) {
-        setFormValues(current => ({
-          ...current,
-          [slotDef.targetNodeId]: nextSlotFiles.map(file => file.url).filter(Boolean).join(','),
-        }));
-      }
-      return {
+      const nextSlots = {
         ...prev,
         [slotId]: nextSlotFiles,
       };
+      if (slotDef?.targetNodeId) {
+        setFormValues(current => {
+          const nextValues = {
+            ...current,
+            [slotDef.targetNodeId]: nextSlotFiles.map(file => file.url).filter(Boolean).join(','),
+          };
+          scheduleDraftSave(nextValues, nextSlots);
+          return nextValues;
+        });
+      } else {
+        scheduleDraftSave(formValues, nextSlots);
+      }
+      return nextSlots;
     });
   };
 
@@ -413,16 +400,23 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
             ? { ...item, name: file.name, url: res.url, originFileObj: file }
             : item
         ));
-        if (slotDef?.targetNodeId) {
-          setFormValues(current => ({
-            ...current,
-            [slotDef.targetNodeId]: nextSlotFiles.map(item => item.url).filter(Boolean).join(','),
-          }));
-        }
-        return {
+        const nextSlots = {
           ...prev,
           [slotId]: nextSlotFiles,
         };
+        if (slotDef?.targetNodeId) {
+          setFormValues(current => {
+            const nextValues = {
+              ...current,
+              [slotDef.targetNodeId]: nextSlotFiles.map(item => item.url).filter(Boolean).join(','),
+            };
+            scheduleDraftSave(nextValues, nextSlots);
+            return nextValues;
+          });
+        } else {
+          scheduleDraftSave(formValues, nextSlots);
+        }
+        return nextSlots;
       });
       message.success({ content: '图片已旋转并保存', key: 'rotate-image' });
       return true;
@@ -505,15 +499,16 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
     }
 
     const isComputed = experiment.metaInfo?.computedIds?.has(nodeId);
+    const isAiRecognize = experiment.metaInfo?.aiRecognizeIds?.has(nodeId);
     const isAsync = experiment.metaInfo?.asyncIds?.has(nodeId);
     const isFixed = experiment.metaInfo?.fixedIds?.has(nodeId);
     const isCalcMissing = computeMissingNodeIds.has(nodeId);
     const input = (
       <input
         data-node-id={nodeId}
-        className={`fixed-inline-input ${isComputed ? 'is-computed' : ''} ${isAsync ? 'is-async' : ''} ${isFixed ? 'is-fixed' : ''} ${isCalcMissing ? 'is-calc-missing' : ''}`}
+        className={`fixed-inline-input ${isComputed ? 'is-computed' : ''} ${isAiRecognize ? 'is-ai-recognize' : ''} ${isAsync ? 'is-async' : ''} ${isFixed ? 'is-fixed' : ''} ${isCalcMissing ? 'is-calc-missing' : ''}`}
         style={{ width: defaultWidth, margin: '0 8px', ...segmentSizeStyle(seg) }}
-        placeholder={isComputed ? '待计算' : ''}
+        placeholder={isAiRecognize ? '待识别' : isComputed ? '待计算' : ''}
         value={formValues[nodeId] ?? ''}
         onChange={e => handleFieldChange(nodeId, e.target.value)}
         title={showNodeInspector ? `节点: ${nodeId}` : undefined}
@@ -544,16 +539,23 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
         const nextSlotFiles = slotDef?.maxCount === 1
           ? [{ ...file, url: res.url }]
           : [...currentSlotFiles, { ...file, url: res.url }];
-        if (slotDef?.targetNodeId) {
-          setFormValues(current => ({
-            ...current,
-            [slotDef.targetNodeId]: nextSlotFiles.map(item => item.url).filter(Boolean).join(','),
-          }));
-        }
-        return {
+        const nextSlots = {
           ...prev,
           [slotId]: nextSlotFiles
         };
+        if (slotDef?.targetNodeId) {
+          setFormValues(current => {
+            const nextValues = {
+              ...current,
+              [slotDef.targetNodeId]: nextSlotFiles.map(item => item.url).filter(Boolean).join(','),
+            };
+            scheduleDraftSave(nextValues, nextSlots);
+            return nextValues;
+          });
+        } else {
+          scheduleDraftSave(formValues, nextSlots);
+        }
+        return nextSlots;
       });
       message.success({ content: '上传成功', key: 'upload' });
     } catch (e) {
@@ -565,20 +567,25 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
   // --- 后端计算通用接口 ---
   const handleCompute = async () => {
     const jobId = `compute-${experiment.meta.id}`;
+    const progressStage = getAsyncTaskProgressStage(ASYNC_TASK_PROGRESS_PROFILES.formulaCompute, 0);
     setIsComputing(true);
     setComputeMissingNodeIds(new Set());
-    startFloatingJob(jobId, {
+    startJob(jobId, {
       title: '一键计算数据',
       description: '正在读取已填写数据并执行后端公式推导。',
-      message: '正在计算实验数据...',
-      percent: 35,
+      message: progressStage?.message || '正在计算实验数据...',
+      percent: progressStage?.percent || 35,
     });
     try {
-      const res = await experimentsApi.computeExperimentData(experiment.meta.id, formValues);
-      setFormValues(prev => ({ ...prev, ...res.computed_values }));
+      const res = await experimentsApi.computeExperimentData(experiment.meta.id, formValues, latestSubmission?.id || null);
+      setFormValues(prev => {
+        const next = { ...prev, ...res.computed_values };
+        scheduleDraftSave(next, imageSlots);
+        return next;
+      });
       setIsComputing(false);
       const changedCount = Object.keys(res.computed_values || {}).length;
-      finishFloatingJob(jobId, {
+      finishJob(jobId, {
         message: `数据计算完成，已回填 ${changedCount} 项结果，请核对。`,
       });
       message.success({ content: '数据计算完成！', key: 'compute' });
@@ -587,46 +594,19 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
       const detail = e.response?.data?.detail;
       if (detail?.code === 'FORMULA_INPUT_INCOMPLETE') {
         setComputeMissingNodeIds(new Set(detail.missing_node_ids || []));
-        failFloatingJob(jobId, {
+        failJob(jobId, {
           message: '填写不完整，无法计算。',
           error: '请补齐高亮字段后再重试。',
         });
         message.error({ content: '填写不完整，无法计算', key: 'compute' });
         return;
       }
-      failFloatingJob(jobId, {
+      failJob(jobId, {
         message: '计算失败，请检查已填写数据。',
         error: e.response?.data?.detail || e.message,
       });
       message.error({ content: '计算失败，请检查已填写数据', key: 'compute' });
     }
-  };
-
-  const pollTask = async (taskId, onSuccess, onError, onProgress) => {
-    let attempts = 0;
-    const interval = setInterval(async () => {
-      attempts++;
-      if (attempts > 30) {
-        clearInterval(interval);
-        onError(new Error('请求超时，请稍后重试'));
-        return;
-      }
-      try {
-        const res = await getTaskStatus(taskId);
-        if (res.status === 'done') {
-          clearInterval(interval);
-          onSuccess(res.result);
-        } else if (res.status === 'error') {
-          clearInterval(interval);
-          onError(new Error(res.message || '处理失败'));
-        } else {
-          onProgress?.(res, attempts);
-        }
-      } catch (err) {
-        clearInterval(interval);
-        onError(err);
-      }
-    }, 2000);
   };
 
   // --- 后端自动填空接口 ---
@@ -637,47 +617,29 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
     }
     setIsFilling(true);
     const jobId = `fixed-fill-${experiment.meta.id}`;
-    startFloatingJob(jobId, {
-      title: '一键填空',
-      description: '正在读取实验固定参数并准备回填。',
-      message: '固定填空任务已提交...',
-      percent: 20,
-    });
     try {
-      const res = await getFixedFillDirect(experiment.meta.id);
-      pollTask(res.task_id, (result) => {
-        setFormValues(prev => {
-          const next = { ...prev };
-          Object.assign(next, result);
-          return next;
-        });
-        setIsFilling(false);
-        finishFloatingJob(jobId, {
-          message: `固定填空完成，已回填 ${Object.keys(result || {}).length} 项内容，请核对。`,
-        });
-        message.success({ content: '已填入固定配置参数，请核对！', key: 'assisted-fill' });
-      }, (err) => {
-        setIsFilling(false);
-        failFloatingJob(jobId, {
-          message: '固定填空失败。',
-          error: err.message,
-        });
-        message.error({ content: err.message, key: 'assisted-fill' });
-      }, (_res, attempts) => {
-        upsertFloatingJob({
-          id: jobId,
-          status: 'running',
-          percent: Math.min(85, 20 + attempts * 8),
-          message: '正在生成固定填空内容...',
-        });
+      await runCeleryTask({
+        jobId,
+        title: '一键填空',
+        description: '正在读取实验固定参数并准备回填。',
+        progressProfile: ASYNC_TASK_PROGRESS_PROFILES.fixedFill,
+        request: () => getFixedFillDirect(experiment.meta.id, latestSubmission?.id || null),
+        onSuccess: (result) => {
+          setFormValues(prev => {
+            const next = { ...prev };
+            Object.assign(next, result);
+            scheduleDraftSave(next, imageSlots);
+            return next;
+          });
+          message.success({ content: '已填入固定配置参数，请核对！', key: 'assisted-fill' });
+        },
+        successMessage: (result) => `固定填空完成，已回填 ${Object.keys(result || {}).length} 项内容，请核对。`,
+        failureMessage: '固定填空失败。',
       });
     } catch (e) {
+      message.error({ content: e.response?.data?.detail || e.message, key: 'assisted-fill' });
+    } finally {
       setIsFilling(false);
-      failFloatingJob(jobId, {
-        message: '固定填空请求失败。',
-        error: e.response?.data?.detail || e.message,
-      });
-      message.error({ content: `获取失败: ${e.response?.data?.detail || e.message}`, key: 'assisted-fill' });
     }
   };
 
@@ -698,47 +660,31 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
 
     setIsRecognizing(true);
     const jobId = `recognize-${experiment.meta.id}`;
-    startFloatingJob(jobId, {
-      title: '一键识别数据',
-      description: `正在识别 ${imagePaths.length} 张实验图片。`,
-      message: 'AI 识别任务已提交...',
-      percent: 18,
-    });
-
     try {
-      const res = await recognizeDirect(experiment.meta.id, imagePaths);
-      pollTask(res.task_id, (result) => {
-        setFormValues(prev => ({
-          ...prev,
-          ...result
-        }));
-        setIsRecognizing(false);
-        finishFloatingJob(jobId, {
-          message: `识别完成，已回填 ${Object.keys(result || {}).length} 项数据，请核对。`,
-        });
-        message.success({ content: '识别完成！已自动填写数据，请核对！', key: 'recognize' });
-      }, (err) => {
-        setIsRecognizing(false);
-        failFloatingJob(jobId, {
-          message: 'AI 识别失败。',
-          error: err.message,
-        });
-        message.error({ content: err.message, key: 'recognize' });
-      }, (_res, attempts) => {
-        upsertFloatingJob({
-          id: jobId,
-          status: 'running',
-          percent: Math.min(88, 18 + attempts * 6),
-          message: attempts > 5 ? '图片较多或模型响应较慢，仍在识别...' : '正在解析图片并提取结构化数据...',
-        });
+      await runCeleryTask({
+        jobId,
+        title: '一键识别数据',
+        description: `正在识别 ${imagePaths.length} 张实验图片。`,
+        progressProfile: ASYNC_TASK_PROGRESS_PROFILES.imageRecognition,
+        request: () => recognizeDirect(experiment.meta.id, imagePaths, latestSubmission?.id || null),
+        onSuccess: (result) => {
+          setFormValues(prev => {
+            const next = {
+              ...prev,
+              ...result
+            };
+            scheduleDraftSave(next, imageSlots);
+            return next;
+          });
+          message.success({ content: '识别完成！已自动填写数据，请核对！', key: 'recognize' });
+        },
+        successMessage: (result) => `识别完成，已回填 ${Object.keys(result || {}).length} 项数据，请核对。`,
+        failureMessage: 'AI 识别失败。',
       });
     } catch (e) {
+      message.error({ content: e.response?.data?.detail || e.message, key: 'recognize' });
+    } finally {
       setIsRecognizing(false);
-      failFloatingJob(jobId, {
-        message: 'AI 识别请求失败。',
-        error: e.response?.data?.detail || e.message,
-      });
-      message.error({ content: `识别失败: ${e.response?.data?.detail || e.message}`, key: 'recognize' });
     }
   };
 
@@ -764,49 +710,31 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
 
     setIsGeneratingAnswers(true);
     const jobId = `generate-answers-${experiment.meta.id}`;
-    startFloatingJob(jobId, {
-      title: '一键生成回答',
-      description: `正在生成 ${questions.length} 个实验问题回答。`,
-      message: '生成回答任务已提交...',
-      percent: 18,
-    });
     try {
-      const res = await generateAnswerDirect(experiment.meta.id, questions, formValues);
-      pollTask(res.task_id, (result) => {
-        setFormValues(prev => {
-          const next = { ...prev };
-          (result.answers || []).forEach((item) => {
-            if (item.nodeId) next[item.nodeId] = item.answer || '';
+      await runCeleryTask({
+        jobId,
+        title: '一键生成回答',
+        description: `正在生成 ${questions.length} 个实验问题回答。`,
+        progressProfile: ASYNC_TASK_PROGRESS_PROFILES.answerGeneration,
+        request: () => generateAnswerDirect(experiment.meta.id, questions, formValues, latestSubmission?.id || null),
+        onSuccess: (result) => {
+          setFormValues(prev => {
+            const next = { ...prev };
+            (result.answers || []).forEach((item) => {
+              if (item.nodeId) next[item.nodeId] = item.answer || '';
+            });
+            scheduleDraftSave(next, imageSlots);
+            return next;
           });
-          return next;
-        });
-        setIsGeneratingAnswers(false);
-        finishFloatingJob(jobId, {
-          message: `回答生成完成，已填入 ${(result.answers || []).length} 个回答，请核对。`,
-        });
-        message.success({ content: '已生成并填入全部回答，请核对！', key: 'gen-answer' });
-      }, (err) => {
-        setIsGeneratingAnswers(false);
-        failFloatingJob(jobId, {
-          message: '生成回答失败。',
-          error: err.message,
-        });
-        message.error({ content: err.message, key: 'gen-answer' });
-      }, (_res, attempts) => {
-        upsertFloatingJob({
-          id: jobId,
-          status: 'running',
-          percent: Math.min(88, 18 + attempts * 7),
-          message: attempts > 5 ? '回答生成时间稍长，仍在处理中...' : '正在结合当前实验数据生成回答...',
-        });
+          message.success({ content: '已生成并填入全部回答，请核对！', key: 'gen-answer' });
+        },
+        successMessage: (result) => `回答生成完成，已填入 ${(result.answers || []).length} 个回答，请核对。`,
+        failureMessage: '生成回答失败。',
       });
     } catch (e) {
+      message.error({ content: e.response?.data?.detail || e.message, key: 'gen-answer' });
+    } finally {
       setIsGeneratingAnswers(false);
-      failFloatingJob(jobId, {
-        message: '生成回答请求失败。',
-        error: e.response?.data?.detail || e.message,
-      });
-      message.error({ content: `生成失败: ${e.response?.data?.detail || e.message}`, key: 'gen-answer' });
     }
   };
 
@@ -833,12 +761,41 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
     return created;
   };
 
+  const autosaveScope = isReviewer ? 'reviewer' : (isInternalUser ? 'admin-preview' : 'student');
+  const canAutosaveToServer = (isReviewer && Boolean(latestSubmission?.id)) || currentUserRole === 'student';
+  const {
+    status: autosaveStatus,
+    scheduleSave: scheduleDraftSave,
+    flush: flushDraftSave,
+  } = useSubmissionDraftAutosave({
+    enabled: true,
+    scope: autosaveScope,
+    experiment,
+    submission: latestSubmission,
+    formValues,
+    imageSlots,
+    collectImagePaths,
+    ensureSubmission: ensureSubmissionForSave,
+    canSaveToServer: canAutosaveToServer,
+    onServerSubmissionResolved: setLatestSubmission,
+    onRestore: (draft) => {
+      const restoredValues = draft?.draftJson?.values || {};
+      if (Object.keys(restoredValues).length) {
+        setFormValues((prev) => ({ ...prev, ...restoredValues }));
+      }
+      if (draft?.imageSlots && Object.keys(draft.imageSlots).length) {
+        setImageSlots(normalizeInitialImageSlots(draft.imageSlots));
+      }
+    },
+  });
+
   const handleSaveCorrection = async (saveMode) => {
     const isFinal = saveMode === 'final';
     const setSaving = isFinal ? setIsSavingFinal : setIsSavingDraft;
     setSaving(true);
     message.loading({ content: isFinal ? '正在正式保存实验数据...' : '正在临时保存实验数据...', key: 'save-correction' });
     try {
+      await flushDraftSave();
       const submission = await ensureSubmissionForSave();
       const saved = await saveSubmissionCorrection(
         submission.id,
@@ -878,18 +835,20 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
 
   const handleModalSubmit = async (batchImages, targetStudent, isHungup = false, planName = 'pay_per_use') => {
     try {
-      // 提取弹窗内上传的图片路径
-      const expImages = batchImages[experiment.meta.id] || {};
-      const modalImagePaths = Object.values(expImages).flat().map(img => img.url).filter(Boolean);
-      // 提取页面上上传的图片路径
       const pageImagePaths = Object.values(imageSlots).flat().map(img => img.url).filter(Boolean);
-
-      // 如果弹窗里有新传的图，优先用弹窗里的，否则用页面上的
-      const imagePaths = modalImagePaths.length > 0 ? modalImagePaths : pageImagePaths;
-
-      const submissionBatchId = createSubmissionBatchId();
-      for (const target of submitTargets) {
-        const newSubmission = await submitExperiment(experiment.meta.id, targetStudent, isHungup, imagePaths, planName, submissionBatchId);
+      const { submittedCount } = await submitOneClickExperimentBatch({
+        targets: submitTargets,
+        batchImages,
+        targetStudent,
+        isHungup,
+        planName,
+        fallbackImagePaths: {
+          [experiment.meta.id]: pageImagePaths,
+        },
+      });
+      if (submittedCount === 0) {
+        message.warning('请至少上传一个实验的图片');
+        return;
       }
       message.success('任务已创建并提交，后台正在处理中！');
       setTimeout(() => navigate('/workspace/student'), 1500);
@@ -914,7 +873,12 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
         <div className="experiment-detail-title">
           <Button className="experiment-detail-back" icon={<ArrowLeftOutlined />} onClick={onBack} />
           <div>
-            <h1>{experiment.meta.name}</h1>
+            <div className="experiment-detail-title-row">
+              <h1>{experiment.meta.name}</h1>
+              <span className={`autosave-status-pill is-${autosaveDisplayState(autosaveStatus)}`}>
+                {autosaveDisplayState(autosaveStatus) === 'saved' ? '草稿已保存' : '草稿未保存'}
+              </span>
+            </div>
             <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
           </div>
         </div>
@@ -1153,8 +1117,8 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
       />
       <AsyncJobFloatingPanel
         jobs={floatingJobs}
-        onDismiss={dismissFloatingJob}
-        onClearDone={clearFinishedFloatingJobs}
+        onDismiss={dismissJob}
+        onClearDone={clearFinishedJobs}
         onRetry={(job) => {
           if (job.id.startsWith('fixed-fill-')) handleAssistedFill();
           if (job.id.startsWith('recognize-')) handleRecognize();

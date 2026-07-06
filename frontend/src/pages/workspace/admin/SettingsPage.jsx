@@ -286,34 +286,36 @@ export default function SettingsPage() {
         </span>
       ),
       children: (
-        <section className="settings-panel">
+        <section className="settings-panel settings-automation-config-panel">
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: 16,
-              padding: '12px 0 18px',
+              gap: 12,
+              padding: '4px 0 10px',
               borderBottom: '1px solid #eef0f5',
-              marginBottom: 16,
+              marginBottom: 10,
             }}
           >
             <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>学校详情自动加载</div>
-              <div style={{ marginTop: 4, color: '#6b7280' }}>控制打开实验详情页时是否自动读取学校系统已填写数据。</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>学校详情自动加载</div>
+              <div style={{ marginTop: 2, color: '#6b7280', fontSize: 12 }}>控制打开实验详情页时是否自动读取学校系统已填写数据。</div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end', fontSize: 13 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 学生
                 <Switch
+                  size="small"
                   checked={automationConfigJson.syncPolicy?.autoLoadDetailForStudent ?? true}
                   loading={savingAutomation}
                   onChange={(checked) => handleToggleAutomationSyncPolicy('autoLoadDetailForStudent', checked)}
                 />
               </span>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 Admin / Reviewer
                 <Switch
+                  size="small"
                   checked={automationConfigJson.syncPolicy?.autoLoadDetailForInternalUser ?? false}
                   loading={savingAutomation}
                   onChange={(checked) => handleToggleAutomationSyncPolicy('autoLoadDetailForInternalUser', checked)}

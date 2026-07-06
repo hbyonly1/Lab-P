@@ -220,7 +220,7 @@ export function ReviewBatchImageAssignmentModal({ open, batch, onClose, onFinish
         <Button key="cancel" onClick={onClose}>取消</Button>,
         <Button key="save" icon={<SaveOutlined />} loading={saving} onClick={saveAssignments}>保存草稿</Button>,
         <Button key="prepare" type="primary" icon={<PlayCircleOutlined />} loading={saving} onClick={prepareBatch}>
-          确认匹配并开始 AI 预处理
+          确认匹配并开始处理
         </Button>,
       ]}
       destroyOnClose

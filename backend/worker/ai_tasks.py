@@ -1,9 +1,11 @@
 import asyncio
+from celery.signals import task_failure
 from worker.celery_app import celery_app
 from sqlmodel import Session
 from core.db import engine
 from models.core import AuditLog, Submission, get_utc_now
 from services import ai_service, captcha_ai
+from services.ai_task_audit import complete_ai_task_run, fail_ai_task_run, audit_target_id
 
 
 def _extract_assigned_image_paths(submission: Submission, exp_config: dict) -> list[str]:
@@ -46,65 +48,136 @@ def _questions_for_generation(exp_config: dict) -> list[dict]:
         })
     return questions
 
+
+@task_failure.connect
+def record_ai_task_failure(task_id=None, exception=None, **_kwargs):
+    if not task_id:
+        return
+    with Session(engine) as session:
+        run = fail_ai_task_run(
+            session,
+            task_id=task_id,
+            details={
+                "task_id": task_id,
+                "error": str(exception),
+                "error_type": type(exception).__name__ if exception else None,
+                "source": "celery_task_failure_signal",
+            },
+        )
+        if run:
+            session.commit()
+
 @celery_app.task(bind=True, max_retries=3)
 def recognize_captcha_task(self, image_b64: str, config: dict):
     """学校登录验证码识别。所有验证码 AI 调用统一在 worker 内执行。"""
     return captcha_ai.recognize_captcha_image_b64(image_b64, config or {})
 
 @celery_app.task(bind=True, max_retries=3)
-def recognize_images_task(self, experiment_id: str, image_paths: list[str], user_id: int):
+def recognize_images_task(self, experiment_id: str, image_paths: list[str], user_id: int, submission_id: str = None):
     """detail 页一键识别按鈕触发。结果存 Celery result backend。"""
     with Session(engine) as session:
+        target_id = audit_target_id(experiment_id, submission_id)
         try:
             result = asyncio.run(ai_service.recognize_images(experiment_id, image_paths, session))
-            log = AuditLog(user_id=user_id, action="ai_recognize", status="success", 
-                           target_id=experiment_id, details=f"recognized {len(result)} fields")
-            session.add(log)
+            complete_ai_task_run(
+                session,
+                task_id=self.request.id,
+                details={
+                    "experiment_id": experiment_id,
+                    "submission_id": submission_id,
+                    "recognized_count": len(result or {}),
+                    "image_count": len(image_paths or []),
+                },
+            )
             session.commit()
             return result
         except Exception as e:
-            log = AuditLog(user_id=user_id, action="ai_recognize", status="failed", 
-                           target_id=experiment_id, details=str(e))
-            session.add(log)
+            fail_ai_task_run(
+                session,
+                task_id=self.request.id,
+                details={
+                    "experiment_id": experiment_id,
+                    "submission_id": submission_id,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+                fallback_user_id=user_id,
+                fallback_task_kind="image_recognition",
+                fallback_target_id=target_id,
+            )
             session.commit()
             raise e
 
 @celery_app.task(bind=True, max_retries=3)
-def generate_answer_task(self, experiment_id: str, questions: list[dict], form_values: dict, user_id: int):
+def generate_answer_task(self, experiment_id: str, questions: list[dict], form_values: dict, user_id: int, submission_id: str = None):
     """detail 页统一生成全部实验问题回答按钮触发。"""
     with Session(engine) as session:
+        target_id = audit_target_id(experiment_id, submission_id)
         try:
             answers = asyncio.run(ai_service.generate_answers(
                 experiment_id, questions, form_values, session
             ))
-            log = AuditLog(user_id=user_id, action="ai_generate", status="success",
-                           target_id=experiment_id, details=f"generated {len(answers)} answers")
-            session.add(log)
+            complete_ai_task_run(
+                session,
+                task_id=self.request.id,
+                details={
+                    "experiment_id": experiment_id,
+                    "submission_id": submission_id,
+                    "answer_count": len(answers or []),
+                },
+            )
             session.commit()
             return {"answers": answers}
         except Exception as e:
-            log = AuditLog(user_id=user_id, action="ai_generate", status="failed",
-                           target_id=experiment_id, details=str(e))
-            session.add(log)
+            fail_ai_task_run(
+                session,
+                task_id=self.request.id,
+                details={
+                    "experiment_id": experiment_id,
+                    "submission_id": submission_id,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+                fallback_user_id=user_id,
+                fallback_task_kind="answer_generation",
+                fallback_target_id=target_id,
+            )
             session.commit()
             raise e
 
 @celery_app.task(bind=True, max_retries=3)  
-def fixed_fill_task(self, experiment_id: str, user_id: int):
+def fixed_fill_task(self, experiment_id: str, user_id: int, submission_id: str = None):
     """detail 页一键填空按鈕触发。"""
+    target_id = audit_target_id(experiment_id, submission_id)
     try:
         result = asyncio.run(ai_service.get_fixed_fill(experiment_id))
         with Session(engine) as session:
-            log = AuditLog(user_id=user_id, action="ai_fixed_fill", status="success",
-                           target_id=experiment_id, details="成功获取固定填空配置。")
-            session.add(log)
+            complete_ai_task_run(
+                session,
+                task_id=self.request.id,
+                details={
+                    "experiment_id": experiment_id,
+                    "submission_id": submission_id,
+                    "field_count": len(result or {}),
+                },
+            )
             session.commit()
         return result
     except Exception as e:
         with Session(engine) as session:
-            log = AuditLog(user_id=user_id, action="ai_fixed_fill", status="failed",
-                           target_id=experiment_id, details=f"获取失败: {str(e)}")
-            session.add(log)
+            fail_ai_task_run(
+                session,
+                task_id=self.request.id,
+                details={
+                    "experiment_id": experiment_id,
+                    "submission_id": submission_id,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                },
+                fallback_user_id=user_id,
+                fallback_task_kind="fixed_fill",
+                fallback_target_id=target_id,
+            )
             session.commit()
         raise e
 

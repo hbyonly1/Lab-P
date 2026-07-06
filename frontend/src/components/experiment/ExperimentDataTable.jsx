@@ -16,7 +16,9 @@ export function ExperimentDataTable({ dataTable, formValues, onFieldChange, meta
 
   const renderNodeInput = (nodeId, inputProps = {}, wrapperStyle = {}, key) => {
     const isComputed = metaInfo?.computedIds?.has(nodeId);
+    const isAiRecognize = metaInfo?.aiRecognizeIds?.has(nodeId);
     const isHighlighted = highlightedNodeIds?.has?.(nodeId);
+    const placeholder = inputProps.placeholder || (isAiRecognize ? '待识别' : isComputed ? '待计算' : '');
     return (
       <div
         key={key}
@@ -26,7 +28,8 @@ export function ExperimentDataTable({ dataTable, formValues, onFieldChange, meta
         <Input
           {...inputProps}
           data-node-id={nodeId}
-          className={`${isComputed ? 'is-computed' : ''} ${isHighlighted ? 'is-calc-missing' : ''} ${inputProps.className || ''}`.trim()}
+          className={`${isComputed ? 'is-computed' : ''} ${isAiRecognize ? 'is-ai-recognize' : ''} ${isHighlighted ? 'is-calc-missing' : ''} ${inputProps.className || ''}`.trim()}
+          placeholder={placeholder}
           value={formValues?.[nodeId] ?? ''}
           onChange={(e) => onFieldChange?.(nodeId, e.target.value)}
           title={showNodeHints ? `节点: ${nodeId}` : undefined}

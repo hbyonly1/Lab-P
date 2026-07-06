@@ -1,5 +1,43 @@
 # Progress
 
+## 2026-07-07
+
+### 填写页自动草稿保存
+
+- 新增 `submission_drafts` 表和 Alembic migration `c3d4e5f6a7b8_add_submission_drafts.py`，用独立当前草稿承接填写页 autosave，避免污染 `submissions.corrected_json` 和 `submission_versions` 提交历史。
+- 新增 `GET/PATCH /api/v1/submissions/{submission_id}/draft`：学生只能保存自己的 submission，reviewer/admin 按审核任务权限保存；接口只覆盖草稿，不写提交历史、不触发学校系统 job。
+- 前端新增 `useSubmissionDraftAutosave`：本地草稿即时写入 `localStorage`，后端 2 秒防抖同步；页面隐藏/跳转前尽力 flush，重新进入时恢复本地或后端较新的未提交草稿。
+- 学生和 reviewer 共用的 `ExperimentDetailView` 已接入 autosave，普通填空、表格、实验回答、图片上传、AI 识别/填空/回答和公式计算回填都会排队保存；Admin 实验预览仅本地保存，不写业务 submission。
+- 验证：`python3 -m py_compile backend/models/core.py backend/api/v1/submissions.py backend/tests/test_e2e_flow.py` 通过；`frontend/ npm run build` 通过；`alembic upgrade head` 已应用到 `c3d4e5f6a7b8`；`backend/venv/bin/python -m pytest backend/tests/test_e2e_flow.py::test_submission_draft_autosave_does_not_create_submit_history backend/tests/test_e2e_flow.py::test_save_correction_syncs_image_slots_to_target_node -q` 两项通过。
+
+### 图片预览放大交互增强
+
+- `ExperimentImageUploader` 的图片预览放大上限从保守小倍率提升到 6 倍，放大/缩小步进改为 0.5。
+- 图片预览区支持鼠标滚轮缩放，放大后仍可拖拽平移查看局部细节；默认预览画布高度同步增大，内嵌图片节点使用较小但更可读的高度。
+- 验证：在 `frontend/` 执行 `npm run build` 通过。
+
+### AI 异步任务运行态统一
+
+- 新增 `ai_task_runs` 表，以 Celery `task_id` 为主键统一记录一键填空、AI 图像识别和实验思考题生成的运行态、target、experiment/submission 诊断字段、started/finished audit 关联和错误诊断；`submission_id` 不做外键约束，避免任务日志因业务记录清理而丢失。
+- `services.ai_task_audit` 扩展为异步 AI 任务唯一状态入口：API 入队调用 `start_ai_task_run`，worker 成功/失败调用 `complete_ai_task_run` / `fail_ai_task_run`；完成或失败时同步更新原 started audit 状态，避免日志列表长期显示“执行中”。
+- Celery `task_failure` signal 兜底处理参数绑定失败等未进入业务函数体的异常；`GET /api/v1/ai/task/{task_id}` 只读取 Celery result backend，不再扫描或修补 `audit_logs.details`。
+- 当前 `recognize_images_task` 代码签名已包含 `submission_id=None`；若仍出现 `takes 4 positional arguments but 5 were given`，说明运行中的 Celery worker 仍是旧进程，需要重启 worker 加载新代码。
+- 验证：`py_compile backend/models/core.py backend/services/ai_task_audit.py backend/api/v1/ai.py backend/worker/ai_tasks.py backend/tests/test_e2e_flow.py` 通过；`alembic upgrade head` 已应用到 `b2c3d4e5f6a7`；`backend/venv/bin/python -m pytest backend/tests/test_e2e_flow.py::test_ai_assist_task_start_logs_submission_target backend/tests/test_e2e_flow.py::test_ai_assist_worker_completion_logs_canonical_action backend/tests/test_e2e_flow.py::test_ai_task_status_treats_started_as_pending backend/tests/test_e2e_flow.py::test_ai_task_failure_signal_reconciles_pre_run_failure_audit -q` 通过 4 项；`git diff --check` 通过。
+
+### Prompt 附加说明改为实验 JSON 来源
+
+- 图像识别和实验思考题生成的附加说明不再读取或写入 `ai_prompt_templates`，后端只从实验 JSON 的 `ai.recognition.extraPrompt` / `ai.generation.extraPrompt` 拼入用户指令末尾；system prompt 仍保留 `AiPromptTemplate -> Python 默认模板` 优先级。
+- 新增 migration `f6a7b8c9d0e1_drop_ai_prompt_extra_columns.py`，删除 `ai_prompt_templates.recognition_extra_prompt` 和 `generation_extra_prompt`。
+- Admin 实验 Prompt 页的附加说明输入框可编辑，保存时直接写回实验 JSON 并同步 `experiments.config_json`；预览会使用当前输入框内容临时生成 Prompt。
+- 验证：`backend/venv/bin/python -m pytest backend/tests/test_ai_prompts.py -q` 通过 12 项；`py_compile` 通过；`frontend/ npm run build` 通过；`alembic upgrade head` 已应用到 `f6a7b8c9d0e1`；数据库 `ai_prompt_templates` 仅剩 `experiment_id`、`recognition_system_prompt`、`generation_system_prompt`、`updated_at`；`git diff --check` 通过。
+
+### 前端 AI 异步任务进度文案收拢
+
+- 新增 `frontend/src/hooks/asyncTaskProgressProfiles.js`，集中维护一键填空、一键识别、生成回答和公式计算的分段式进度文案与进度百分比。
+- `useAsyncTaskRunner` 支持 `progressProfile`，轮询 Celery 任务时根据已用时统一更新浮动任务面板，页面不再散落 `onProgress` 文案判断。
+- 学生实验详情页和 reviewer 复用的 `ExperimentDetailView` 已改为引用公共 profile，因此两侧一键识别、填空、回答生成共享同一套长耗时提示。
+- 验证：在 `frontend/` 执行 `npm run build` 通过；仓库执行 `git diff --check` 通过。
+
 ## 2026-06-04
 
 - 完成 student 仪表盘原型改造：服务计划卡、实验完成环形进度、右侧指标卡、快捷提交入口和最近任务表。
@@ -588,3 +626,52 @@
 - 审核图片匹配弹窗修正：页面文案统一使用“图片匹配”；弹窗改为复用一键批量提交的全屏 Modal 壳，标题和底部按钮固定，中间工作区滚动；右侧图片槽改为复用实验详情页同一个 `ExperimentImageUploader`，避免重复造槽位 UI；学生上传缩略图改为走统一上传 URL 解析，修复 `/uploads/...` 缩略图不显示；关闭弹窗时增加 `batch` 空值保护，避免点击叉号崩溃。
 - 审核完成后续状态补齐：审核任务池保留 `draft_submitted` 和 `completed` 记录，前端状态文案将 `reviewing` 显示为“待人工审核”、`completed` 显示为“审核完成已提交”；学生最近操作会展示 target 指向其 submission/order 的完成类日志。
 - 学校提交 audit action 统一为 `school_draft_submit_started/completed/failed` 和 `school_final_submit_started/completed/failed`；提交类日志 `target_id` 统一指向 submission id，job id 仅保留在 details 诊断文本中，不再兼容旧的通用 submit action。
+- 光电效应配置补齐：参照电表改装的配置驱动识别方式，`exp_photoelectric_planck` 删除逐节点 `nodeHints` 长说明，依赖 `ui.dataTables` 自动生成表格 `node_matrix`；仅用实验级 `ai.recognition.extraPrompt` 补充表1/表2电流单位系数换算和表3截止电压保留正负号。学校系统自带的电压行 `G11-*` 与频率行 `G60-*` 不再作为平台字段、识别字段或自动填报 mapping。
+- 验证：`backend/venv/bin/python -m pytest tests/test_ai_prompts.py tests/test_experiment_formulas.py` 通过 12 项；光电识别 prompt 预览确认只包含表结构映射和实验级补充说明，不再输出 `G10-0:` 这类逐节点提示。
+
+## 2026-07-07
+
+### 学校系统 bootbox 错误收敛
+
+- 单实验同步和提交打开报告前新增统一 bootbox guard：复用会话、点击“完成报告”前后、等待报告 modal 失败时都会检查可见 `.bootbox .bootbox-body`；若学校系统弹出 `error` 等提示，立即抛出 `SCHOOL_BOOTBOX_ERROR`，保存 bootbox 截图/HTML artifact，并将任务置为 `failed`。
+- `GET /api/v1/automation-jobs/{job_id}` 增加窄范围兜底：仅当学校自动化 job 仍处于详情/提交的连接或打开报告阶段时，轮询会检查当前会话 bootbox 并把已卡住的 job 收敛为失败；提交确认阶段的 bootbox 反馈仍由提交链路处理。
+- 修复详情同步失败落库：`school_detail_sync` 不再复用提交任务的 audit action 生成逻辑，失败审计记录写入 `school_detail_sync_failed`，target 指向 automation job id，避免错误处理时二次异常导致前端一直轮询 running。
+- 验证：`backend/venv/bin/python -m pytest tests/test_e2e_flow.py -q` 通过 46 项。
+
+### 学生一键提交支付计划透传修复
+
+- 修复学生实验列表页“一键提交”在支付弹窗选择 Pro 后仍创建 `pay_per_use` 订单的问题：该页面原先把 `submitExperiment` 的 `plan` 参数写死为 `pay_per_use`，现在会接收并透传 Paywall 返回的 `planName`。
+- 新增 `frontend/src/utils/oneClickSubmitUtils.js`，将实验列表页、仪表盘一键批量提交和单实验详情页的一键托管提交流程收口到同一套图片 URL 提取、空实验过滤、批次号生成和 `planName` 透传逻辑；详情页继续保留“弹窗无新图时复用页面已有图片”的 fallback 行为。
+- 验证：`frontend/ npm run build` 通过。
+
+### AI 识别单位提示增强
+
+- 识别默认系统指令新增“注意单位”约束：要求按表头和行名单位换算成目标表格数值，返回值不带单位。
+- 表格识别 prompt 在保留短标签 `rows` / `cols` 的同时，新增原始单位上下文：`row_axis_label`、`row_labels`、`col_labels`；光电效应实验的 `I（10⁻¹¹A）`、`I（10⁻¹⁰A）`、`截止电压U₀（V）` 会进入 AI 可见 prompt。
+- 验证：`backend/venv/bin/python -m pytest backend/tests/test_ai_prompts.py -q` 通过 10 项；`python3 -m json.tool backend/configs/exp_photoelectric_planck.json` 通过。
+
+### AI 辅助任务公共化
+
+- 新增后端 `services/ai_task_audit.py`，统一一键填空、AI 图片识别、AI 回答生成和公式计算的 started / completed / failed 审计 action；直接详情页触发的 AI 任务支持传入 `submission_id`，日志 target 优先指向 submission，便于 reviewer 任务详情排查。
+- `/api/v1/ai/recognize-direct`、`/generate-answer-direct`、`/fixed-fill/{experiment_id}` 入队时写 started 日志并返回 `poll_timeout_seconds` / `poll_interval_ms`；前端不再固定 60 秒轮询，而是按后端 AI profile 超时加队列缓冲等待，避免模型仍在运行时误报 timeout。
+- `GET /api/v1/ai/task/{task_id}` 改为只有 Celery `SUCCESS` 才返回 done，`PENDING` / `STARTED` / `RETRY` 等状态继续返回 pending，避免任务刚开始就被前端误判完成。
+- 新增前端 `useAsyncTaskRunner`，将学生/审核详情页的一键填空、一键识别、生成回答、计算数据统一到公共浮窗任务、轮询、失败、重试逻辑；页面只保留各按钮的业务输入和成功回填逻辑。
+- 学生可见日志白名单和前端日志枚举补齐 `ai_fixed_fill_*`、`ai_recognition_*`、`ai_answer_generation_*`、`formula_compute_*`。
+- 验证：`py_compile backend/api/v1/ai.py backend/api/v1/experiments.py backend/worker/ai_tasks.py backend/services/ai_task_audit.py` 通过；`frontend/ npm run build` 通过；`backend/venv/bin/python -m pytest backend/tests/test_e2e_flow.py::test_ai_assist_task_start_logs_submission_target backend/tests/test_e2e_flow.py::test_ai_assist_worker_completion_logs_canonical_action backend/tests/test_e2e_flow.py::test_ai_task_status_treats_started_as_pending backend/tests/test_e2e_flow.py::test_student_audit_logs_hide_internal_actions -q` 通过 4 项。
+
+### 光电普朗克常数结果改为识别项
+
+- 根据 PPT “作 U0-v 直线，由图求出斜率 k 后求 h 和相对误差”的要求，`exp_photoelectric_planck` 中 `G7` 普朗克常数计算值和 `G8` 相对误差由 `computed` 改为 `ai_recognize`，让 AI 识别学生原始数据纸/作图记录里已经写出的结果。
+- 原 `G7/G8` 后端公式保留到 `archivedFormulas`，不再放入可执行 `formulas`，避免一键计算用最小二乘自动覆盖学生按图得到的结果；`G3/G4/G5` 仍保持公式计算。
+- 验证：`python3 -m json.tool backend/configs/exp_photoelectric_planck.json` 通过；`backend/tests/test_ai_prompts.py` 已补充 prompt schema 与公式执行范围断言。
+
+### 实验 AI Prompt 配置指南
+
+- 新增 `docs/EXPERIMENT_AI_PROMPT_CONFIG_GUIDE.md`，沉淀实验 JSON 中 `ai_recognize`、`recognitionHint`、`ai.recognition.extraPrompt`、`ai.generation`、`formulas` 和 `archivedFormulas` 的分工、读取顺序、推荐写法和反例。
+- 同步 `docs/EXPERIMENT_JSON_SCHEMA_AND_FRONTEND_GUIDE.md`，增加 AI 提示边界入口，明确表格单位优先放 `ui.dataTables`、非表格特殊节点才写 `recognitionHint`、实验级 `extraPrompt` 只放少量通用特殊规则。
+
+### 分段表格识别映射修正
+
+- 修复 `ui.dataTables` 中“表头行 + 数据行 + 第二段表头行 + 第二段数据行”的 AI 字段映射：后端现在会把无 `nodeId` 的多文本行识别为局部坐标轴，并拆成多段 `table` 映射，避免光电效应表 1 的第二排 `G12-*` 因缺少 `6,8,10...30` 列坐标而被模型当成重复行漏填。
+- 光电效应识别 prompt 现在分别输出 `G10-*` 对应 `cols=[-1.5,...,5]` 和 `G12-*` 对应 `cols=[6,8,10,13,16,19,22,26,30]`；表 3 的波长/频率双行坐标也会合并为 `365/8.214` 等列标签。
+- 验证：`backend/venv/bin/python -m pytest backend/tests/test_ai_prompts.py -q` 通过 12 项；`python3 -m py_compile backend/core/ai_prompts.py backend/tests/test_ai_prompts.py` 通过；`git diff --check` 通过。

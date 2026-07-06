@@ -112,11 +112,23 @@ class SubmissionVersion(SQLModel, table=True):
     created_by: Optional[int] = Field(default=None, foreign_key="users.id")
     created_at: datetime = Field(default_factory=get_utc_now)
 
+class SubmissionDraft(SQLModel, table=True):
+    __tablename__ = "submission_drafts"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    submission_id: str = Field(foreign_key="submissions.id", index=True)
+    draft_json: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
+    image_paths: List[str] = Field(default_factory=list, sa_column=Column(JSONB))
+    image_slots: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
+    local_revision: int = Field(default=0)
+    updated_by: Optional[int] = Field(default=None, foreign_key="users.id")
+    created_at: datetime = Field(default_factory=get_utc_now)
+    updated_at: datetime = Field(default_factory=get_utc_now)
+
 class SchoolSyncSnapshot(SQLModel, table=True):
     __tablename__ = "school_sync_snapshots"
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id", index=True)
-    submission_id: Optional[str] = Field(default=None, foreign_key="submissions.id", index=True)
+    submission_id: Optional[str] = Field(default=None, index=True)
     experiment_id: Optional[str] = Field(default=None, foreign_key="experiments.id")
     snapshot_json: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
     summary_json: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
@@ -133,6 +145,25 @@ class AuditLog(SQLModel, table=True):
     target_id: Optional[str] = Field(default=None) # Submission ID or Order ID
     details: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=get_utc_now)
+
+class AiTaskRun(SQLModel, table=True):
+    __tablename__ = "ai_task_runs"
+    task_id: str = Field(primary_key=True)
+    task_kind: str = Field(index=True)
+    status: str = Field(default="pending", index=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    target_id: Optional[str] = Field(default=None, index=True)
+    experiment_id: Optional[str] = Field(default=None, index=True)
+    submission_id: Optional[str] = Field(default=None, foreign_key="submissions.id", index=True)
+    started_audit_log_id: Optional[int] = Field(default=None, foreign_key="audit_logs.id")
+    finished_audit_log_id: Optional[int] = Field(default=None, foreign_key="audit_logs.id")
+    request_payload: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
+    result_payload: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
+    error_message: Optional[str] = None
+    error_type: Optional[str] = None
+    created_at: datetime = Field(default_factory=get_utc_now)
+    updated_at: datetime = Field(default_factory=get_utc_now)
+    finished_at: Optional[datetime] = None
 
 class Announcement(SQLModel, table=True):
     __tablename__ = "announcements"
@@ -186,7 +217,5 @@ class AiPromptTemplate(SQLModel, table=True):
     __tablename__ = "ai_prompt_templates"
     experiment_id: str = Field(primary_key=True)
     recognition_system_prompt: Optional[str] = None  # 覆盖系统指令
-    recognition_extra_prompt: Optional[str] = None   # 附加说明
     generation_system_prompt: Optional[str] = None
-    generation_extra_prompt: Optional[str] = None
     updated_at: datetime = Field(default_factory=get_utc_now)

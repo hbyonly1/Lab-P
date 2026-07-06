@@ -2,7 +2,7 @@ import re
 from typing import List, Dict, Any
 
 DEFAULT_RECOGNITION_SYSTEM = """
-不推断、不补全、不计算；看不清填""；只返回 JSON object。
+不推断、不补全、不计算；看不清填""；注意单位，按表头和行名要求换算成目标表格数值，不带单位；只返回 JSON object。
 """
 
 DEFAULT_GENERATION_SYSTEM = """
@@ -10,13 +10,19 @@ DEFAULT_GENERATION_SYSTEM = """
 """
 
 def resolve(db_val: str, default_val: str) -> str:
-    """Prompt 降级: DB → 系统默认"""
+    """Prompt fallback: database system prompt -> Python default."""
     return db_val or default_val
 
 def _plain_text(value: Any) -> str:
     if value is None:
         return ""
     return str(value).strip()
+
+def _recognition_extra_prompt(exp_config: dict) -> str:
+    return _plain_text(exp_config.get("ai", {}).get("recognition", {}).get("extraPrompt"))
+
+def _generation_extra_prompt(exp_config: dict) -> str:
+    return _plain_text(exp_config.get("ai", {}).get("generation", {}).get("extraPrompt"))
 
 def _compact_label(value: Any) -> str:
     text = _plain_text(value)
@@ -66,13 +72,70 @@ def _expand_cells(cells: List[dict]) -> List[dict]:
 def _format_axis_list(items: List[Any]) -> str:
     return "[" + ",".join(_compact_label(item) for item in items) + "]"
 
+def _format_raw_axis_list(items: List[Any]) -> str:
+    return "[" + ",".join(_plain_text(item) for item in items) + "]"
+
 def _format_node_list(items: List[Any]) -> str:
     return "[" + ",".join(_plain_text(item) for item in items) + "]"
+
+def _raw_labels_differ(raw_items: List[Any], compact_items: List[Any]) -> bool:
+    if len(raw_items) != len(compact_items):
+        return True
+    return any(_plain_text(raw) != _compact_label(compact) for raw, compact in zip(raw_items, compact_items))
 
 def _format_node_matrix(rows: List[List[str]]) -> str:
     if len(rows) == 1:
         return "[" + _format_node_list(rows[0]) + "]"
     return "[" + ",".join(_format_node_list(row) for row in rows) + "]"
+
+def _row_has_node(row: dict) -> bool:
+    return any(
+        isinstance(cell, dict) and bool(cell.get("nodeId"))
+        for cell in row.get("cells") or []
+    )
+
+def _row_is_local_axis_header(row: dict) -> bool:
+    if not isinstance(row, dict) or row.get("isHeader") or _row_has_node(row):
+        return False
+    text_cells = [
+        cell for cell in row.get("cells") or []
+        if isinstance(cell, dict) and _plain_text(cell.get("text"))
+    ]
+    return len(text_cells) > 1
+
+def _split_rows_by_local_axis_headers(rows: List[dict]) -> List[List[dict]]:
+    groups = []
+    current_headers = []
+    current_data_rows = []
+
+    def flush_current():
+        nonlocal current_headers, current_data_rows
+        if current_headers and current_data_rows:
+            groups.append(current_headers + current_data_rows)
+        current_data_rows = []
+
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        if row.get("isHeader"):
+            if current_data_rows:
+                flush_current()
+                current_headers = []
+            current_headers.append({**row, "isHeader": True})
+            continue
+        if _row_is_local_axis_header(row) and not current_data_rows:
+            current_headers.append({**row, "isHeader": True})
+            continue
+        if _row_is_local_axis_header(row):
+            flush_current()
+            current_headers = [{**row, "isHeader": True}]
+            continue
+        current_data_rows.append(row)
+
+    flush_current()
+    if groups:
+        return groups
+    return [rows] if rows else []
 
 def _legacy_pattern_node_id(pattern: str, row_idx: int, col_idx: int, row_count: int) -> str:
     if not pattern:
@@ -88,6 +151,7 @@ def _build_rows_axis_mapping(table: dict, recognition_set: set[str]) -> tuple[st
     rows = table.get("rows") or []
     expanded_rows = [_expand_cells(row.get("cells") or []) for row in rows if isinstance(row, dict)]
     header_by_col: Dict[int, List[str]] = {}
+    header_raw_by_col: Dict[int, List[str]] = {}
 
     for row, expanded in zip(rows, expanded_rows):
         if not isinstance(row, dict) or not row.get("isHeader"):
@@ -95,12 +159,16 @@ def _build_rows_axis_mapping(table: dict, recognition_set: set[str]) -> tuple[st
         for col_idx, cell in enumerate(expanded):
             if cell.get("_is_span_shadow"):
                 continue
-            text = _compact_label(cell.get("text"))
+            raw_text = _plain_text(cell.get("text"))
+            text = _compact_label(raw_text)
             if text:
                 header_by_col.setdefault(col_idx, []).append(text)
+                header_raw_by_col.setdefault(col_idx, []).append(raw_text or text)
 
     row_labels = []
+    row_raw_labels = []
     col_order = []
+    col_raw_by_label = {}
     matrix = []
     covered = set()
 
@@ -109,11 +177,14 @@ def _build_rows_axis_mapping(table: dict, recognition_set: set[str]) -> tuple[st
             continue
 
         row_label = _compact_label(row.get("label"))
+        row_raw_label = _plain_text(row.get("label"))
         if not row_label:
             for cell in expanded:
                 if not cell.get("nodeId"):
-                    row_label = _compact_label(cell.get("text"))
+                    raw_text = _plain_text(cell.get("text"))
+                    row_label = _compact_label(raw_text)
                     if row_label:
+                        row_raw_label = raw_text
                         break
 
         row_nodes_by_col = {}
@@ -123,12 +194,17 @@ def _build_rows_axis_mapping(table: dict, recognition_set: set[str]) -> tuple[st
                 continue
             header = "/".join(_compact_label(item) for item in header_by_col.get(col_idx, []) if item)
             header = header or f"c{col_idx + 1}"
+            raw_header = "/".join(_plain_text(item) for item in header_raw_by_col.get(col_idx, []) if item)
+            raw_header = raw_header or header
             row_nodes_by_col[header] = node_id
             if header not in col_order:
                 col_order.append(header)
+                col_raw_by_label[header] = raw_header
 
         if row_nodes_by_col:
-            row_labels.append(row_label or str(len(row_labels) + 1))
+            resolved_row_label = row_label or str(len(row_labels) + 1)
+            row_labels.append(resolved_row_label)
+            row_raw_labels.append(row_raw_label or resolved_row_label)
             matrix.append(row_nodes_by_col)
 
     if not matrix or not col_order:
@@ -145,13 +221,21 @@ def _build_rows_axis_mapping(table: dict, recognition_set: set[str]) -> tuple[st
         node_matrix.append(row_nodes)
 
     row_axis = "/".join(header_by_col.get(0, [])) or "row"
+    row_axis_raw = "/".join(header_raw_by_col.get(0, [])) or row_axis
+    col_raw_labels = [col_raw_by_label.get(col, col) for col in col_order]
     lines = [
         "table:",
         f"row_axis={_compact_label(row_axis) or 'row'}",
-        f"rows={_format_axis_list(row_labels)}",
-        f"cols={_format_axis_list(col_order)}",
-        f"node_matrix={_format_node_matrix(node_matrix)}",
     ]
+    if _plain_text(row_axis_raw) != _compact_label(row_axis):
+        lines.append(f"row_axis_label={_plain_text(row_axis_raw)}")
+    lines.append(f"rows={_format_axis_list(row_labels)}")
+    if _raw_labels_differ(row_raw_labels, row_labels):
+        lines.append(f"row_labels={_format_raw_axis_list(row_raw_labels)}")
+    lines.append(f"cols={_format_axis_list(col_order)}")
+    if _raw_labels_differ(col_raw_labels, col_order):
+        lines.append(f"col_labels={_format_raw_axis_list(col_raw_labels)}")
+    lines.append(f"node_matrix={_format_node_matrix(node_matrix)}")
     return "\n".join(lines), covered
 
 def _build_legacy_columns_axis_mapping(table: dict, recognition_set: set[str]) -> tuple[str, set[str]]:
@@ -218,7 +302,18 @@ def _build_data_table_axis_mappings(exp_config: dict, recognition_node_ids: List
         text = ""
         table_covered = set()
         if isinstance(table.get("rows"), list):
-            text, table_covered = _build_rows_axis_mapping(table, recognition_set)
+            sections_for_table = []
+            covered_for_table = set()
+            for group_rows in _split_rows_by_local_axis_headers(table.get("rows") or []):
+                group_text, group_covered = _build_rows_axis_mapping(
+                    {**table, "rows": group_rows},
+                    recognition_set,
+                )
+                if group_text:
+                    sections_for_table.append(group_text)
+                    covered_for_table.update(group_covered)
+            text = "\n".join(sections_for_table)
+            table_covered = covered_for_table
         if not text and isinstance(table.get("columns"), list):
             text, table_covered = _build_legacy_columns_axis_mapping(table, recognition_set)
         if text:
@@ -289,10 +384,7 @@ def build_recognition_prompt(exp_config: dict, recognition_node_ids: List[str], 
         DEFAULT_RECOGNITION_SYSTEM
     )
     
-    extra = resolve(
-        db_template.recognition_extra_prompt if db_template else None,
-        ""
-    )
+    extra = _recognition_extra_prompt(exp_config)
     
     schema_str = "{\n" + ",\n".join(f'  "{nid}": ""' for nid in recognition_node_ids) + "\n}"
     node_hints = _build_recognition_mapping(exp_config, recognition_node_ids)
@@ -318,10 +410,7 @@ def build_generation_prompt(question: str, form_values: Dict[str, Any], exp_conf
         DEFAULT_GENERATION_SYSTEM
     )
     
-    extra = resolve(
-        db_template.generation_extra_prompt if db_template else None,
-        ""
-    )
+    extra = _generation_extra_prompt(exp_config)
     
     recognition_node_ids = [
         field.get("id")
@@ -344,19 +433,14 @@ def build_generation_prompt(question: str, form_values: Dict[str, Any], exp_conf
 
 def build_generation_answers_prompt(questions: List[Dict[str, Any]], form_values: Dict[str, Any], exp_config: dict, db_template=None) -> str:
     """
-    Build one prompt for all experiment questions. The generation prompt template
-    still follows the same DB -> JSON -> default precedence as the single-answer
-    flow did.
+    Build one prompt for all experiment questions.
     """
     system = resolve(
         db_template.generation_system_prompt if db_template else None,
         DEFAULT_GENERATION_SYSTEM
     )
 
-    extra = resolve(
-        db_template.generation_extra_prompt if db_template else None,
-        ""
-    )
+    extra = _generation_extra_prompt(exp_config)
 
     recognition_node_ids = [
         field.get("id")

@@ -180,21 +180,42 @@
   4. 识别图片只读取实验配置 `ai.recognition.imageRef` 对应的 `submission.image_slots`。
   5. 预处理结果写入 `submission.recognition_json`，完成后进入 `reviewing`；缺少归位图片时回到 `pending_image_assignment`。
 
-### 3.1 临时保存 (Save Draft / Auto-save)
-- **Endpoint**: `PATCH /api/v1/submissions/{id}/correction`
-- **Auth Required**: Yes (仅验证资源所属权，学生和管理员均可调用)
+### 3.1 自动草稿保存 (Auto-save Draft)
+- **Endpoint**: `PATCH /api/v1/submissions/{id}/draft`
+- **Auth Required**: Yes (仅验证资源所属权，学生、reviewer 和 admin 可按任务权限调用)
 - **Payload**:
 ```json
 {
-  "corrected_json": {
-    "temperature": "25",
-    "pressure": "101.3"
-  }
+  "draft_json": {
+    "values": {
+      "temperature": "25",
+      "pressure": "101.3"
+    },
+    "experiment_id": "exp_meter_modification",
+    "experiment_name": "电表的改装"
+  },
+  "image_paths": ["/uploads/2026-07/raw.jpg"],
+  "image_slots": {
+    "IMG_RAW_DATA": [{ "url": "/uploads/2026-07/raw.jpg" }]
+  },
+  "local_revision": 12
 }
 ```
 - **后端执行的严格逻辑**：
-  1. **落库暂存**：更新 `corrected_json` 字段。任务的 `status` 仍保持 `incomplete`（未完成）或 `reviewing`（审核中），前端可做节流自动保存或点击“暂存”按钮触发。
-  2. **支付语义**：临时保存不触发订单，也不允许因为没有订单而把状态改成 `pending_payment`。
+  1. **覆盖式草稿**：更新 `submission_drafts.draft_json`、`image_paths`、`image_slots`、`local_revision` 和 `updated_at`；同一 submission 只保留当前草稿。
+  2. **不污染提交态**：自动草稿不更新 `submissions.corrected_json`，不生成 `submission_versions`，不触发学校系统提交。
+  3. **支付语义**：自动草稿不触发订单，也不允许因为没有订单而把状态改成 `pending_payment`。
+  4. **审计语义**：自动草稿默认不写普通 `audit_logs`，避免逐字输入刷爆日志；临时/正式提交时再写正式审计。
+
+- **Endpoint**: `GET /api/v1/submissions/{id}/draft`
+- **Purpose**: 进入填写页时读取当前平台草稿。前端本地草稿若更新时间更晚，可提示或自动恢复本地未同步内容。
+
+### 3.1.1 提交态保存 (Materialize Draft / Save Correction)
+
+点击“临时提交”或“正式提交”前，前端必须把当前页面值保存为提交态数据：
+
+- **Endpoint**: `PATCH /api/v1/submissions/{id}/correction`
+- **Purpose**: 将当前确认提交的数据写入 `submissions.corrected_json`；后续 `draft_submit` / `final_submit` job 和 `submission_versions(source=platform_before_submit)` 均以该字段为准。
 
 ### 3.2 正式提交 (Official Submit)
 - **Endpoint**: `PATCH /api/v1/submissions/{id}/correction` with `save_mode=final`
@@ -316,7 +337,7 @@
   }
 }
 ```
-- **核心逻辑说明（零信任）**：前端不传递核心 Prompt！后端使用实验配置页“Prompt 模板配置”的生成式回答模板，按 `AiPromptTemplate -> 系统默认模板` 的优先级组合提示词。实验 JSON 的 `ai` 只声明图片槽位、目标节点和生成式回答需要附带的数据节点等结构绑定，不保存 Prompt 文本。后端要求模型返回简洁 JSON object，例如 `{ "1": "...", "2": "..." }`，再按题号转换为对应 `nodeId`。
+- **核心逻辑说明（零信任）**：前端不传递核心 Prompt！后端使用实验配置页“Prompt 模板配置”的 system prompt，按 `AiPromptTemplate -> Python 默认模板` 的优先级组合系统指令；实验级附加说明只读取实验 JSON 的 `ai.generation.extraPrompt`。后端要求模型返回简洁 JSON object，例如 `{ "1": "...", "2": "..." }`，再按题号转换为对应 `nodeId`。
 - **Response**:
 ```json
 {
@@ -428,6 +449,8 @@
 - 实验配置 `meta` 不保存学生完成状态；学生维度的 `unsubmitted/reviewing/completed` 等状态来自 `submissions`，由前端在学生页面合并展示。
 - 节点类型语义：`ai_recognize` 是唯一图像识别节点类型；图像识别 Prompt schema、生成式回答附加数据节点下拉和生成式回答关键数据默认范围都只读取该类型。`fixed` 为固定填空节点，一键填空读取其 `value`；`computed` 为公式计算节点；`generated` 为生成式文本回答节点；`image_upload` 为学生/审核员单独上传图片并写回对应 `nodeId` 的图片答案节点。旧 `extract` 类型已删除，不再作为识别节点来源。
 - 图片槽位语义：`inputs.images[].id` 可被 `ai.recognition.imageRef` 绑定为表格/数据识别图片；也可通过 `inputs.images[].targetNodeId` 或 `inputs.fields[].imageSlotId` 绑定到 `image_upload` 节点。识别图片不会自动混入图片答案节点，图片答案节点保存为对应节点的图片 URL。
+- 实验级识别补充说明：`ai.recognition.extraPrompt` 可选，用于当前实验的少量识别约束，例如单位换算或保留正负号；节点关系仍优先由 `ui.dataTables` / `ui.dataTable` 自动生成表结构映射，不应把整张表拆成大段逐节点说明。
+- 实验级思考题补充说明：`ai.generation.extraPrompt` 可选，用于当前实验生成思考题回答时的少量约束；该字段作为预留能力，不要求所有实验配置。
 - 生成式回答附带数据节点：`ai.generation.dataNodes` 可选，用于声明生成实验回答时传给 AI 的平台节点列表。该列表可以包含 `ai_recognize`、`computed`、`fixed` 等 `inputs.fields[].id`，后端只会取当前表单中有值的节点。若配置未声明，默认按当前实验 `inputs.fields` 顺序取前 3 个 `ai_recognize` 节点；数据库 Prompt 模板不再保存或覆盖数据节点选择。
 - 学校 DOM 写入策略语义：`automation.mappings[].targetType` 是可选字段，用于告诉后端怎样把平台节点写入学校系统节点；它不是平台节点类型，不能和 `generated`、`image_upload`、`ai_recognize` 混用含义。缺省值一律按 `text` 处理，只有富文本等特殊学校控件才显式配置。
 - 当前支持的 `targetType` 只有三种：
@@ -557,6 +580,7 @@ exp_photoelectric_planck        光电效应和普朗克常量的测定
 后端要求：
 
 - 计算规则保存到 `backend/configs/{id}.json` 的顶层 `formulas` 字段。
+- 只有顶层 `formulas` 会被 `/api/v1/experiments/{id}/compute` 执行；如配置中存在 `archivedFormulas`，仅表示历史公式留存，不参与一键计算。
 - 保存成功后同步 `experiments.config_json.formulas`。
 - 如果保存前后配置内容 hash 变化，更新 `experiments.updated_at`、`config_hash`、`config_file_mtime`。
 - 保存成功必须写入 `audit_logs`，记录 action=`update_experiment_formulas`、公式数量、文件名和保存前后 hash。
@@ -589,6 +613,38 @@ exp_photoelectric_planck        光电效应和普朗克常量的测定
 
 ### 5.7 保存实验页面数据
 
+- **Auto-save Endpoint**: `PATCH /api/v1/submissions/{submission_id}/draft`
+- **Purpose**: 填写页节流自动保存当前工作区草稿。该接口只写 `submission_drafts`，不写 `corrected_json`，不写 `submission_versions`，不触发学校系统 job。
+- **Payload**:
+```json
+{
+  "draft_json": {
+    "values": {
+      "SYMD_Fill_0": "示例填空",
+      "Y10-0": "1.23",
+      "skt0Area": "实验回答"
+    },
+    "experiment_id": "exp_liquid_crystal_0625",
+    "experiment_name": "液晶电光效应实验0625"
+  },
+  "image_paths": ["/uploads/2026-07/example.png"],
+  "image_slots": {},
+  "local_revision": 7
+}
+```
+- **Response**:
+```json
+{
+  "submission_id": "SUB-XXXX",
+  "draft_json": {},
+  "image_paths": [],
+  "image_slots": {},
+  "local_revision": 7,
+  "updated_at": "2026-07-07T00:00:00Z",
+  "updated_by": 1
+}
+```
+
 - **Endpoint**: `PATCH /api/v1/submissions/{submission_id}/correction`
 - **Auth Required**: Yes
 - **Permission**:
@@ -616,6 +672,7 @@ exp_photoelectric_planck        光电效应和普朗克常量的测定
   - `corrected_json._meta` 记录 `save_mode`、保存用户、保存角色和保存时间。
   - 写入 `audit_logs(action=save_submission_correction)`。
   - `save_mode=final` 且任务处于 `pending_recognition`/`recognizing` 时，状态进入 `reviewing`。
+  - 此接口是“提交态保存”，不是逐字 autosave；创建学校提交 job 前会基于 `corrected_json` 生成 `submission_versions(source=platform_before_submit)`。
 
 ## 6. 鉴权与用户 (Auth)
 **现状缺口**：前端需要真实的 JWT 替代本地 Mock 的 DebugRole。
@@ -901,7 +958,33 @@ AI_CAPTCHA_MODEL=zai-org/GLM-4.5V
 - `GET /api/v1/ai/admin/config`：Admin 获取当前非密钥 AI 配置和 `api_key_configured` 状态，不返回真实 key。
 - `PUT /api/v1/ai/admin/config`：Admin 保存非密钥 AI profile，写入 `ai_config` 并记录 `audit_logs(action=ai_config_updated)`。
 - `POST /api/v1/ai/admin/test-connection`：使用当前 `ai_config` + `.env` 中的 `AI_API_KEY` 发送一条 `hello` 测试请求，返回模型输出；失败时返回 `ok=false`、`error_code` 和具体 `error`，例如缺少密钥时返回 `missing_api_key` 与“请在 .env 中填写 AI_API_KEY，然后重启后端进程”。
-- `GET /api/v1/ai/admin/prompts/{experiment_id}`：Admin 获取实验 Prompt 模板。响应始终包含当前后端默认 `recognition_system_prompt` / `generation_system_prompt`，如果数据库中 `ai_prompt_templates` 已保存非空模板，则以数据库值覆盖默认值；前端不得维护另一份旧默认 Prompt。
+- `GET /api/v1/ai/admin/prompts/{experiment_id}`：Admin 获取实验 Prompt 模板。响应始终包含当前后端默认 `recognition_system_prompt` / `generation_system_prompt`，如果数据库中 `ai_prompt_templates` 已保存非空 system prompt，则以数据库值覆盖默认值；`recognition_extra_prompt` / `generation_extra_prompt` 从实验 JSON 的 `ai.recognition.extraPrompt` / `ai.generation.extraPrompt` 读取，用于前端编辑框展示。
+- `PUT /api/v1/ai/admin/prompts/{experiment_id}`：Admin 保存 `recognition_system_prompt` 与 `generation_system_prompt` 到 `ai_prompt_templates`；保存 `recognition_extra_prompt` / `generation_extra_prompt` 到实验 JSON，并同步 `experiments.config_json`。数据库不再保存识别或思考题 extra prompt。
+
+### 6A.3.2 AI 辅助任务公共契约
+
+学生实验详情页和审核详情页的一键填空、AI 图片识别、一键生成回答、一键计算数据都按同一套任务语义处理：
+
+- 前端统一使用 `useAsyncTaskRunner` 管理浮窗任务、轮询、超时和重试；页面只负责把成功结果写回表单。
+- Celery 类 AI 任务入队接口返回 `task_id`、`poll_timeout_seconds`、`poll_interval_ms`、`audit_target_id`。前端轮询超时必须以 `poll_timeout_seconds` 为准，不再硬编码 60 秒。
+- Celery 类 AI 任务入队时会写入 `ai_task_runs`，该表以 `task_id` 为主键保存 `task_kind`、`status`、`target_id`、`experiment_id`、`submission_id`、started/finished audit id、请求摘要、结果摘要和失败诊断；`submission_id` 仅作诊断索引，不做外键约束，避免任务日志因 submission 清理而丢失。
+- `poll_timeout_seconds` 由后端按 AI profile 的模型超时加队列缓冲计算，避免模型仍在运行但前端先误报 timeout。
+- 如果前端等待超时，只表示浏览器停止轮询；后台 Celery 任务可能仍会成功或失败，最终以审计日志和 task 状态为准。
+- Worker 成功/失败统一通过 `services.ai_task_audit.complete_ai_task_run` / `fail_ai_task_run` 更新 `ai_task_runs` 并写 completed/failed 审计日志；Celery `task_failure` signal 兜底处理任务进入业务函数前的参数绑定等失败。
+- `GET /api/v1/ai/task/{task_id}` 只返回 Celery result backend 状态，不反向扫描或修补审计日志。
+- 一键计算数据是同步接口，但也使用同一套 started / completed / failed 审计 action。
+- 详情页若有 `submission_id`，必须传给 AI/计算接口；后端日志 `target_id` 优先使用 submission id，否则使用 experiment id。
+
+公共审计 action：
+
+```text
+ai_fixed_fill_started / ai_fixed_fill_completed / ai_fixed_fill_failed
+ai_recognition_started / ai_recognition_completed / ai_recognition_failed
+ai_answer_generation_started / ai_answer_generation_completed / ai_answer_generation_failed
+formula_compute_started / formula_compute_completed / formula_compute_failed
+```
+
+学生可见日志接口 `GET /api/v1/audit/my_logs` 会展示以上 action；Admin / Reviewer 的 `GET /api/v1/audit/logs` 返回全量日志。
 
 ### 6A.4 自动化 Job 公共查询
 
@@ -1288,10 +1371,10 @@ sensitive_payload
 
 ## 11. 操作日志 (Audit Logs)
 **现状缺口**：前端已经把高复用日志页面搭好了，需要后端吐完整的数据。
-**强制规则**：前面提到的“图片识别”、“简答题生成”、“公式推导”、“自动填报”等所有核心动作，后端在执行结束后**必须强同步写入 audit_logs 表**。
+**强制规则**：前面提到的“图片识别”、“简答题生成”、“公式推导”、“自动填报”等所有核心动作，后端必须按 started / completed / failed 写入 `audit_logs` 表。
 
 ### 11.1 查询日志列表 (管理员)
-- **Endpoint**: `GET /api/v1/audit-logs`
+- **Endpoint**: `GET /api/v1/audit/logs`
 - **Response**: 返回高度结构化的日志信息，供前端展示在 AdminOperationLogsPage。
 ```json
 {
@@ -1309,7 +1392,7 @@ sensitive_payload
     {
       "id": 1002,
       "user": { "id": 5, "name": "李四", "role": "admin" },
-      "action": "calculate_data", 
+      "action": "formula_compute_completed",
       "status": "success",
       "target_id": "submission_123",
       "details": "根据牛顿环公式推导了N4的值",

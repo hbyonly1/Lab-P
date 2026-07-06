@@ -13,9 +13,10 @@ import { ProSubmitModal } from '../../../components/experiment/index.js';
 import { calculateExperimentMetrics } from '../../../utils/metricsUtils.js';
 
 import { STATUS_META } from '../../../constants/statusEnums.js';
-import { createSubmissionBatchId, getMySubmissions, submitExperiment } from '../../../services/submissionsApi.js';
+import { getMySubmissions } from '../../../services/submissionsApi.js';
 import { experimentsApi } from '../../../services/experimentsApi.js';
 import { getSchoolOverviewLatest } from '../../../services/schoolSyncApi.js';
+import { submitOneClickExperimentBatch } from '../../../utils/oneClickSubmitUtils.js';
 
 const SCHOOL_STATUS_META = {
   school_not_submitted: { label: '未提交', tone: 'pending' },
@@ -87,25 +88,21 @@ export default function StudentExperimentsPage() {
     loadData();
   }, []);
 
-  const handleModalSubmit = async (batchImages, targetStudent, isHungup = false) => {
+  const handleModalSubmit = async (batchImages, targetStudent, isHungup = false, planName = 'pay_per_use') => {
     try {
-      const targetsWithImages = submitTargets
-        .map((target) => {
-          const expImages = batchImages[target.id] || {};
-          const imagePaths = Object.values(expImages).flat().map(img => img.url).filter(Boolean);
-          return { target, imagePaths };
-        })
-        .filter(({ imagePaths }) => imagePaths.length > 0);
+      const { submittedCount } = await submitOneClickExperimentBatch({
+        targets: submitTargets,
+        batchImages,
+        targetStudent,
+        isHungup,
+        planName,
+      });
 
-      if (targetsWithImages.length === 0) {
+      if (submittedCount === 0) {
         message.warning('请至少上传一个实验的图片');
         return;
       }
 
-      const submissionBatchId = createSubmissionBatchId();
-      for (const { target, imagePaths } of targetsWithImages) {
-        await submitExperiment(target.id, targetStudent, isHungup, imagePaths, 'pay_per_use', submissionBatchId);
-      }
       message.success('提交成功，后台正在处理中！');
       await loadData();
     } catch (error) {

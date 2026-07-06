@@ -65,3 +65,18 @@ export async function saveSubmissionCorrection(submissionId, correctedJson, imag
   });
   return response.data;
 }
+
+export async function getSubmissionDraft(submissionId) {
+  const response = await apiClient.get(`/api/v1/submissions/${submissionId}/draft`);
+  return response.data;
+}
+
+export async function saveSubmissionDraft(submissionId, draftJson, imagePaths = [], imageSlots = {}, localRevision = 0) {
+  const response = await apiClient.patch(`/api/v1/submissions/${submissionId}/draft`, {
+    draft_json: draftJson,
+    image_paths: imagePaths,
+    image_slots: imageSlots,
+    local_revision: localRevision,
+  });
+  return response.data;
+}

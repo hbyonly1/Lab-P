@@ -1,24 +1,28 @@
 import { apiClient } from './apiClient';
 
-export const recognizeDirect = async (experimentId, imagePaths) => {
+export const recognizeDirect = async (experimentId, imagePaths, submissionId = null) => {
   const response = await apiClient.post('/api/v1/ai/recognize-direct', {
     experiment_id: experimentId,
     image_paths: imagePaths,
+    submission_id: submissionId,
   });
   return response.data;
 };
 
-export const generateAnswerDirect = async (experimentId, questions, currentFormValues) => {
+export const generateAnswerDirect = async (experimentId, questions, currentFormValues, submissionId = null) => {
   const response = await apiClient.post('/api/v1/ai/generate-answer-direct', {
     experiment_id: experimentId,
     questions,
     current_form_values: currentFormValues,
+    submission_id: submissionId,
   });
   return response.data;
 };
 
-export const getFixedFillDirect = async (experimentId) => {
-  const response = await apiClient.post(`/api/v1/ai/fixed-fill/${experimentId}`);
+export const getFixedFillDirect = async (experimentId, submissionId = null) => {
+  const response = await apiClient.post(`/api/v1/ai/fixed-fill/${experimentId}`, {
+    submission_id: submissionId,
+  });
   return response.data;
 };
 

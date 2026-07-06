@@ -14,7 +14,7 @@ from api.v1 import submissions as submissions_api
 from api.v1.automation_config import CONFIG_SCHEMA_VERSION, default_automation_config
 from core.config import settings
 from core.db import get_session
-from models.core import Experiment, User, Order, Submission, SubmissionVersion, AuditLog, AutomationEngineConfig, AutomationJob, SchoolSyncSnapshot, get_utc_now
+from models.core import Experiment, User, Order, Submission, SubmissionDraft, SubmissionVersion, AuditLog, AiTaskRun, AutomationEngineConfig, AutomationJob, SchoolSyncSnapshot, get_utc_now
 from core.security import get_password_hash
 from core.school_password import decrypt_school_password, encrypt_school_password
 from services.automation_job_service import (
@@ -57,6 +57,18 @@ class FakeLocator:
     async def wait_for(self, state="visible", timeout=30000):
         if state == "visible" and self.count_value <= 0:
             raise TimeoutError("locator not visible")
+
+    async def screenshot(self, path):
+        with open(path, "wb") as handle:
+            handle.write(b"fake screenshot")
+
+    async def evaluate(self, script, *_args):
+        if self.page and hasattr(self.page, "evaluate_locator"):
+            result = self.page.evaluate_locator(self.selector, script)
+            if asyncio.iscoroutine(result):
+                return await result
+            return result
+        return ""
 
 
 class FakeSchoolPage:
@@ -206,6 +218,40 @@ class FakeSubmitFeedbackPage:
         return self.feedback_messages
 
 
+class FakeBootboxPage(FakeSchoolPage):
+    def __init__(self, body_text="error"):
+        super().__init__()
+        self.body_text = body_text
+
+    def locator(self, selector):
+        if selector == ".bootbox" or ".bootbox" in selector:
+            return FakeLocator(1, page=self, selector=selector)
+        return super().locator(selector)
+
+    async def evaluate(self, script, _args=None):
+        if ".bootbox" in script:
+            return {
+                "className": "bootbox modal in",
+                "id": "",
+                "ariaHidden": "false",
+                "bodyText": self.body_text,
+                "textPreview": f"× {self.body_text}",
+            }
+        return None
+
+    def evaluate_locator(self, selector, _script):
+        if ".bootbox" in selector:
+            return f'<div class="bootbox modal in"><div class="bootbox-body">{self.body_text}</div></div>'
+        return ""
+
+    async def screenshot(self, path, full_page=True):
+        with open(path, "wb") as handle:
+            handle.write(b"fake page screenshot")
+
+    async def content(self):
+        return f'<html><body><div class="bootbox"><div class="bootbox-body">{self.body_text}</div></div></body></html>'
+
+
 def test_wait_for_locator_value_retries_until_value_matches():
     locator = FakeValueLocator(["", "old", "expected"])
     actual = asyncio.run(wait_for_locator_value(locator, "expected", timeout_ms=1000, interval_ms=1))
@@ -344,6 +390,30 @@ def test_submit_feedback_timeout_includes_modal_diagnostic():
         raise AssertionError("expected SUBMIT_FEEDBACK_TIMEOUT")
 
 
+def test_blocking_bootbox_guard_raises_structured_error(tmp_path, monkeypatch):
+    monkeypatch.setattr(school_report_sync_service, "ARTIFACT_ROOT", tmp_path)
+    page = FakeBootboxPage("error")
+
+    with pytest.raises(SchoolAutomationError) as exc_info:
+        asyncio.run(
+            school_report_sync_service._raise_if_blocking_bootbox(
+                page,
+                job_id="JOB-BOOTBOX",
+                current_step="school.detail.opening",
+                phase="before_open_report",
+            )
+        )
+
+    error = exc_info.value
+    detail = json.loads(error.message)
+    assert error.error_code == "SCHOOL_BOOTBOX_ERROR"
+    assert error.current_step == "school.detail.opening"
+    assert "error" in error.reason
+    assert detail["phase"] == "before_open_report"
+    assert detail["bootbox"]["bodyText"] == "error"
+    assert os.path.exists(detail["artifacts"]["before_open_report_bootbox_html"])
+
+
 def test_extract_report_list_uses_paper_name_column_by_default():
     items = asyncio.run(extract_report_list(FakeReportListColumnsPage(), default_automation_config(), timeout_ms=1000))
     assert items[0]["experimentName"] == "液晶电光效应实验0625"
@@ -367,6 +437,7 @@ def setup_test_data():
         ).all()
         existing_test_user_ids = [user.id for user in existing_test_users]
         if existing_test_user_ids:
+            session.exec(delete(AiTaskRun).where(AiTaskRun.user_id.in_(existing_test_user_ids)))
             session.exec(delete(AuditLog).where(AuditLog.user_id.in_(existing_test_user_ids)))
             session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id.in_(existing_test_user_ids)))
             session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id.in_(existing_test_user_ids)))
@@ -374,6 +445,7 @@ def setup_test_data():
                 item.id for item in session.exec(select(Submission).where(Submission.student_id.in_(existing_test_user_ids))).all()
             ]
             if existing_submission_ids:
+                session.exec(delete(SubmissionDraft).where(SubmissionDraft.submission_id.in_(existing_submission_ids)))
                 session.exec(delete(SubmissionVersion).where(SubmissionVersion.submission_id.in_(existing_submission_ids)))
             session.exec(delete(Submission).where(Submission.student_id.in_(existing_test_user_ids)))
             session.exec(delete(Order).where(Order.student_id.in_(existing_test_user_ids)))
@@ -736,6 +808,69 @@ def test_save_correction_syncs_image_slots_to_target_node(admin_token):
     assert corrected["values"]["DBGZ10-0"] == "83.0"
     assert corrected["values"]["YSSJDrawingAreaArea"] == "/uploads/e2e-correction-image.jpg"
 
+
+def test_submission_draft_autosave_does_not_create_submit_history(student_token):
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        submission_ids = [
+            item.id for item in session.exec(select(Submission).where(Submission.student_id == student.id)).all()
+        ]
+        if submission_ids:
+            session.exec(delete(SubmissionDraft).where(SubmissionDraft.submission_id.in_(submission_ids)))
+            session.exec(delete(SubmissionVersion).where(SubmissionVersion.submission_id.in_(submission_ids)))
+        session.exec(delete(Submission).where(Submission.student_id == student.id))
+        session.commit()
+
+    res = client.post(
+        "/api/v1/submissions/self-managed",
+        json={"experiment_id": "exp_meter_modification", "image_paths": ["/uploads/e2e-draft.jpg"]},
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert res.status_code == 200, res.text
+    submission = res.json()
+
+    res = client.patch(
+        f"/api/v1/submissions/{submission['id']}/draft",
+        json={
+            "draft_json": {
+                "values": {
+                    "DBGZ10-0": "83.0",
+                },
+                "experiment_id": "exp_meter_modification",
+                "experiment_name": "电表的改装",
+            },
+            "image_paths": ["/uploads/e2e-draft.jpg"],
+            "image_slots": {
+                "IMG_RAW_DATA": [
+                    {"url": "/uploads/e2e-draft.jpg", "name": "raw.jpg"}
+                ]
+            },
+            "local_revision": 3,
+        },
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["draft_json"]["values"]["DBGZ10-0"] == "83.0"
+    assert body["draft_json"]["values"]["YSSJDrawingAreaArea"] == "/uploads/e2e-draft.jpg"
+    assert body["local_revision"] == 3
+
+    res = client.get(
+        f"/api/v1/submissions/{submission['id']}/draft",
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["draft_json"]["values"]["DBGZ10-0"] == "83.0"
+
+    with next(get_session()) as session:
+        saved_submission = session.get(Submission, submission["id"])
+        assert saved_submission.corrected_json == {}
+        versions = session.exec(
+            select(SubmissionVersion).where(SubmissionVersion.submission_id == submission["id"])
+        ).all()
+        assert versions == []
+
+
 def test_upgrade_plus_flow(free_student_token):
     # 1. Free student upgrades to Plus
     res = client.post(
@@ -961,6 +1096,182 @@ def test_admin_ai_config_uses_database_profiles_without_key_leak(admin_token, st
     assert data["answer_generation_model"] == "deepseek-ai/DeepSeek-V4-Flash"
     assert data["captcha_model"] == "zai-org/GLM-4.5V"
     assert "api_key" not in data
+
+
+def test_ai_assist_task_start_logs_submission_target(admin_token, student_token, monkeypatch):
+    from api.v1 import ai as ai_api
+
+    class FakeTask:
+        id = "TASK-AI-START-1"
+
+    monkeypatch.setenv("AI_API_KEY", "test-key")
+    monkeypatch.setattr(ai_api.recognize_images_task, "delay", lambda *args, **kwargs: FakeTask())
+
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        submission = Submission(
+            id="SUB-AI-AUDIT-START",
+            student_id=student.id,
+            experiment_id="exp_e2e_flow_unique",
+            status="reviewing",
+            payment_status="paid",
+            is_one_click_handoff=True,
+            image_paths=["/uploads/test-ai.jpg"],
+        )
+        session.merge(submission)
+        session.exec(delete(AiTaskRun).where(AiTaskRun.target_id == submission.id))
+        session.exec(delete(AuditLog).where(AuditLog.target_id == submission.id))
+        session.commit()
+
+    res = client.post(
+        "/api/v1/ai/recognize-direct",
+        json={
+            "experiment_id": "exp_e2e_flow_unique",
+            "submission_id": "SUB-AI-AUDIT-START",
+            "image_paths": ["/uploads/test-ai.jpg"],
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["task_id"] == "TASK-AI-START-1"
+    assert body["audit_target_id"] == "SUB-AI-AUDIT-START"
+    assert body["poll_timeout_seconds"] >= 180
+
+    with next(get_session()) as session:
+        log = session.exec(
+            select(AuditLog)
+            .where(AuditLog.target_id == "SUB-AI-AUDIT-START")
+            .where(AuditLog.action == "ai_recognition_started")
+        ).first()
+        assert log is not None
+        assert log.status == "pending"
+        assert "TASK-AI-START-1" in log.details
+        run = session.get(AiTaskRun, "TASK-AI-START-1")
+        assert run is not None
+        assert run.task_kind == "image_recognition"
+        assert run.status == "pending"
+        assert run.target_id == "SUB-AI-AUDIT-START"
+        assert run.started_audit_log_id == log.id
+
+    res = client.get("/api/v1/audit/my_logs", headers={"Authorization": f"Bearer {student_token}"})
+    assert res.status_code == 200, res.text
+    actions = [item["action"] for item in res.json()]
+    assert "ai_recognition_started" in actions
+
+
+def test_ai_assist_worker_completion_logs_canonical_action(monkeypatch):
+    from worker import ai_tasks
+    from services.ai_task_audit import start_ai_task_run
+
+    async def fake_recognize_images(_experiment_id, _image_paths, _session):
+        return {"A1": "42"}
+
+    monkeypatch.setattr(ai_tasks.ai_service, "recognize_images", fake_recognize_images)
+
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        session.exec(delete(AiTaskRun).where(AiTaskRun.target_id == "SUB-AI-AUDIT-DONE"))
+        session.exec(delete(AuditLog).where(AuditLog.target_id == "SUB-AI-AUDIT-DONE"))
+        start_ai_task_run(
+            session,
+            task_id="TASK-AI-WORKER-DONE",
+            user_id=student.id,
+            task_kind="image_recognition",
+            target_id="SUB-AI-AUDIT-DONE",
+            experiment_id="exp_e2e_flow_unique",
+            submission_id="SUB-AI-AUDIT-DONE",
+            details={"experiment_id": "exp_e2e_flow_unique"},
+        )
+        session.commit()
+        student_id = student.id
+
+    result = ai_tasks.recognize_images_task.apply(
+        args=("exp_e2e_flow_unique", ["/uploads/test-ai.jpg"], student_id, "SUB-AI-AUDIT-DONE"),
+        task_id="TASK-AI-WORKER-DONE",
+    ).get()
+    assert result == {"A1": "42"}
+
+    with next(get_session()) as session:
+        log = session.exec(
+            select(AuditLog)
+            .where(AuditLog.target_id == "SUB-AI-AUDIT-DONE")
+            .where(AuditLog.action == "ai_recognition_completed")
+        ).first()
+        assert log is not None
+        assert log.status == "success"
+        assert "recognized_count" in log.details
+        started = session.exec(
+            select(AuditLog)
+            .where(AuditLog.target_id == "SUB-AI-AUDIT-DONE")
+            .where(AuditLog.action == "ai_recognition_started")
+        ).first()
+        run = session.get(AiTaskRun, "TASK-AI-WORKER-DONE")
+        assert started.status == "success"
+        assert run.status == "succeeded"
+        assert run.finished_audit_log_id == log.id
+
+
+def test_ai_task_status_treats_started_as_pending(admin_token, monkeypatch):
+    from api.v1 import ai as ai_api
+
+    class StartedTask:
+        state = "STARTED"
+        result = None
+        info = None
+
+    monkeypatch.setattr(ai_api.celery_app, "AsyncResult", lambda _task_id: StartedTask())
+
+    res = client.get("/api/v1/ai/task/TASK-STARTED", headers={"Authorization": f"Bearer {admin_token}"})
+    assert res.status_code == 200, res.text
+    assert res.json() == {"status": "pending", "state": "STARTED"}
+
+
+def test_ai_task_failure_signal_reconciles_pre_run_failure_audit():
+    from worker import ai_tasks
+    from services.ai_task_audit import start_ai_task_run
+
+    with next(get_session()) as session:
+        admin = session.exec(select(User).where(User.role == "admin")).first()
+        session.exec(delete(AiTaskRun).where(AiTaskRun.target_id == "SUB-AI-AUDIT-FAIL"))
+        session.exec(delete(AuditLog).where(AuditLog.target_id == "SUB-AI-AUDIT-FAIL"))
+        start_ai_task_run(
+            session,
+            task_id="TASK-PRE-RUN-FAIL",
+            user_id=admin.id,
+            task_kind="image_recognition",
+            target_id="SUB-AI-AUDIT-FAIL",
+            experiment_id="exp_e2e_flow_unique",
+            submission_id="SUB-AI-AUDIT-FAIL",
+            details={"experiment_id": "exp_e2e_flow_unique"},
+        )
+        session.commit()
+
+    ai_tasks.record_ai_task_failure(
+        task_id="TASK-PRE-RUN-FAIL",
+        exception=TypeError("recognize_images_task() takes 4 positional arguments but 5 were given"),
+    )
+
+    with next(get_session()) as session:
+        started = session.exec(
+            select(AuditLog)
+            .where(AuditLog.target_id == "SUB-AI-AUDIT-FAIL")
+            .where(AuditLog.action == "ai_recognition_started")
+        ).first()
+        failed = session.exec(
+            select(AuditLog)
+            .where(AuditLog.target_id == "SUB-AI-AUDIT-FAIL")
+            .where(AuditLog.action == "ai_recognition_failed")
+        ).first()
+        assert started is not None
+        assert started.status == "failed"
+        assert failed is not None
+        assert failed.status == "failed"
+        assert "TASK-PRE-RUN-FAIL" in failed.details
+        assert "celery_task_failure_signal" in failed.details
+        run = session.get(AiTaskRun, "TASK-PRE-RUN-FAIL")
+        assert run.status == "failed"
+        assert run.finished_audit_log_id == failed.id
 
 
 def test_admin_ai_connection_reports_missing_api_key(admin_token, monkeypatch):
@@ -1241,6 +1552,59 @@ def test_polling_marks_school_job_failed_when_browser_closed(student_token):
     assert data["status"] == "failed"
     assert data["messageCode"] == "school.detail.failed"
     assert data["messageParams"]["reason"] == "学校系统浏览器窗口已关闭"
+
+    school_session_manager.mark_invalid(student_id, reason="test_cleanup")
+
+
+def test_polling_marks_school_opening_failed_when_bootbox_visible(student_token):
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        session.exec(delete(AuditLog).where(AuditLog.user_id == student.id))
+        session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
+        job = AutomationJob(
+            id="JOB-BOOTBOX-POLL",
+            actor_user_id=student.id,
+            action="school_detail_sync",
+            status="running",
+            public_status="running",
+            public_message_code="school.detail.opening",
+            experiment_id="exp_meter_modification",
+        )
+        session.add(job)
+        session.commit()
+        student_id = student.id
+
+    school_session_manager.register(
+        user_id=student_id,
+        job_id="JOB-BOOTBOX-POLL",
+        playwright=object(),
+        browser=object(),
+        context=object(),
+        page=FakeBootboxPage("error"),
+        source="overview_login",
+    )
+
+    res = client.get(
+        "/api/v1/automation-jobs/JOB-BOOTBOX-POLL",
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert data["status"] == "failed"
+    assert data["messageCode"] == "school.detail.failed"
+    assert data["messageParams"]["reason"] == "学校系统弹窗提示：error"
+
+    with next(get_session()) as session:
+        job = session.get(AutomationJob, "JOB-BOOTBOX-POLL")
+        log = session.exec(
+            select(AuditLog)
+            .where(AuditLog.target_id == "JOB-BOOTBOX-POLL")
+            .where(AuditLog.action == "school_detail_sync_failed")
+        ).first()
+        assert job.error_code == "SCHOOL_BOOTBOX_ERROR"
+        assert job.result_payload["currentStep"] == "school.detail.opening"
+        assert job.result_payload["bootbox"]["bodyText"] == "error"
+        assert log is not None
 
     school_session_manager.mark_invalid(student_id, reason="test_cleanup")
 
@@ -1947,6 +2311,54 @@ def test_school_submit_failure_audit_keeps_structured_diagnostics(student_token)
         assert details["feedback"] == ["实验问题未填写完整，提交失败"]
         assert details["fieldWriteSummary"]["missingCount"] == 1
         assert details["artifacts"]["before_submit_modal_html"] == "/tmp/before.html"
+
+
+def test_school_detail_failure_audit_uses_detail_job_target(student_token):
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        session.exec(delete(AuditLog).where(AuditLog.user_id == student.id))
+        session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
+        job = AutomationJob(
+            id="JOB-DETAIL-BOOTBOX-FAIL",
+            actor_user_id=student.id,
+            action="school_detail_sync",
+            status="running",
+            public_status="running",
+            public_message_code="school.detail.opening",
+            experiment_id="exp_meter_modification",
+        )
+        session.add(job)
+        session.commit()
+
+        error = SchoolAutomationError(
+            "SCHOOL_BOOTBOX_ERROR",
+            "学校系统弹窗提示：error",
+            current_step="school.detail.opening",
+            message=json.dumps(
+                {
+                    "phase": "after_open_report_click",
+                    "bootbox": {"bodyText": "error"},
+                    "artifacts": {"after_open_report_click_bootbox_html": "/tmp/bootbox.html"},
+                },
+                ensure_ascii=False,
+            ),
+        )
+        school_report_sync_service._mark_job_failed(session, job, error)
+        session.commit()
+
+    with next(get_session()) as session:
+        job = session.get(AutomationJob, "JOB-DETAIL-BOOTBOX-FAIL")
+        log = session.exec(
+            select(AuditLog)
+            .where(AuditLog.target_id == "JOB-DETAIL-BOOTBOX-FAIL")
+            .where(AuditLog.action == "school_detail_sync_failed")
+        ).first()
+        assert job.status == "failed"
+        assert job.public_message_code == "school.detail.failed"
+        assert job.result_payload["bootbox"]["bodyText"] == "error"
+        details = json.loads(log.details)
+        assert details["errorCode"] == "SCHOOL_BOOTBOX_ERROR"
+        assert details["artifacts"]["after_open_report_click_bootbox_html"] == "/tmp/bootbox.html"
 
 
 def test_student_audit_logs_hide_internal_actions(student_token):

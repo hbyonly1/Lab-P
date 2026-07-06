@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from core.db import get_session
-from models.core import Experiment, User, AuditLog
+from models.core import Experiment, User, AuditLog, Submission
 from api.deps import get_current_user, get_current_admin
 from services.experiment_seed import seed_experiment_configs
 from services.experiment_seed import CONFIG_DIR
 from services.experiment_seed import stable_json_hash
 from services.experiment_seed import file_mtime_datetime
 from services.experiment_formulas import FormulaInputError, build_formula_functions
+from services.ai_task_audit import add_ai_task_audit, audit_target_id
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 from datetime import datetime
@@ -18,6 +19,7 @@ router = APIRouter()
 
 class ComputeRequest(BaseModel):
     current_form_values: Dict[str, Any]
+    submission_id: Optional[str] = None
 
 class UpdateFormulasRequest(BaseModel):
     formulas: Dict[str, str]
@@ -299,6 +301,27 @@ def compute_experiment_data(
         raise HTTPException(status_code=404, detail="Experiment not found")
     if not experiment_visible_to_user(experiment, current_user):
         raise HTTPException(status_code=404, detail="Experiment not found")
+
+    if req.submission_id:
+        submission = session.get(Submission, req.submission_id)
+        if not submission or submission.experiment_id != experiment_id:
+            raise HTTPException(status_code=404, detail="Submission not found")
+        if current_user.role == "student" and submission.student_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Forbidden")
+
+    target_id = audit_target_id(experiment_id, req.submission_id)
+    add_ai_task_audit(
+        session,
+        user_id=current_user.id,
+        task_kind="formula_compute",
+        phase="started",
+        target_id=target_id,
+        details={
+            "experiment_id": experiment_id,
+            "submission_id": req.submission_id,
+        },
+    )
+    session.commit()
         
     formulas = experiment.config_json.get("formulas", {})
     if not formulas:
@@ -345,6 +368,20 @@ def compute_experiment_data(
                     form_values[target_node] = result_str
                     changed = True
             except FormulaInputError as e:
+                add_ai_task_audit(
+                    session,
+                    user_id=current_user.id,
+                    task_kind="formula_compute",
+                    phase="failed",
+                    target_id=target_id,
+                    details={
+                        "experiment_id": experiment_id,
+                        "submission_id": req.submission_id,
+                        "code": "FORMULA_INPUT_INCOMPLETE",
+                        "missing_node_ids": e.missing_node_ids,
+                    },
+                )
+                session.commit()
                 raise HTTPException(
                     status_code=400,
                     detail={
@@ -355,6 +392,20 @@ def compute_experiment_data(
                 )
             except KeyError as e:
                 missing_node = str(e.args[0]) if e.args else ""
+                add_ai_task_audit(
+                    session,
+                    user_id=current_user.id,
+                    task_kind="formula_compute",
+                    phase="failed",
+                    target_id=target_id,
+                    details={
+                        "experiment_id": experiment_id,
+                        "submission_id": req.submission_id,
+                        "code": "FORMULA_INPUT_INCOMPLETE",
+                        "missing_node_ids": [missing_node] if missing_node else [],
+                    },
+                )
+                session.commit()
                 raise HTTPException(
                     status_code=400,
                     detail={
@@ -364,26 +415,40 @@ def compute_experiment_data(
                     },
                 )
             except Exception as e:
+                add_ai_task_audit(
+                    session,
+                    user_id=current_user.id,
+                    task_kind="formula_compute",
+                    phase="failed",
+                    target_id=target_id,
+                    details={
+                        "experiment_id": experiment_id,
+                        "submission_id": req.submission_id,
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                    },
+                )
+                session.commit()
                 raise HTTPException(status_code=400, detail="公式计算失败，请检查已填写数据")
                 
-    # Record audit log
     original_values = dict(req.current_form_values)
     computed_changes = {k: v for k, v in form_values.items() if original_values.get(k) != v}
-    
-    details_str = (
-        f"执行了实验【{experiment.title}】的公式计算。\n"
-        f"调用参数：{json.dumps(original_values, ensure_ascii=False)}\n"
-        f"计算结果（变动项）：{json.dumps(computed_changes, ensure_ascii=False)}"
-    )
 
-    log = AuditLog(
+    add_ai_task_audit(
+        session,
         user_id=current_user.id,
-        action="compute_experiment",
-        status="success",
-        target_id=experiment_id,
-        details=details_str
+        task_kind="formula_compute",
+        phase="completed",
+        target_id=target_id,
+        details={
+            "experiment_id": experiment_id,
+            "submission_id": req.submission_id,
+            "experiment_title": experiment.title,
+            "input_count": len(original_values),
+            "changed_count": len(computed_changes),
+            "computed_changes": computed_changes,
+        },
     )
-    session.add(log)
     session.commit()
     
     return {"computed_values": form_values}

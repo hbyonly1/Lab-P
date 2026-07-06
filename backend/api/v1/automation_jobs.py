@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -10,6 +11,7 @@ from core.db import get_session
 from models.core import AuditLog, AutomationJob, Submission, User, get_utc_now
 from services.automation_job_service import ACTIVE_JOB_STATUSES, can_retry_job, public_job_data, user_can_view_job
 from services.school_overview_sync import load_active_config
+from services.school_report_sync import _artifact_dir, _read_visible_bootbox, _save_bootbox_artifacts
 from services.school_session_manager import school_session_manager
 
 router = APIRouter()
@@ -41,6 +43,14 @@ SCHOOL_AUTOMATION_ACTIONS = {
     "school_detail_sync",
     "draft_submit",
     "final_submit",
+}
+
+BOOTBOX_BLOCKING_MESSAGE_CODES = {
+    "school.detail.syncing",
+    "school.detail.connecting",
+    "school.detail.opening",
+    "school.submit.connecting",
+    "school.submit.opening",
 }
 
 
@@ -124,6 +134,55 @@ def fail_if_school_browser_closed(session: Session, job: AutomationJob) -> None:
         }
 
 
+def fail_if_school_opening_blocked_by_bootbox(session: Session, job: AutomationJob) -> None:
+    if (
+        job.status not in ACTIVE_JOB_STATUSES
+        or job.action not in SCHOOL_AUTOMATION_ACTIONS
+        or job.public_message_code not in BOOTBOX_BLOCKING_MESSAGE_CODES
+        or not job.actor_user_id
+    ):
+        return
+    browser_session = school_session_manager.get(job.actor_user_id)
+    if not browser_session or not browser_session.page:
+        return
+    try:
+        bootbox = school_session_manager.run(_read_visible_bootbox(browser_session.page))
+    except Exception:
+        return
+    if not bootbox:
+        return
+
+    current_step = job.public_message_code or "school.detail.opening"
+    body_text = str(bootbox.get("bodyText") or bootbox.get("textPreview") or "学校系统出现弹窗").strip()
+    reason = f"学校系统弹窗提示：{body_text[:200]}"
+    try:
+        artifacts = school_session_manager.run(_save_bootbox_artifacts(browser_session.page, _artifact_dir(job.id), "polling_bootbox"))
+    except Exception as exc:
+        artifacts = {"polling_bootbox_artifact_error": f"{type(exc).__name__}: {exc}"}
+    diagnostic = {
+        "errorCode": "SCHOOL_BOOTBOX_ERROR",
+        "reason": reason,
+        "currentStep": current_step,
+        "bootbox": bootbox,
+        "artifacts": artifacts,
+    }
+    if browser_session.last_diagnostic:
+        diagnostic["sessionDiagnostic"] = browser_session.last_diagnostic
+    mark_job_failed(
+        session,
+        job,
+        error_code="SCHOOL_BOOTBOX_ERROR",
+        reason=reason,
+        details=json.dumps(diagnostic, ensure_ascii=False),
+    )
+    job.result_payload = {
+        **(job.result_payload or {}),
+        "currentStep": current_step,
+        "bootbox": bootbox,
+        "artifacts": artifacts,
+    }
+
+
 @router.get("/active", response_model=List[AutomationJobPublic])
 def get_active_automation_jobs(
     action: Optional[str] = Query(default=None),
@@ -158,6 +217,7 @@ def get_automation_job(
     if not user_can_view_job(job, current_user, session):
         raise HTTPException(status_code=403, detail="Not enough permissions.")
     fail_if_school_browser_closed(session, job)
+    fail_if_school_opening_blocked_by_bootbox(session, job)
     session.commit()
     session.refresh(job)
     return to_public_job(job)
