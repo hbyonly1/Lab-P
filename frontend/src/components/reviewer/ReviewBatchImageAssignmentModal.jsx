@@ -25,7 +25,7 @@ const normalizeSlots = (slots = {}) => {
   return normalized;
 };
 
-export function ReviewBatchImageAssignmentModal({ open, batch, onClose, onFinished }) {
+export function ReviewBatchImageAssignmentModal({ open, batch, onClose, onFinished, onPrepareStarted }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [submissions, setSubmissions] = useState([]);
@@ -119,8 +119,12 @@ export function ReviewBatchImageAssignmentModal({ open, batch, onClose, onFinish
   const prepareBatch = async () => {
     setSaving(true);
     try {
-      await prepareSubmissionBatchForReview(batch.batch_id, assignments);
-      message.success('批量预处理已启动');
+      const result = await prepareSubmissionBatchForReview(batch.batch_id, assignments);
+      message.success('批量预处理已启动，完成后会提示');
+      onPrepareStarted?.({
+        batch,
+        submissionIds: result?.submission_ids || [],
+      });
       onFinished?.();
       onClose?.();
     } catch (error) {

@@ -142,3 +142,12 @@
   锁定粒度下沉到“单个实验提交记录 (submission_id)”。只要某实验生成了任何未取消的单次代劳订单（`pending_payment`、`paid` 或 `reviewing`），系统通过数据库级唯一约束 `UNIQUE(submission_id, user_id)`，拒绝用户对同一份实验报告进行二次发起付款请求。
 - **前后端幂等性防刷 (Idempotency)**：
   前端所有关键触发节点（“一键提交”、“我已支付”、“审核通过/驳回”）必须立即进入 `disabled + loading` 锁定状态；后端关键流转接口引入幂等键验证（Idempotency Key，基于 `user_id + action + target_id` 的 Redis 锁），确保10毫秒内发来的10个高并发重放请求只放行第一个，保证状态机单向演进不分叉。
+
+## 2026-07-07
+
+### 图片重复识别备用模型
+
+- AI 图片识别不做同一次请求内部自动 fallback，避免一次任务中出现模型来源不透明、失败难追踪的问题。
+- 对同一 `submission_id` 的重复识别采用显式切换策略：第 1 次使用主图片识别模型，第 2 次及以后在 Admin AI 设置开启后使用备用图片识别模型。
+- 识别次数复用已有 `ai_task_runs` 和 `audit_logs` 统计，不新增识别尝试表；覆盖详情页直接识别、审核预处理和旧任务列表识别入口。
+- 设置项保存到 `ai_config.image_recognition_retry_enabled` 与 `ai_config.image_recognition_retry_model`。关闭开关或备用模型为空时，重复识别继续使用主模型。

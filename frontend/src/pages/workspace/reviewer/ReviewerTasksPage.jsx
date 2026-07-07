@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Table, Tooltip, Input, Select, Tag, Space, message } from 'antd';
 import {
   AuditOutlined,
@@ -31,15 +31,19 @@ const resolveReviewStatus = (submissionStatus) => (
   REVIEW_COMPLETED_SUBMISSION_STATUSES.includes(submissionStatus) ? 'completed' : 'incomplete'
 );
 
+const PREPROCESS_TERMINAL_STATUSES = new Set(['done', 'failed', 'image_assignment_required']);
+
 export default function ReviewerTasksPage() {
   const navigate = useNavigate();
 
   const [reviewTasks, setReviewTasks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeBatch, setActiveBatch] = useState(null);
+  const preprocessWatchRef = useRef(new Map());
+  const preprocessPollTimerRef = useRef(null);
 
-  const fetchTasks = async () => {
-    setLoading(true);
+  const fetchTasks = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const [data, allConfigs] = await Promise.all([
         getReviewPool(),
@@ -95,13 +99,96 @@ export default function ReviewerTasksPage() {
     } catch (error) {
       message.error('无法获取审核任务列表');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  };
+  }, []);
+
+  const stopPreprocessPolling = useCallback(() => {
+    if (preprocessPollTimerRef.current) {
+      window.clearInterval(preprocessPollTimerRef.current);
+      preprocessPollTimerRef.current = null;
+    }
+  }, []);
+
+  const pollPreprocessCompletions = useCallback(async () => {
+    const watched = preprocessWatchRef.current;
+    if (!watched.size) {
+      stopPreprocessPolling();
+      return;
+    }
+
+    try {
+      const data = await getReviewPool();
+      const latestById = new Map(data.map((item) => [item.id, item]));
+      let hasTerminalChange = false;
+
+      watched.forEach((tracked, submissionId) => {
+        const latest = latestById.get(submissionId);
+        const status = latest?.preprocess_status;
+        if (!status) return;
+
+        if (status === 'done') {
+          message.success(`${tracked.studentName}的${tracked.experimentName} AI预处理已完成`);
+          watched.delete(submissionId);
+          hasTerminalChange = true;
+          return;
+        }
+
+        if (status === 'failed' || status === 'image_assignment_required') {
+          const errorText = latest?.preprocess_error ? `：${latest.preprocess_error}` : '';
+          message.error(`${tracked.studentName}的${tracked.experimentName} AI预处理失败${errorText}`);
+          watched.delete(submissionId);
+          hasTerminalChange = true;
+          return;
+        }
+
+        if (PREPROCESS_TERMINAL_STATUSES.has(status)) {
+          watched.delete(submissionId);
+          hasTerminalChange = true;
+        }
+      });
+
+      if (hasTerminalChange) {
+        fetchTasks({ silent: true });
+      }
+      if (!watched.size) {
+        stopPreprocessPolling();
+      }
+    } catch (error) {
+      // Keep polling; transient refresh failures should not drop completion notifications.
+    }
+  }, [fetchTasks, stopPreprocessPolling]);
+
+  const ensurePreprocessPolling = useCallback(() => {
+    if (preprocessPollTimerRef.current) return;
+    preprocessPollTimerRef.current = window.setInterval(pollPreprocessCompletions, 3000);
+  }, [pollPreprocessCompletions]);
+
+  const handlePrepareStarted = useCallback(({ batch, submissionIds = [] }) => {
+    const startedIds = new Set(submissionIds);
+    const experiments = batch?.experiments || [];
+    const trackedExperiments = experiments.filter((exp) => (
+      startedIds.size ? startedIds.has(exp.submission_id) : true
+    ));
+
+    trackedExperiments.forEach((exp) => {
+      preprocessWatchRef.current.set(exp.submission_id, {
+        studentName: batch?.name || batch?.student_id || '该学生',
+        experimentName: exp.name || exp.id || '该实验',
+      });
+    });
+
+    if (trackedExperiments.length) {
+      ensurePreprocessPolling();
+      pollPreprocessCompletions();
+    }
+  }, [ensurePreprocessPolling, pollPreprocessCompletions]);
 
   useEffect(() => {
     fetchTasks();
-  }, []);
+  }, [fetchTasks]);
+
+  useEffect(() => () => stopPreprocessPolling(), [stopPreprocessPolling]);
 
   // Metrics calculation
   const allExperiments = reviewTasks.flatMap(task => task.experiments);
@@ -378,6 +465,7 @@ export default function ReviewerTasksPage() {
         batch={activeBatch}
         onClose={() => setActiveBatch(null)}
         onFinished={fetchTasks}
+        onPrepareStarted={handlePrepareStarted}
       />
     </section>
   );

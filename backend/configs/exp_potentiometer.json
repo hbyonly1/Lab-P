@@ -560,6 +560,58 @@
     "D9": "format_sig(linear_r2(v('D30-0', 'D30-1', 'D30-2', 'D30-3', 'D30-4', 'D30-5'), v('D31-0', 'D31-1', 'D31-2', 'D31-3', 'D31-4', 'D31-5')), 3)",
     "D12": "format_sig(linear_intercept(v('D30-0', 'D30-1', 'D30-2', 'D30-3', 'D30-4', 'D30-5'), v('D31-0', 'D31-1', 'D31-2', 'D31-3', 'D31-4', 'D31-5')) + linear_slope(v('D30-0', 'D30-1', 'D30-2', 'D30-3', 'D30-4', 'D30-5'), v('D31-0', 'D31-1', 'D31-2', 'D31-3', 'D31-4', 'D31-5')) * v('D11'), 4)"
   },
+  "computedAssets": {
+    "D10Area": {
+      "type": "image",
+      "generator": "canvas_plot",
+      "imageSlotId": "IMG_D10Area",
+      "output": {
+        "fileName": "potentiometer-thermocouple-fit.png",
+        "width": 1400,
+        "height": 960
+      },
+      "plot": {
+        "title": "热电偶电动势-温度拟合曲线",
+        "xAxis": {
+          "label": "温度 t (℃)",
+          "nodes": ["D30-0", "D30-1", "D30-2", "D30-3", "D30-4", "D30-5"]
+        },
+        "yAxis": {
+          "label": "温差电动势 U (mV)",
+          "nodes": ["D31-0", "D31-1", "D31-2", "D31-3", "D31-4", "D31-5"]
+        },
+        "layers": [
+          {
+            "type": "scatter",
+            "label": "实验数据点",
+            "style": {
+              "color": "#e3332a",
+              "radius": 11
+            }
+          },
+          {
+            "type": "line",
+            "labelTemplate": "拟合直线：U = {slope}t {interceptSigned}",
+            "model": {
+              "type": "linear",
+              "parameters": {
+                "slope": {
+                  "nodeId": "D7"
+                },
+                "intercept": {
+                  "nodeId": "D8"
+                }
+              }
+            },
+            "style": {
+              "color": "#1437f0",
+              "lineWidth": 7
+            }
+          }
+        ]
+      }
+    }
+  },
   "automation": {
     "mappings": [
       {

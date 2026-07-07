@@ -35,6 +35,7 @@ import {
 import { getActiveAutomationJobs } from '../../../services/automationJobsApi.js';
 import { ReviewerNodeHint } from '../../../components/experiment/ReviewerNodeHint.jsx';
 import { submitOneClickExperimentBatch } from '../../../utils/oneClickSubmitUtils.js';
+import { generateComputedImageAssets } from '../../../utils/computedAssetsUtils.js';
 import { useAsyncTaskRunner } from '../../../hooks/useAsyncTaskRunner.js';
 import { ASYNC_TASK_PROGRESS_PROFILES, getAsyncTaskProgressStage } from '../../../hooks/asyncTaskProgressProfiles.js';
 import { useSubmissionDraftAutosave } from '../../../hooks/useSubmissionDraftAutosave.js';
@@ -578,15 +579,41 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
     });
     try {
       const res = await experimentsApi.computeExperimentData(experiment.meta.id, formValues, latestSubmission?.id || null);
+      let nextValues = { ...formValues, ...res.computed_values };
+      let nextSlots = imageSlots;
+      const generatedAssets = await generateComputedImageAssets({ experiment, values: nextValues });
+      for (const asset of generatedAssets) {
+        if (!asset.imageSlotId || !asset.targetNodeId) continue;
+        const uploaded = await uploadFile(asset.file);
+        const fileEntry = {
+          uid: `generated-${asset.targetNodeId}-${Date.now()}`,
+          name: asset.file.name,
+          url: uploaded.url,
+          originFileObj: asset.file,
+        };
+        nextSlots = {
+          ...nextSlots,
+          [asset.imageSlotId]: [fileEntry],
+        };
+        nextValues = {
+          ...nextValues,
+          [asset.targetNodeId]: uploaded.url,
+        };
+      }
+      if (generatedAssets.length) {
+        setImageSlots(nextSlots);
+      }
       setFormValues(prev => {
-        const next = { ...prev, ...res.computed_values };
-        scheduleDraftSave(next, imageSlots);
+        const next = { ...prev, ...nextValues };
+        scheduleDraftSave(next, nextSlots);
         return next;
       });
       setIsComputing(false);
       const changedCount = Object.keys(res.computed_values || {}).length;
       finishJob(jobId, {
-        message: `数据计算完成，已回填 ${changedCount} 项结果，请核对。`,
+        message: generatedAssets.length
+          ? `数据计算完成，已回填 ${changedCount} 项结果并生成 ${generatedAssets.length} 张图片，请核对。`
+          : `数据计算完成，已回填 ${changedCount} 项结果，请核对。`,
       });
       message.success({ content: '数据计算完成！', key: 'compute' });
     } catch (e) {

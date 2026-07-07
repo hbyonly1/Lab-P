@@ -954,9 +954,10 @@ AI_CAPTCHA_MODEL=zai-org/GLM-4.5V
 
 - 温度、超时、最大图片数、自动识别开关和验证码 prompt 不再从 `.env` 配置；首次创建 `ai_config` 时使用代码内置默认值，之后由 Admin 设置页修改并保存到数据库。
 - 不再使用 `AI_API_KEY_ENV`、`CAPTCHA_AI_*`、供应商绑定 key 名或数据库加密保存 AI Key。
-- 当前不做 fallback model：某个 task 的模型失败即向调用方返回失败，由业务层记录任务状态和错误。
+- 当前不做同一次 AI 调用内部 fallback：某个 task 的模型失败即向调用方返回失败，由业务层记录任务状态和错误。
+- 图片识别支持重复识别备用模型：`ai_config.image_recognition_retry_enabled=true` 且 `image_recognition_retry_model` 非空时，同一 `submission_id` 第 1 次图片识别使用 `image_recognition_model`，第 2 次及以后使用 `image_recognition_retry_model`。次数按已有任务/审计记录统计，覆盖详情页直接识别、审核预处理识别和旧任务列表识别；无 `submission_id` 的调试识别固定按第 1 次处理。
 - `GET /api/v1/ai/admin/config`：Admin 获取当前非密钥 AI 配置和 `api_key_configured` 状态，不返回真实 key。
-- `PUT /api/v1/ai/admin/config`：Admin 保存非密钥 AI profile，写入 `ai_config` 并记录 `audit_logs(action=ai_config_updated)`。
+- `PUT /api/v1/ai/admin/config`：Admin 保存非密钥 AI profile，写入 `ai_config` 并记录 `audit_logs(action=ai_config_updated)`；图片重复识别相关字段为 `image_recognition_retry_enabled` 和 `image_recognition_retry_model`。
 - `POST /api/v1/ai/admin/test-connection`：使用当前 `ai_config` + `.env` 中的 `AI_API_KEY` 发送一条 `hello` 测试请求，返回模型输出；失败时返回 `ok=false`、`error_code` 和具体 `error`，例如缺少密钥时返回 `missing_api_key` 与“请在 .env 中填写 AI_API_KEY，然后重启后端进程”。
 - `GET /api/v1/ai/admin/prompts/{experiment_id}`：Admin 获取实验 Prompt 模板。响应始终包含当前后端默认 `recognition_system_prompt` / `generation_system_prompt`，如果数据库中 `ai_prompt_templates` 已保存非空 system prompt，则以数据库值覆盖默认值；`recognition_extra_prompt` / `generation_extra_prompt` 从实验 JSON 的 `ai.recognition.extraPrompt` / `ai.generation.extraPrompt` 读取，用于前端编辑框展示。
 - `PUT /api/v1/ai/admin/prompts/{experiment_id}`：Admin 保存 `recognition_system_prompt` 与 `generation_system_prompt` 到 `ai_prompt_templates`；保存 `recognition_extra_prompt` / `generation_extra_prompt` 到实验 JSON，并同步 `experiments.config_json`。数据库不再保存识别或思考题 extra prompt。

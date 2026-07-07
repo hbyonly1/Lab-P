@@ -200,6 +200,8 @@ class AiConfig(SQLModel, table=True):
     default_max_images_per_task: int = Field(default=8)
     auto_recognize: bool = Field(default=False)
     image_recognition_model: str = Field(default="gpt-4o")
+    image_recognition_retry_enabled: bool = Field(default=False)
+    image_recognition_retry_model: Optional[str] = None
     image_recognition_timeout_seconds: int = Field(default=60)
     image_recognition_temperature: float = Field(default=0)
     image_recognition_max_images_per_task: int = Field(default=8)

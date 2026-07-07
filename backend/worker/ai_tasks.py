@@ -5,7 +5,8 @@ from sqlmodel import Session
 from core.db import engine
 from models.core import AuditLog, Submission, get_utc_now
 from services import ai_service, captcha_ai
-from services.ai_task_audit import complete_ai_task_run, fail_ai_task_run, audit_target_id
+from services.ai_provider import AI_TASK_IMAGE_RECOGNITION, get_ai_provider
+from services.ai_task_audit import complete_ai_task_run, fail_ai_task_run, audit_target_id, next_image_recognition_attempt
 
 
 def _extract_assigned_image_paths(submission: Submission, exp_config: dict) -> list[str]:
@@ -73,18 +74,36 @@ def recognize_captcha_task(self, image_b64: str, config: dict):
     return captcha_ai.recognize_captcha_image_b64(image_b64, config or {})
 
 @celery_app.task(bind=True, max_retries=3)
-def recognize_images_task(self, experiment_id: str, image_paths: list[str], user_id: int, submission_id: str = None):
+def recognize_images_task(
+    self,
+    experiment_id: str,
+    image_paths: list[str],
+    user_id: int,
+    submission_id: str = None,
+    recognition_attempt: int = 1,
+):
     """detail 页一键识别按鈕触发。结果存 Celery result backend。"""
     with Session(engine) as session:
         target_id = audit_target_id(experiment_id, submission_id)
         try:
-            result = asyncio.run(ai_service.recognize_images(experiment_id, image_paths, session))
+            profile = get_ai_provider(session).get_profile(
+                AI_TASK_IMAGE_RECOGNITION,
+                recognition_attempt=recognition_attempt,
+            )
+            result = asyncio.run(ai_service.recognize_images(
+                experiment_id,
+                image_paths,
+                session,
+                recognition_attempt=recognition_attempt,
+            ))
             complete_ai_task_run(
                 session,
                 task_id=self.request.id,
                 details={
                     "experiment_id": experiment_id,
                     "submission_id": submission_id,
+                    "recognition_attempt": recognition_attempt,
+                    "model": profile.model,
                     "recognized_count": len(result or {}),
                     "image_count": len(image_paths or []),
                 },
@@ -190,10 +209,12 @@ def recognize_submission_task(self, submission_id: str, user_id: int):
             raise ValueError("Submission not found")
             
         try:
+            recognition_attempt = next_image_recognition_attempt(session, submission_id)
             result = asyncio.run(ai_service.recognize_images(
                 submission.experiment_id, 
                 submission.image_paths, 
-                session
+                session,
+                recognition_attempt=recognition_attempt,
             ))
             
             # 同时生成答案
@@ -223,8 +244,13 @@ def recognize_submission_task(self, submission_id: str, user_id: int):
             submission.recognition_json = final_result
             submission.status = "reviewing"
             
-            log = AuditLog(user_id=user_id, action="ai_submission", status="success",
-                           target_id=submission_id)
+            log = AuditLog(
+                user_id=user_id,
+                action="ai_submission",
+                status="success",
+                target_id=submission_id,
+                details=f"识别完成：第 {recognition_attempt} 次识别。",
+            )
             session.add(submission)
             session.add(log)
             session.commit()
@@ -303,17 +329,23 @@ def prepare_submission_for_review_task(self, submission_id: str, user_id: int):
             session.commit()
 
             current_step = "AI 图片识别"
+            recognition_attempt = next_image_recognition_attempt(session, submission_id)
+            profile = get_ai_provider(session).get_profile(
+                AI_TASK_IMAGE_RECOGNITION,
+                recognition_attempt=recognition_attempt,
+            )
             recognized_values = asyncio.run(ai_service.recognize_images(
                 submission.experiment_id,
                 image_paths,
                 session,
+                recognition_attempt=recognition_attempt,
             ))
             session.add(AuditLog(
                 user_id=user_id,
                 action="submission_prepare_review_ai_recognize",
                 status="success",
                 target_id=submission_id,
-                details=f"AI 图片识别完成：识别 {len(recognized_values or {})} 项，图片 {len(image_paths)} 张。",
+                details=f"AI 图片识别完成：第 {recognition_attempt} 次识别，模型 {profile.model}，识别 {len(recognized_values or {})} 项，图片 {len(image_paths)} 张。",
             ))
             session.commit()
 

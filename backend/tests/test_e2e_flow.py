@@ -33,6 +33,60 @@ client = TestClient(app)
 STUDENT_NO = "26A2511111111"
 FREE_STUDENT_NO = "26A2522222222"
 
+AI_CONFIG_TEST_FIELDS = [
+    "provider",
+    "base_url",
+    "default_model",
+    "default_timeout_seconds",
+    "default_temperature",
+    "default_max_images_per_task",
+    "auto_recognize",
+    "image_recognition_model",
+    "image_recognition_retry_enabled",
+    "image_recognition_retry_model",
+    "image_recognition_timeout_seconds",
+    "image_recognition_temperature",
+    "image_recognition_max_images_per_task",
+    "answer_generation_model",
+    "answer_generation_timeout_seconds",
+    "answer_generation_temperature",
+    "captcha_model",
+    "captcha_timeout_seconds",
+    "captcha_temperature",
+    "captcha_prompt",
+    "updated_by",
+]
+
+
+def _snapshot_ai_config():
+    from services.ai_provider import ensure_ai_config
+
+    with next(get_session()) as session:
+        config = ensure_ai_config(session)
+        snapshot = {field: getattr(config, field) for field in AI_CONFIG_TEST_FIELDS}
+        session.commit()
+        return snapshot
+
+
+def _restore_ai_config(snapshot):
+    from services.ai_provider import ensure_ai_config
+
+    with next(get_session()) as session:
+        config = ensure_ai_config(session)
+        for field, value in snapshot.items():
+            setattr(config, field, value)
+        session.add(config)
+        session.commit()
+
+
+@pytest.fixture
+def preserve_ai_config():
+    snapshot = _snapshot_ai_config()
+    try:
+        yield
+    finally:
+        _restore_ai_config(snapshot)
+
 
 class FakeLocator:
     def __init__(self, count_value, page=None, selector=""):
@@ -1046,7 +1100,7 @@ def test_school_session_manager_recovers_modal_to_report_list():
     assert diagnostic["reuseDecision"] in ["recovered_existing_session", "reused_existing_session"]
 
 
-def test_admin_ai_config_uses_database_profiles_without_key_leak(admin_token, student_token):
+def test_admin_ai_config_uses_database_profiles_without_key_leak(admin_token, student_token, preserve_ai_config):
     res = client.get("/api/v1/ai/admin/config", headers={"Authorization": f"Bearer {student_token}"})
     assert res.status_code == 403
 
@@ -1059,6 +1113,8 @@ def test_admin_ai_config_uses_database_profiles_without_key_leak(admin_token, st
         "default_max_images_per_task": 8,
         "auto_recognize": False,
         "image_recognition_model": "zai-org/GLM-4.5V",
+        "image_recognition_retry_enabled": True,
+        "image_recognition_retry_model": "Qwen/Qwen2.5-VL-72B-Instruct",
         "image_recognition_timeout_seconds": 60,
         "image_recognition_temperature": 0,
         "image_recognition_max_images_per_task": 8,
@@ -1093,9 +1149,88 @@ def test_admin_ai_config_uses_database_profiles_without_key_leak(admin_token, st
     assert data["source"] == "database"
     assert data["base_url"] == payload["base_url"]
     assert data["image_recognition_model"] == "zai-org/GLM-4.5V"
+    assert data["image_recognition_retry_enabled"] is True
+    assert data["image_recognition_retry_model"] == "Qwen/Qwen2.5-VL-72B-Instruct"
     assert data["answer_generation_model"] == "deepseek-ai/DeepSeek-V4-Flash"
     assert data["captcha_model"] == "zai-org/GLM-4.5V"
     assert "api_key" not in data
+
+
+def test_repeated_image_recognition_uses_retry_model(admin_token, monkeypatch, preserve_ai_config):
+    from api.v1 import ai as ai_api
+    from services.ai_provider import ensure_ai_config
+
+    captured = {}
+
+    class FakeTask:
+        id = "TASK-AI-RETRY-2"
+
+    def fake_delay(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return FakeTask()
+
+    monkeypatch.setenv("AI_API_KEY", "test-key")
+    monkeypatch.setattr(ai_api.recognize_images_task, "delay", fake_delay)
+
+    with next(get_session()) as session:
+        admin = session.exec(select(User).where(User.username == "admin_e2e_flow")).first()
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        admin_id = admin.id
+        config = ensure_ai_config(session)
+        config.image_recognition_model = "primary-vl"
+        config.image_recognition_retry_enabled = True
+        config.image_recognition_retry_model = "retry-vl"
+        session.add(config)
+        submission = Submission(
+            id="SUB-AI-RETRY-MODEL",
+            student_id=student.id,
+            experiment_id="exp_e2e_flow_unique",
+            status="reviewing",
+            payment_status="paid",
+            is_one_click_handoff=True,
+            image_paths=["/uploads/test-ai.jpg"],
+        )
+        session.merge(submission)
+        session.exec(delete(AiTaskRun).where(AiTaskRun.target_id == submission.id))
+        session.exec(delete(AuditLog).where(AuditLog.target_id == submission.id))
+        session.add(AiTaskRun(
+            task_id="TASK-AI-RETRY-OLD",
+            task_kind="image_recognition",
+            status="succeeded",
+            user_id=admin_id,
+            target_id=submission.id,
+            experiment_id=submission.experiment_id,
+            submission_id=submission.id,
+        ))
+        session.commit()
+
+    res = client.post(
+        "/api/v1/ai/recognize-direct",
+        json={
+            "experiment_id": "exp_e2e_flow_unique",
+            "submission_id": "SUB-AI-RETRY-MODEL",
+            "image_paths": ["/uploads/test-ai.jpg"],
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["recognition_attempt"] == 2
+    assert body["model"] == "retry-vl"
+    assert captured["args"] == (
+        "exp_e2e_flow_unique",
+        ["/uploads/test-ai.jpg"],
+        admin_id,
+        "SUB-AI-RETRY-MODEL",
+        2,
+    )
+
+    with next(get_session()) as session:
+        run = session.get(AiTaskRun, "TASK-AI-RETRY-2")
+        assert run.request_payload["recognition_attempt"] == 2
+        assert run.request_payload["model"] == "retry-vl"
 
 
 def test_ai_assist_task_start_logs_submission_target(admin_token, student_token, monkeypatch):
@@ -1164,7 +1299,7 @@ def test_ai_assist_worker_completion_logs_canonical_action(monkeypatch):
     from worker import ai_tasks
     from services.ai_task_audit import start_ai_task_run
 
-    async def fake_recognize_images(_experiment_id, _image_paths, _session):
+    async def fake_recognize_images(_experiment_id, _image_paths, _session, recognition_attempt=1):
         return {"A1": "42"}
 
     monkeypatch.setattr(ai_tasks.ai_service, "recognize_images", fake_recognize_images)

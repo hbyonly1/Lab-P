@@ -1,7 +1,7 @@
 import json
 from typing import Any, Optional
 
-from sqlmodel import Session
+from sqlmodel import Session, func, select
 
 from models.core import AiTaskRun, AuditLog, get_utc_now
 
@@ -36,6 +36,40 @@ def action_name(task_kind: str, phase: str) -> str:
 
 def audit_target_id(experiment_id: str, submission_id: Optional[str] = None) -> str:
     return submission_id or experiment_id
+
+
+def next_image_recognition_attempt(session: Session, submission_id: Optional[str]) -> int:
+    if not submission_id:
+        return 1
+    task_count = session.exec(
+        select(func.count(AiTaskRun.task_id))
+        .where(AiTaskRun.task_kind == "image_recognition")
+        .where(AiTaskRun.submission_id == submission_id)
+    ).one()
+    preprocess_count = session.exec(
+        select(func.count(AuditLog.id))
+        .where(AuditLog.target_id == submission_id)
+        .where(AuditLog.action == "submission_prepare_review_ai_recognize")
+    ).one()
+    preprocess_failed_count = session.exec(
+        select(func.count(AuditLog.id))
+        .where(AuditLog.target_id == submission_id)
+        .where(AuditLog.action == "submission_prepare_review")
+        .where(AuditLog.status == "failed")
+        .where(AuditLog.details.like("AI 图片识别失败%"))
+    ).one()
+    legacy_submission_count = session.exec(
+        select(func.count(AuditLog.id))
+        .where(AuditLog.target_id == submission_id)
+        .where(AuditLog.action == "ai_submission")
+    ).one()
+    return (
+        int(task_count or 0)
+        + int(preprocess_count or 0)
+        + int(preprocess_failed_count or 0)
+        + int(legacy_submission_count or 0)
+        + 1
+    )
 
 
 def compact_details(details: Any) -> str:

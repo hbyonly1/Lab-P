@@ -25,6 +25,56 @@
 - **块级大图 (`inline: false/undefined`)**：独立占行居中展示，默认最大高度 `400px`。配置里的 `width` / `height` 同样只作为最大边界，缩小图片时不改变原始宽高比。
 - **AI 挂载**：在 `inputs.images` 中定义槽位（如 `IMG_RAW`），并在 `ai.recognition.imageRef` 中绑定，前端据此唤起智能解析组件。
 - **图片答案节点**：当学校系统某个 DOM 节点需要单独上传图片时，在 `inputs.fields` 中声明 `{ "id": "节点名", "type": "image_upload", "imageSlotId": "图片槽位" }`，并在 `inputs.images` 中为该槽位补充 `targetNodeId`。前端会在段落位置渲染独立上传卡，上传成功后把图片 URL 写回该 `nodeId`，不再把它当普通文本输入框或生成式回答文本框。
+- **计算生成图片节点**：当一键计算后需要自动生成拟合图、曲线图等图片答案时，在顶层 `computedAssets` 中声明目标图片节点。前端一键计算成功后会根据配置生成 PNG、上传到 `/uploads`，并把返回 URL 写回对应 `image_upload` 节点和 `imageSlots`。
+
+示例：
+
+```json
+{
+  "computedAssets": {
+    "D10Area": {
+      "type": "image",
+      "generator": "canvas_plot",
+      "imageSlotId": "IMG_D10Area",
+      "output": {
+        "fileName": "fit-plot.png",
+        "width": 1400,
+        "height": 960
+      },
+      "plot": {
+        "title": "热电偶电动势-温度拟合曲线",
+        "xAxis": {
+          "label": "温度 t (℃)",
+          "nodes": ["D30-0", "D30-1"]
+        },
+        "yAxis": {
+          "label": "温差电动势 U (mV)",
+          "nodes": ["D31-0", "D31-1"]
+        },
+        "layers": [
+          {
+            "type": "scatter",
+            "label": "实验数据点"
+          },
+          {
+            "type": "line",
+            "labelTemplate": "拟合直线：U = {slope}t {interceptSigned}",
+            "model": {
+              "type": "linear",
+              "parameters": {
+                "slope": { "nodeId": "D7" },
+                "intercept": { "nodeId": "D8" }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+这里的 `slope` / `intercept` 是线性模型的通用参数名，不是页面专用字段；参数值通过 `{ "nodeId": "D7" }` 绑定到已计算节点，保证图例和页面中的 `k`、`b` 完全一致。
 
 ### 2.3 动态数据表格 (`ui.dataTable`)
 用于生成底部实验处理区。必须按行 (`rows`)、列 (`cells`) 提供标准数据，前端解析器会自动处理跨行或 LaTeX 公式表头（如带有下标的 $I_x$）。表头、行名、固定刻度必须写入 `cell.text`，不要用空 `{}` 占位导致页面只剩输入框和节点标记。

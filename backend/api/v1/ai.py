@@ -11,7 +11,7 @@ from core.config import settings
 from datetime import datetime
 import json
 from services.ai_provider import AI_TASK_ANSWER_GENERATION, AI_TASK_IMAGE_RECOGNITION, AiProviderConfigError, ensure_ai_config, get_ai_provider
-from services.ai_task_audit import audit_target_id, poll_timeout_seconds, start_ai_task_run
+from services.ai_task_audit import audit_target_id, next_image_recognition_attempt, poll_timeout_seconds, start_ai_task_run
 from core.ai_prompts import DEFAULT_GENERATION_SYSTEM, DEFAULT_RECOGNITION_SYSTEM
 
 router = APIRouter()
@@ -41,6 +41,8 @@ class AiConfigUpdate(BaseModel):
     default_max_images_per_task: int = 8
     auto_recognize: bool = False
     image_recognition_model: str
+    image_recognition_retry_enabled: bool = False
+    image_recognition_retry_model: Optional[str] = None
     image_recognition_timeout_seconds: int = 60
     image_recognition_temperature: float = 0
     image_recognition_max_images_per_task: int = 8
@@ -100,8 +102,18 @@ def recognize_direct(
             raise HTTPException(status_code=403, detail="Forbidden")
 
     target_id = audit_target_id(req.experiment_id, req.submission_id)
-    task = recognize_images_task.delay(req.experiment_id, req.image_paths, current_user.id, req.submission_id)
-    profile = get_ai_provider(session).get_profile(AI_TASK_IMAGE_RECOGNITION)
+    recognition_attempt = next_image_recognition_attempt(session, req.submission_id)
+    profile = get_ai_provider(session).get_profile(
+        AI_TASK_IMAGE_RECOGNITION,
+        recognition_attempt=recognition_attempt,
+    )
+    task = recognize_images_task.delay(
+        req.experiment_id,
+        req.image_paths,
+        current_user.id,
+        req.submission_id,
+        recognition_attempt,
+    )
     start_ai_task_run(
         session,
         task_id=task.id,
@@ -114,6 +126,7 @@ def recognize_direct(
             "experiment_id": req.experiment_id,
             "submission_id": req.submission_id,
             "image_count": len(req.image_paths or []),
+            "recognition_attempt": recognition_attempt,
             "model": profile.model,
             "model_timeout_seconds": profile.timeout_seconds,
         },
@@ -124,6 +137,8 @@ def recognize_direct(
         "poll_timeout_seconds": poll_timeout_seconds(profile.timeout_seconds),
         "poll_interval_ms": 2000,
         "audit_target_id": target_id,
+        "recognition_attempt": recognition_attempt,
+        "model": profile.model,
     }
 
 @router.post("/generate-answer-direct")
@@ -294,6 +309,8 @@ def get_ai_config(
         "default_max_images_per_task": config.default_max_images_per_task,
         "auto_recognize": config.auto_recognize,
         "image_recognition_model": config.image_recognition_model,
+        "image_recognition_retry_enabled": config.image_recognition_retry_enabled,
+        "image_recognition_retry_model": config.image_recognition_retry_model,
         "image_recognition_timeout_seconds": config.image_recognition_timeout_seconds,
         "image_recognition_temperature": config.image_recognition_temperature,
         "image_recognition_max_images_per_task": config.image_recognition_max_images_per_task,
@@ -317,7 +334,10 @@ def update_ai_config(
         raise HTTPException(status_code=422, detail="Only openai_compatible provider is supported.")
 
     config = session.get(AiConfig, 1) or AiConfig(id=1)
-    for field, value in req.model_dump().items():
+    payload = req.model_dump()
+    retry_model = str(payload.get("image_recognition_retry_model") or "").strip()
+    payload["image_recognition_retry_model"] = retry_model or None
+    for field, value in payload.items():
         setattr(config, field, value)
     config.updated_at = get_utc_now()
     config.updated_by = current_user.id

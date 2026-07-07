@@ -36,6 +36,8 @@ export default function SettingsPage() {
       default_max_images_per_task: config.default_max_images_per_task,
       auto_recognize: config.auto_recognize || false,
       image_recognition_model: config.image_recognition_model || '',
+      image_recognition_retry_enabled: config.image_recognition_retry_enabled || false,
+      image_recognition_retry_model: config.image_recognition_retry_model || '',
       image_recognition_timeout_seconds: config.image_recognition_timeout_seconds,
       image_recognition_temperature: config.image_recognition_temperature,
       image_recognition_max_images_per_task: config.image_recognition_max_images_per_task,
@@ -107,6 +109,8 @@ export default function SettingsPage() {
         default_max_images_per_task: values.default_max_images_per_task,
         auto_recognize: values.auto_recognize === true || values.auto_recognize === '启用',
         image_recognition_model: values.image_recognition_model,
+        image_recognition_retry_enabled: values.image_recognition_retry_enabled === true || values.image_recognition_retry_enabled === '启用',
+        image_recognition_retry_model: values.image_recognition_retry_model || null,
         image_recognition_timeout_seconds: values.image_recognition_timeout_seconds,
         image_recognition_temperature: values.image_recognition_temperature,
         image_recognition_max_images_per_task: values.image_recognition_max_images_per_task,
@@ -124,6 +128,8 @@ export default function SettingsPage() {
         source: saved.source || 'database',
         api_key_configured: saved.api_key_configured ? '已配置' : '未配置',
         auto_recognize: saved.auto_recognize,
+        image_recognition_retry_enabled: saved.image_recognition_retry_enabled,
+        image_recognition_retry_model: saved.image_recognition_retry_model || '',
       });
       message.success('AI 配置已保存');
     } catch (e) {
@@ -220,6 +226,12 @@ export default function SettingsPage() {
               </Form.Item>
               <Form.Item name="image_recognition_model" label="图片识别模型" rules={[{ required: true }]}>
                 <Input style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item name="image_recognition_retry_enabled" label="重复识别切换备用模型" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+              <Form.Item name="image_recognition_retry_model" label="重复识别备用模型">
+                <Input placeholder="第 2 次及以后识别使用；留空则继续使用图片识别模型" style={{ width: '100%' }} />
               </Form.Item>
               <Form.Item name="image_recognition_timeout_seconds" label="图片识别超时 (秒)">
                 <InputNumber min={10} max={300} style={{ width: '100%' }} />

@@ -24,6 +24,7 @@ DEFAULT_TEMPERATURE = 0.7
 DEFAULT_MAX_IMAGES_PER_TASK = 8
 DEFAULT_AUTO_RECOGNIZE = False
 DEFAULT_IMAGE_RECOGNITION_TEMPERATURE = 0
+DEFAULT_IMAGE_RECOGNITION_RETRY_ENABLED = False
 DEFAULT_ANSWER_GENERATION_TEMPERATURE = 0.85
 DEFAULT_CAPTCHA_TIMEOUT_SECONDS = 30
 DEFAULT_CAPTCHA_TEMPERATURE = 0
@@ -80,6 +81,8 @@ def ai_config_from_settings() -> AiConfig:
         default_max_images_per_task=DEFAULT_MAX_IMAGES_PER_TASK,
         auto_recognize=DEFAULT_AUTO_RECOGNIZE,
         image_recognition_model=normalize_image_recognition_model(settings.AI_IMAGE_RECOGNITION_MODEL),
+        image_recognition_retry_enabled=DEFAULT_IMAGE_RECOGNITION_RETRY_ENABLED,
+        image_recognition_retry_model=None,
         image_recognition_timeout_seconds=DEFAULT_TIMEOUT_SECONDS,
         image_recognition_temperature=DEFAULT_IMAGE_RECOGNITION_TEMPERATURE,
         image_recognition_max_images_per_task=DEFAULT_MAX_IMAGES_PER_TASK,
@@ -103,6 +106,13 @@ def ensure_ai_config(session: Session) -> AiConfig:
             config.updated_at = get_utc_now()
             session.add(config)
             session.flush()
+        if config.image_recognition_retry_model:
+            normalized_retry_model = normalize_image_recognition_model(config.image_recognition_retry_model)
+            if config.image_recognition_retry_model != normalized_retry_model:
+                config.image_recognition_retry_model = normalized_retry_model
+                config.updated_at = get_utc_now()
+                session.add(config)
+                session.flush()
         return config
     config = ai_config_from_settings()
     session.add(config)
@@ -116,7 +126,7 @@ class AiProvider:
     def __init__(self, session: Session):
         self.session = session
 
-    def get_profile(self, task: str) -> AiTaskProfile:
+    def get_profile(self, task: str, *, recognition_attempt: int = 1) -> AiTaskProfile:
         config = ensure_ai_config(self.session)
         if config.provider != "openai_compatible":
             raise AiProviderConfigError(f"Unsupported AI provider: {config.provider}")
@@ -126,7 +136,13 @@ class AiProvider:
             raise AiProviderConfigError("AI API key is not configured. Expected env: AI_API_KEY.")
 
         if task == AI_TASK_IMAGE_RECOGNITION:
-            model = config.image_recognition_model
+            retry_model = str(config.image_recognition_retry_model or "").strip()
+            use_retry_model = (
+                bool(config.image_recognition_retry_enabled)
+                and int(recognition_attempt or 1) > 1
+                and bool(retry_model)
+            )
+            model = retry_model if use_retry_model else config.image_recognition_model
             timeout_seconds = config.image_recognition_timeout_seconds
             temperature = config.image_recognition_temperature
             max_images_per_task = config.image_recognition_max_images_per_task
@@ -178,8 +194,9 @@ class AiProvider:
         messages: list[dict],
         response_format: Optional[Dict[str, Any]] = None,
         max_tokens: Optional[int] = None,
+        recognition_attempt: int = 1,
     ) -> Any:
-        profile = self.get_profile(task)
+        profile = self.get_profile(task, recognition_attempt=recognition_attempt)
         payload: Dict[str, Any] = {
             "model": profile.model,
             "messages": messages,

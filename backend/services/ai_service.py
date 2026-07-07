@@ -129,7 +129,12 @@ def image_path_to_model_url(value: Any) -> str:
     encoded = base64.b64encode(image_path.read_bytes()).decode("utf-8")
     return f"data:{mime};base64,{encoded}"
 
-async def recognize_images(experiment_id: str, image_paths: list[str], session: Session) -> dict:
+async def recognize_images(
+    experiment_id: str,
+    image_paths: list[str],
+    session: Session,
+    recognition_attempt: int = 1,
+) -> dict:
     from services.experimentConfigStore import get_experiment_config, collect_ai_recognition_node_ids
     
     exp_config = get_experiment_config(experiment_id)
@@ -162,6 +167,7 @@ async def recognize_images(experiment_id: str, image_paths: list[str], session: 
             task=AI_TASK_IMAGE_RECOGNITION,
             messages=messages,
             response_format={"type": "json_object"},
+            recognition_attempt=recognition_attempt,
         )
         content = response.choices[0].message.content
         result_dict = parse_json_object_from_ai_response(content)

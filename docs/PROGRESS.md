@@ -695,3 +695,30 @@
 - 相位法和驻波法表格中的单项 `λi` 结果按学校表格展示需求保留三位小数，平均 λ 仍保留两位小数。
 - AI 识别 prompt 已通过 `ui.dataTables` 自动携带表格坐标，只包含原始位置读数和频率节点，不把固定索引行、λ、平均值、声速发给模型识别。
 - 验证：`python3 -m json.tool backend/configs/exp_sound_velocity.json` 通过；`backend/venv/bin/python -m pytest backend/tests/test_experiment_formulas.py backend/tests/test_ai_prompts.py -q` 通过 16 项；执行实验配置 seed 后数据库中 `exp_sound_velocity` 关键字段与公式已抽查确认。
+
+### 电位差计配置按 PPT 修正
+
+- 参照 `assets/pdf/电位差计的原理和使用.pdf` 和电表改装标准配置，`exp_potentiometer` 补齐固定填空：图 3 面板部件对应 A/F 等标注，倍率选择为干电池 `×10`、热电偶 `×0.1`；倍率、工作电流调节和电压读数盘分别对应 PPT 图 8-1 中的 `RN/Rp/Rx` 选项序号。
+- 字段来源重新划分：热电偶 6 组 `t(℃)`、`U(mV)` 原始数据继续由 AI 识别；干电池电动势 `D2` 和室温 `D11` 按 PPT 结果/实测值改为 AI 识别并只保留短单位提示；`D7/D8/D9` 按 `U=k t+b` 线性拟合计算，`D12` 按 `b0=b+k*t'` 换算。
+- 干电池电动势显示单位由原配置的 `V` 修正为 PPT 中的 `mV`；AI prompt 通过 `ui.dataTables` 自动携带热电偶表格坐标，不把固定填空和拟合结果发给模型识别。
+- 验证：`python3 -m json.tool backend/configs/exp_potentiometer.json` 通过；`backend/venv/bin/python -m pytest backend/tests/test_ai_prompts.py backend/tests/test_experiment_formulas.py -q` 通过 18 项；实验配置 mapping 结构校验通过。
+
+### 审核预处理完成提示
+
+- 审核图片匹配弹窗启动批量预处理后，会把本次入队的 submission 交给审核任务页内存追踪；审核任务页每 3 秒轻量轮询 `review-pool`，不改变审核列表布局。
+- 单个实验 `preprocess_status` 变为 `done` 时弹出“某学生的某实验 AI预处理已完成”；变为 `failed` 或 `image_assignment_required` 时弹出失败提示并附带 `preprocess_error`。
+- 验证：`frontend/ npm run build` 通过。
+
+### 图片重复识别备用模型
+
+- `ai_config` 新增 `image_recognition_retry_enabled` 和 `image_recognition_retry_model`，Admin AI 设置页新增“重复识别切换备用模型”和备用模型输入。
+- 同一 `submission_id` 第 1 次图片识别继续使用主图片识别模型；第 2 次及以后在开关开启且备用模型非空时使用备用模型。详情页直接识别、审核预处理识别和旧任务列表识别都纳入次数统计。
+- `/api/v1/ai/recognize-direct` 返回 `recognition_attempt` 和实际使用的 `model`，并把对应信息写入 `ai_task_runs` / 审计详情，便于排查模型识别差异。
+- 新增 migration `d5e6f7a8b9c0_add_image_recognition_retry_model.py`，已执行 `alembic upgrade head`。
+- 验证：`py_compile` 相关后端文件通过；`backend/venv/bin/python -m pytest backend/tests/test_e2e_flow.py::test_admin_ai_config_uses_database_profiles_without_key_leak backend/tests/test_e2e_flow.py::test_repeated_image_recognition_uses_retry_model backend/tests/test_e2e_flow.py::test_ai_assist_task_start_logs_submission_target backend/tests/test_e2e_flow.py::test_ai_assist_worker_completion_logs_canonical_action -q` 通过 4 项；`frontend/ npm run build` 通过；`git diff --check` 通过。
+
+### 计算生成曲线图片
+
+- 新增前端通用 `computedAssets` 支持：一键计算完成后，按实验 JSON 中的图表配置生成 PNG，上传到 `/uploads`，并把图片 URL 写回对应 `image_upload` 节点和 `imageSlots`。
+- 图表配置采用“坐标轴 + 图层 + 模型参数绑定”结构，不使用 `slopeNode/interceptNode` 这类实验专用字段；线性拟合图通过 `model.parameters.slope/intercept` 绑定到已计算节点，保证页面数值和图例一致。
+- `exp_potentiometer` 的 `D10Area` 已接入自动生成“热电偶电动势-温度拟合曲线”：散点来自 `D30-* / D31-*`，拟合直线参数来自 `D7 / D8`，生成图片会自动填入学校图片答案节点。
