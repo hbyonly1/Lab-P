@@ -1014,7 +1014,11 @@ formula_compute_started / formula_compute_completed / formula_compute_failed
     {
       "experimentName": "电表的改装",
       "originalStatusText": "临时提交",
-      "schoolStatus": "school_draft_submitted"
+      "schoolStatus": "school_draft_submitted",
+      "schoolStatusSource": "school_submit_confirmed",
+      "schoolStatusSyncedAt": "2026-07-05T10:20:00Z",
+      "submissionId": "SUB-XXXX",
+      "statusConfirmation": "list_confirmed"
     }
   ]
 }
@@ -1024,7 +1028,10 @@ formula_compute_started / formula_compute_completed / formula_compute_failed
   - 没有同步记录时 `shouldSync=true`。
   - 距离最近同步超过 `syncPolicy.syncCooldownSeconds` 时 `shouldSync=true`。
   - 冷却期内 `shouldSync=false`，除非用户点击手动同步按钮并调用 `POST /overview` 的 `force=true`。
-  - `experiments` 来自最近一次学校概览快照，仅包含学生端可展示的实验名、学校原始状态文本和归一化学校状态；前端可用它合并展示“学校提交状态”，但不得用它覆盖平台 `Submission.status`。
+  - `experiments` 仍只表达学校系统状态，不得用平台 `Submission.status` 推导学校状态。
+  - 返回前会把最近一次学校概览快照与已确认的单实验提交快照合并：若某实验存在 `school_submit_confirmed` 且 `statusConfirmation=list_confirmed`，并且 `mode=draft` 对应 `school_draft_submitted` 或 `mode=final` 对应 `school_final_submitted`，则该实验的 `schoolStatus` 使用提交后回读确认结果。
+  - `schoolStatusSource` 用于标记该状态来自 `school_complete_report_list` 还是 `school_submit_confirmed`；学生实验列表左侧“学校提交状态”只能使用该接口返回的学校状态，不得用平台状态兜底。
+  - 如果提交 job 只有 `feedback_only`，说明学校弹窗反馈成功但列表状态未确认，该快照不会覆盖 `overview/latest` 中的学校状态。
 
 #### GET /api/v1/school-sync/settings
 
@@ -1344,7 +1351,7 @@ sensitive_payload
 ### 8.2 获取审核任务池 (管理员/审核员端)
 - **Endpoint**: `GET /api/v1/submissions/review-pool`
 - **限制**：**绝对禁止学生调用！** 仅限 Reviewer/Admin 角色。
-- **状态范围**：审核任务表保留处理中和已完成提交记录，返回 `pending_image_assignment`、`preparing_review`、`pending_recognition`、`recognizing`、`reviewing`、`submitting`、`draft_submitted`、`completed`、`error` 等状态；前端通过状态筛选查看“待人工审核”或“审核完成已提交”。
+- **状态范围**：审核任务表保留处理中和已完成提交记录，返回 `pending_image_assignment`、`preparing_review`、`pending_recognition`、`recognizing`、`reviewing`、`submitting`、`draft_submitted`、`completed`、`error` 等状态；前端通过状态筛选查看“待人工审核”、“已临时提交”或“正式提交完成”。
 
 ## 9. 仪表盘数据盘 (Dashboard Stats)
 **现状缺口**：`StudentDashboardPage` 以及未来的 `AdminDashboard` 上面的进度环、统计卡片需要数据。

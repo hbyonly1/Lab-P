@@ -31,47 +31,58 @@
     "fields": [
       {
         "id": "SYBZ_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "A"
       },
       {
         "id": "SYBZ_Fill_1",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "D"
       },
       {
         "id": "SYBZ_Fill_2",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "E"
       },
       {
         "id": "SYBZ_Fill_3",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "C"
       },
       {
         "id": "SYBZ_Fill_4",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "B"
       },
       {
         "id": "SYBZ_Fill_5",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "3"
       },
       {
         "id": "SYBZ_Fill_6",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "F"
       },
       {
         "id": "SYBZ_Fill_7",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "1"
       },
       {
         "id": "SYBZ_Fill_8",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "2"
       },
       {
         "id": "SYBZ_Fill_9",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "10"
       },
       {
         "id": "SYBZ_Fill_10",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "0.1"
       },
       {
         "id": "YSSJDrawingAreaArea",
@@ -85,7 +96,9 @@
       },
       {
         "id": "D2",
-        "type": "computed"
+        "type": "ai_recognize",
+        "label": "干电池电动势 Ux",
+        "recognitionHint": "单位按 mV，只返回数值，不带单位；若原始数据写成 V，换算为 mV。"
       },
       {
         "id": "D30-0",
@@ -154,7 +167,9 @@
       },
       {
         "id": "D11",
-        "type": "computed"
+        "type": "ai_recognize",
+        "label": "室温 t'",
+        "recognitionHint": "单位按 ℃，只返回数值，不带单位。"
       },
       {
         "id": "D12",
@@ -492,7 +507,7 @@
             "emptyTitle": "拖动文件到这里上传图片",
             "emptyHint": "支持多图片，可拖动上传或点击选择"
           },
-          "②读取示数，计算出干电池的电动势 U （V）=",
+          "②读取示数，计算出干电池的电动势 U（mV）=",
           {
             "nodeId": "D2",
             "width": "80px"
@@ -539,7 +554,12 @@
       "imageRef": "IMG_RAW_DATA"
     }
   },
-  "formulas": {},
+  "formulas": {
+    "D7": "format_sig(linear_slope(v('D30-0', 'D30-1', 'D30-2', 'D30-3', 'D30-4', 'D30-5'), v('D31-0', 'D31-1', 'D31-2', 'D31-3', 'D31-4', 'D31-5')), 4)",
+    "D8": "format_sig(linear_intercept(v('D30-0', 'D30-1', 'D30-2', 'D30-3', 'D30-4', 'D30-5'), v('D31-0', 'D31-1', 'D31-2', 'D31-3', 'D31-4', 'D31-5')), 4)",
+    "D9": "format_sig(linear_r2(v('D30-0', 'D30-1', 'D30-2', 'D30-3', 'D30-4', 'D30-5'), v('D31-0', 'D31-1', 'D31-2', 'D31-3', 'D31-4', 'D31-5')), 3)",
+    "D12": "format_sig(linear_intercept(v('D30-0', 'D30-1', 'D30-2', 'D30-3', 'D30-4', 'D30-5'), v('D31-0', 'D31-1', 'D31-2', 'D31-3', 'D31-4', 'D31-5')) + linear_slope(v('D30-0', 'D30-1', 'D30-2', 'D30-3', 'D30-4', 'D30-5'), v('D31-0', 'D31-1', 'D31-2', 'D31-3', 'D31-4', 'D31-5')) * v('D11'), 4)"
+  },
   "automation": {
     "mappings": [
       {

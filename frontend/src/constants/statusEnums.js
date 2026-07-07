@@ -8,7 +8,7 @@ export const STATUS_META = {
   preparing_review: { label: 'AI 预处理中', color: 'purple', tone: 'processing' },
   reviewing: { label: '待人工审核', color: 'processing', tone: 'processing' },
   submitting: { label: '自动填写中', color: 'blue', tone: 'processing' },
-  completed: { label: '审核完成已提交', color: 'success', tone: 'completed' },
+  completed: { label: '正式提交完成', color: 'success', tone: 'completed' },
   error: { label: '处理异常', color: 'error', tone: 'failed' },
 };
 
@@ -19,6 +19,13 @@ export const OVERALL_STATUS_META = {
   completed: { label: '全部已完成', color: 'success', tone: 'completed' },
 };
 export const OVERALL_STATUS_LIST = Object.keys(OVERALL_STATUS_META);
+
+export const REVIEW_STATUS_META = {
+  incomplete: { label: '未完成', color: 'gold', tone: 'pending' },
+  completed: { label: '完成', color: 'success', tone: 'completed' },
+};
+export const REVIEW_STATUS_LIST = Object.keys(REVIEW_STATUS_META);
+export const REVIEW_COMPLETED_SUBMISSION_STATUSES = ['draft_submitted', 'completed'];
 
 export const ORDER_STATUS_META = {
   pending_payment: { label: '待核实', tone: 'pending', color: 'orange' },

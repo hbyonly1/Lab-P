@@ -17,11 +17,13 @@
     "fields": [
       {
         "id": "SYMD_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "示波器"
       },
       {
         "id": "SYMD_Fill_1",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "信号发生器"
       },
       {
         "id": "YSSJDrawingAreaArea",
@@ -50,23 +52,28 @@
       },
       {
         "id": "S11-0",
-        "type": "ai_recognize"
+        "type": "fixed",
+        "value": "6"
       },
       {
         "id": "S11-1",
-        "type": "ai_recognize"
+        "type": "fixed",
+        "value": "7"
       },
       {
         "id": "S11-2",
-        "type": "ai_recognize"
+        "type": "fixed",
+        "value": "8"
       },
       {
         "id": "S11-3",
-        "type": "ai_recognize"
+        "type": "fixed",
+        "value": "9"
       },
       {
         "id": "S11-4",
-        "type": "ai_recognize"
+        "type": "fixed",
+        "value": "10"
       },
       {
         "id": "S12-0",
@@ -90,27 +97,29 @@
       },
       {
         "id": "S13-0",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "S13-1",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "S13-2",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "S13-3",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "S13-4",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "S2",
-        "type": "computed"
+        "type": "ai_recognize",
+        "label": "相位法谐振频率 f",
+        "recognitionHint": "单位按 kHz，只返回数值，不带单位；若原始数据只写一个 f0，使用该频率。"
       },
       {
         "id": "S3",
@@ -138,19 +147,23 @@
       },
       {
         "id": "S51-0",
-        "type": "ai_recognize"
+        "type": "fixed",
+        "value": "5"
       },
       {
         "id": "S51-1",
-        "type": "ai_recognize"
+        "type": "fixed",
+        "value": "6"
       },
       {
         "id": "S51-2",
-        "type": "ai_recognize"
+        "type": "fixed",
+        "value": "7"
       },
       {
         "id": "S51-3",
-        "type": "ai_recognize"
+        "type": "fixed",
+        "value": "8"
       },
       {
         "id": "S52-0",
@@ -170,23 +183,25 @@
       },
       {
         "id": "S53-0",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "S53-1",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "S53-2",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "S53-3",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "S6",
-        "type": "computed"
+        "type": "ai_recognize",
+        "label": "驻波法谐振频率 f",
+        "recognitionHint": "单位按 kHz，只返回数值，不带单位；若原始数据只写一个 f0，使用该频率。"
       },
       {
         "id": "S7",
@@ -198,11 +213,13 @@
       },
       {
         "id": "OP_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "0.5"
       },
       {
         "id": "OP1_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "π"
       }
     ]
   },
@@ -444,19 +461,24 @@
                 "text": "i+5"
               },
               {
-                "nodeId": "S11-0"
+                "nodeId": "S11-0",
+                "text": "6"
               },
               {
-                "nodeId": "S11-1"
+                "nodeId": "S11-1",
+                "text": "7"
               },
               {
-                "nodeId": "S11-2"
+                "nodeId": "S11-2",
+                "text": "8"
               },
               {
-                "nodeId": "S11-3"
+                "nodeId": "S11-3",
+                "text": "9"
               },
               {
-                "nodeId": "S11-4"
+                "nodeId": "S11-4",
+                "text": "10"
               }
             ]
           },
@@ -558,16 +580,20 @@
                 "text": "i+4"
               },
               {
-                "nodeId": "S51-0"
+                "nodeId": "S51-0",
+                "text": "5"
               },
               {
-                "nodeId": "S51-1"
+                "nodeId": "S51-1",
+                "text": "6"
               },
               {
-                "nodeId": "S51-2"
+                "nodeId": "S51-2",
+                "text": "7"
               },
               {
-                "nodeId": "S51-3"
+                "nodeId": "S51-3",
+                "text": "8"
               }
             ]
           },
@@ -703,7 +729,21 @@
       "imageRef": "IMG_RAW_DATA"
     }
   },
-  "formulas": {},
+  "formulas": {
+    "S13-0": "format_fixed((v('S12-0') - v('S10-0')) / 5, 3)",
+    "S13-1": "format_fixed((v('S12-1') - v('S10-1')) / 5, 3)",
+    "S13-2": "format_fixed((v('S12-2') - v('S10-2')) / 5, 3)",
+    "S13-3": "format_fixed((v('S12-3') - v('S10-3')) / 5, 3)",
+    "S13-4": "format_fixed((v('S12-4') - v('S10-4')) / 5, 3)",
+    "S3": "format_fixed((((v('S12-0') - v('S10-0')) / 5) + ((v('S12-1') - v('S10-1')) / 5) + ((v('S12-2') - v('S10-2')) / 5) + ((v('S12-3') - v('S10-3')) / 5) + ((v('S12-4') - v('S10-4')) / 5)) / 5, 2)",
+    "S4": "format_sig(v('S2') * ((((v('S12-0') - v('S10-0')) / 5) + ((v('S12-1') - v('S10-1')) / 5) + ((v('S12-2') - v('S10-2')) / 5) + ((v('S12-3') - v('S10-3')) / 5) + ((v('S12-4') - v('S10-4')) / 5)) / 5), 4)",
+    "S53-0": "format_fixed((v('S52-0') - v('S50-0')) / 2, 3)",
+    "S53-1": "format_fixed((v('S52-1') - v('S50-1')) / 2, 3)",
+    "S53-2": "format_fixed((v('S52-2') - v('S50-2')) / 2, 3)",
+    "S53-3": "format_fixed((v('S52-3') - v('S50-3')) / 2, 3)",
+    "S7": "format_fixed((((v('S52-0') - v('S50-0')) / 2) + ((v('S52-1') - v('S50-1')) / 2) + ((v('S52-2') - v('S50-2')) / 2) + ((v('S52-3') - v('S50-3')) / 2)) / 4, 2)",
+    "S8": "format_sig(v('S6') * ((((v('S52-0') - v('S50-0')) / 2) + ((v('S52-1') - v('S50-1')) / 2) + ((v('S52-2') - v('S50-2')) / 2) + ((v('S52-3') - v('S50-3')) / 2)) / 4), 4)"
+  },
   "automation": {
     "mappings": [
       {

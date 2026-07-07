@@ -21,7 +21,7 @@ import { submitOneClickExperimentBatch } from '../../../utils/oneClickSubmitUtil
 const SCHOOL_STATUS_META = {
   school_not_submitted: { label: '未提交', tone: 'pending' },
   school_draft_submitted: { label: '临时提交', tone: 'processing' },
-  school_final_submitted: { label: '正常提交', tone: 'completed' },
+  school_final_submitted: { label: '正式提交', tone: 'completed' },
   school_unknown: { label: '未识别', tone: 'pending' },
   school_not_synced: { label: '未同步', tone: 'pending' },
 };
@@ -71,7 +71,8 @@ export default function StudentExperimentsPage() {
           ...experiment,
           schoolStatus: snapshot?.schoolStatus || 'school_not_synced',
           originalStatusText: snapshot?.originalStatusText || '',
-          schoolStatusSyncedAt: overviewLatest.lastSyncedAt || null,
+          schoolStatusSource: snapshot?.schoolStatusSource || 'school_complete_report_list',
+          schoolStatusSyncedAt: snapshot?.schoolStatusSyncedAt || overviewLatest.lastSyncedAt || null,
         };
       });
 

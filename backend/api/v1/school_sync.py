@@ -1,3 +1,4 @@
+import copy
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
@@ -143,17 +144,134 @@ def _latest_overview_snapshot(session: Session, user_id: int) -> Optional[School
     ).first()
 
 
+def _normalized_experiment_name(value: Any) -> str:
+    return "".join(str(value or "").split())
+
+
+def _submit_confirmed_status_matches(summary: Dict[str, Any]) -> bool:
+    mode = summary.get("mode")
+    school_status = summary.get("schoolStatus")
+    if mode == "draft":
+        return school_status == "school_draft_submitted"
+    if mode == "final":
+        return school_status == "school_final_submitted"
+    return False
+
+
+def _latest_confirmed_submit_snapshots(session: Session, user_id: int) -> list[SchoolSyncSnapshot]:
+    snapshots = session.exec(
+        select(SchoolSyncSnapshot)
+        .where(SchoolSyncSnapshot.user_id == user_id)
+        .where(SchoolSyncSnapshot.submission_id != None)  # noqa: E711
+        .where(SchoolSyncSnapshot.experiment_id != None)  # noqa: E711
+        .order_by(SchoolSyncSnapshot.synced_at.desc())
+    ).all()
+    latest_by_experiment: Dict[str, SchoolSyncSnapshot] = {}
+    for snapshot in snapshots:
+        summary = snapshot.summary_json or {}
+        if summary.get("source") != "school_submit_confirmed":
+            continue
+        if summary.get("statusConfirmation") != "list_confirmed":
+            continue
+        if not _submit_confirmed_status_matches(summary):
+            continue
+        key = snapshot.experiment_id or _normalized_experiment_name(summary.get("experimentName"))
+        if key and key not in latest_by_experiment:
+            latest_by_experiment[key] = snapshot
+    return list(latest_by_experiment.values())
+
+
+def _experiment_from_submit_snapshot(snapshot: SchoolSyncSnapshot) -> Dict[str, Any]:
+    summary = snapshot.summary_json or {}
+    status = (snapshot.snapshot_json or {}).get("status") or {}
+    experiment_name = summary.get("experimentName") or status.get("experimentName") or snapshot.experiment_id
+    return {
+        "experimentId": snapshot.experiment_id,
+        "experimentName": experiment_name,
+        "originalStatusText": summary.get("originalStatusText") or status.get("originalStatusText") or "",
+        "schoolStatus": summary.get("schoolStatus") or status.get("schoolStatus") or "school_unknown",
+        "schoolStatusSource": "school_submit_confirmed",
+        "schoolStatusSyncedAt": snapshot.synced_at,
+        "submissionId": snapshot.submission_id,
+        "statusConfirmation": summary.get("statusConfirmation"),
+    }
+
+
+def _recalculate_school_status_summary(summary: Dict[str, Any], experiments: list[Dict[str, Any]]) -> Dict[str, Any]:
+    next_summary = dict(summary or {})
+    draft_count = sum(1 for item in experiments if item.get("schoolStatus") == "school_draft_submitted")
+    final_count = sum(1 for item in experiments if item.get("schoolStatus") == "school_final_submitted")
+    unsubmitted_count = sum(1 for item in experiments if item.get("schoolStatus") == "school_not_submitted")
+    unknown_count = sum(
+        1
+        for item in experiments
+        if item.get("schoolStatus") not in ["school_not_submitted", "school_draft_submitted", "school_final_submitted"]
+    )
+    next_summary.update(
+        {
+            "total": len(experiments),
+            "completed": draft_count + final_count,
+            "unsubmitted": unsubmitted_count,
+            "draftSubmitted": draft_count,
+            "finalSubmitted": final_count,
+            "unknown": unknown_count,
+        }
+    )
+    return next_summary
+
+
+def _merge_confirmed_submit_statuses(
+    experiments: list[Dict[str, Any]],
+    confirmed_snapshots: list[SchoolSyncSnapshot],
+) -> list[Dict[str, Any]]:
+    merged = [dict(item) for item in experiments]
+    index_by_name = {
+        _normalized_experiment_name(item.get("experimentName")): idx
+        for idx, item in enumerate(merged)
+        if _normalized_experiment_name(item.get("experimentName"))
+    }
+    index_by_experiment_id = {
+        str(item.get("experimentId")): idx
+        for idx, item in enumerate(merged)
+        if item.get("experimentId")
+    }
+
+    for snapshot in confirmed_snapshots:
+        confirmed_item = _experiment_from_submit_snapshot(snapshot)
+        name_key = _normalized_experiment_name(confirmed_item.get("experimentName"))
+        experiment_id_key = str(snapshot.experiment_id) if snapshot.experiment_id else ""
+        target_idx = index_by_experiment_id.get(experiment_id_key)
+        if target_idx is None:
+            target_idx = index_by_name.get(name_key)
+
+        if target_idx is None:
+            index_by_name[name_key] = len(merged)
+            if experiment_id_key:
+                index_by_experiment_id[experiment_id_key] = len(merged)
+            merged.append(confirmed_item)
+            continue
+
+        merged[target_idx] = {
+            **merged[target_idx],
+            **confirmed_item,
+            "experimentName": merged[target_idx].get("experimentName") or confirmed_item.get("experimentName"),
+        }
+    return merged
+
+
 def _overview_latest_data(session: Session, user_id: int) -> SchoolOverviewLatest:
     cooldown_seconds = _sync_cooldown_seconds(session)
     latest = _latest_overview_snapshot(session, user_id)
+    confirmed_snapshots = _latest_confirmed_submit_snapshots(session, user_id)
     if not latest:
+        experiments = _merge_confirmed_submit_statuses([], confirmed_snapshots)
         return SchoolOverviewLatest(
             lastSyncedAt=None,
             shouldSync=True,
             cooldownSeconds=cooldown_seconds,
             remainingCooldownSeconds=0,
-            summary={},
-            experiments=[],
+            summary=_recalculate_school_status_summary({}, experiments) if experiments else {},
+            experiments=experiments,
         )
 
     latest_synced_at = latest.synced_at
@@ -161,13 +279,17 @@ def _overview_latest_data(session: Session, user_id: int) -> SchoolOverviewLates
         latest_synced_at = latest_synced_at.replace(tzinfo=timezone.utc)
     elapsed = max(int((get_utc_now() - latest_synced_at).total_seconds()), 0)
     remaining = max(cooldown_seconds - elapsed, 0)
+    experiments = _merge_confirmed_submit_statuses(
+        copy.deepcopy((latest.snapshot_json or {}).get("experiments") or []),
+        confirmed_snapshots,
+    )
     return SchoolOverviewLatest(
         lastSyncedAt=latest.synced_at,
         shouldSync=remaining == 0,
         cooldownSeconds=cooldown_seconds,
         remainingCooldownSeconds=remaining,
-        summary=latest.summary_json or {},
-        experiments=(latest.snapshot_json or {}).get("experiments") or [],
+        summary=_recalculate_school_status_summary(latest.summary_json or {}, experiments),
+        experiments=experiments,
     )
 
 

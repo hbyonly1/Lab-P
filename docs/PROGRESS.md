@@ -624,7 +624,7 @@
 - 验证：`backend/venv/bin/python -m pytest backend/tests/test_e2e_flow.py -q` 通过 43 项；`frontend/ npm run build` 通过；`git diff --check` 通过。
 - 遗留：预处理进度当前通过 submission 字段表达，尚未升级为 public job；匹配弹窗后续可继续增强跨实验图片池、键盘操作和更完整的缩放平移预览体验。
 - 审核图片匹配弹窗修正：页面文案统一使用“图片匹配”；弹窗改为复用一键批量提交的全屏 Modal 壳，标题和底部按钮固定，中间工作区滚动；右侧图片槽改为复用实验详情页同一个 `ExperimentImageUploader`，避免重复造槽位 UI；学生上传缩略图改为走统一上传 URL 解析，修复 `/uploads/...` 缩略图不显示；关闭弹窗时增加 `batch` 空值保护，避免点击叉号崩溃。
-- 审核完成后续状态补齐：审核任务池保留 `draft_submitted` 和 `completed` 记录，前端状态文案将 `reviewing` 显示为“待人工审核”、`completed` 显示为“审核完成已提交”；学生最近操作会展示 target 指向其 submission/order 的完成类日志。
+- 审核完成后续状态补齐：审核任务池保留 `draft_submitted` 和 `completed` 记录，前端状态文案将 `reviewing` 显示为“待人工审核”、`completed` 显示为“正式提交完成”；学生最近操作会展示 target 指向其 submission/order 的完成类日志。
 - 学校提交 audit action 统一为 `school_draft_submit_started/completed/failed` 和 `school_final_submit_started/completed/failed`；提交类日志 `target_id` 统一指向 submission id，job id 仅保留在 details 诊断文本中，不再兼容旧的通用 submit action。
 - 光电效应配置补齐：参照电表改装的配置驱动识别方式，`exp_photoelectric_planck` 删除逐节点 `nodeHints` 长说明，依赖 `ui.dataTables` 自动生成表格 `node_matrix`；仅用实验级 `ai.recognition.extraPrompt` 补充表1/表2电流单位系数换算和表3截止电压保留正负号。学校系统自带的电压行 `G11-*` 与频率行 `G60-*` 不再作为平台字段、识别字段或自动填报 mapping。
 - 验证：`backend/venv/bin/python -m pytest tests/test_ai_prompts.py tests/test_experiment_formulas.py` 通过 12 项；光电识别 prompt 预览确认只包含表结构映射和实验级补充说明，不再输出 `G10-0:` 这类逐节点提示。
@@ -675,3 +675,23 @@
 - 修复 `ui.dataTables` 中“表头行 + 数据行 + 第二段表头行 + 第二段数据行”的 AI 字段映射：后端现在会把无 `nodeId` 的多文本行识别为局部坐标轴，并拆成多段 `table` 映射，避免光电效应表 1 的第二排 `G12-*` 因缺少 `6,8,10...30` 列坐标而被模型当成重复行漏填。
 - 光电效应识别 prompt 现在分别输出 `G10-*` 对应 `cols=[-1.5,...,5]` 和 `G12-*` 对应 `cols=[6,8,10,13,16,19,22,26,30]`；表 3 的波长/频率双行坐标也会合并为 `365/8.214` 等列标签。
 - 验证：`backend/venv/bin/python -m pytest backend/tests/test_ai_prompts.py -q` 通过 12 项；`python3 -m py_compile backend/core/ai_prompts.py backend/tests/test_ai_prompts.py` 通过；`git diff --check` 通过。
+
+### 审核任务审核状态筛选
+
+- 审核任务页将原“总进度”改为“审核状态”，避免和后续学生维度“所有实验是否全部提交”的总览混淆；批次和单实验均基于现有 `submission.status` 派生审核状态，不新增数据库字段。
+- `draft_submitted` 和 `completed` 均视为审核完成，其余状态视为未完成；审核状态筛选支持完成 / 未完成，选择未完成时展开行只显示未完成单实验。
+- 新增 `docs/STUDENT_ACCOUNT_EXPERIMENT_STATUS_OVERVIEW_PLAN.md`，记录后续 admin 学生账户与实验提交状态总览页方案，用于查看所有同学账户状态、学校同步状态和是否全部提交。
+
+### 学校提交确认状态接入学生实验列表
+
+- `GET /api/v1/school-sync/overview/latest` 现在会在最近学校总览快照基础上合并已回读确认的单实验提交快照：只有 `school_submit_confirmed` 且 `statusConfirmation=list_confirmed`、学校状态与提交模式匹配的记录才会覆盖对应实验的学校状态。
+- 学生实验列表的“学校提交状态”仍只使用学校状态数据源，不使用平台 `Submission.status` 兜底；临时提交成功后，即使未重新跑总览同步，也能显示提交链路回读确认到的 `school_draft_submitted`。
+- 平台状态文案修正：`completed` 显示为“正式提交完成”，学校 `school_final_submitted` 显示为“正式提交”。
+
+### 声速测量配置按 PPT 修正
+
+- 参照 `assets/pdf/声速测量.pdf` 和实验 AI Prompt 配置指南，`exp_sound_velocity` 重新划分字段来源：相位法/驻波法的位置读数和谐振频率由 AI 识别，PPT 中固定的 `i+5=6..10`、`i+4=5..8`、仪器名称和思考题固定答案由配置固定填入。
+- 按 PPT 数据处理要求新增声速公式：相位法 `λi=(li+5-li)/5`、`λ平均=Σλi/5`、`v=fλ`；驻波法 `λi=(li+4-li)/2`、`λ平均=Σλi/4`、`v=fλ`。均值和声速公式直接引用原始读数，避免被单元格显示格式字符串影响。
+- 相位法和驻波法表格中的单项 `λi` 结果按学校表格展示需求保留三位小数，平均 λ 仍保留两位小数。
+- AI 识别 prompt 已通过 `ui.dataTables` 自动携带表格坐标，只包含原始位置读数和频率节点，不把固定索引行、λ、平均值、声速发给模型识别。
+- 验证：`python3 -m json.tool backend/configs/exp_sound_velocity.json` 通过；`backend/venv/bin/python -m pytest backend/tests/test_experiment_formulas.py backend/tests/test_ai_prompts.py -q` 通过 16 项；执行实验配置 seed 后数据库中 `exp_sound_velocity` 关键字段与公式已抽查确认。

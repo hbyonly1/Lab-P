@@ -12,7 +12,13 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { PageHeading, TablePanel, OutlineButton, StatusBadge } from '../../../components/ui/index.js';
-import { STATUS_META, STATUS_LIST, OVERALL_STATUS_LIST, OVERALL_STATUS_META } from '../../../constants/statusEnums.js';
+import {
+  STATUS_META,
+  STATUS_LIST,
+  REVIEW_STATUS_LIST,
+  REVIEW_STATUS_META,
+  REVIEW_COMPLETED_SUBMISSION_STATUSES,
+} from '../../../constants/statusEnums.js';
 
 import { getReviewPool, approveSubmission } from '../../../services/submissionsApi.js';
 import { triggerSubmissionRecognition } from '../../../services/aiApi.js';
@@ -20,6 +26,10 @@ import { experimentsApi } from '../../../services/experimentsApi.js';
 import { ReviewBatchImageAssignmentModal } from '../../../components/reviewer/ReviewBatchImageAssignmentModal.jsx';
 
 const { Option } = Select;
+
+const resolveReviewStatus = (submissionStatus) => (
+  REVIEW_COMPLETED_SUBMISSION_STATUSES.includes(submissionStatus) ? 'completed' : 'incomplete'
+);
 
 export default function ReviewerTasksPage() {
   const navigate = useNavigate();
@@ -49,7 +59,7 @@ export default function ReviewerTasksPage() {
             batch_id: batchId,
             student_id: String(sub.student_username), // UI labels it "student_id" but actually shows username
             name: sub.student_name || '姓名未同步',
-            overall_status: 'incomplete', // default, evaluate below
+            review_status: 'incomplete', // default, evaluate below
             image_count: 0,
             assigned_image_count: 0,
             experiments: []
@@ -62,6 +72,7 @@ export default function ReviewerTasksPage() {
           submission_id: sub.id,
           name: configMap[sub.experiment_id] || sub.experiment_id,
           status: sub.status,
+          review_status: resolveReviewStatus(sub.status),
           batch_id: batchId,
           image_count: sub.image_count || 0,
           assigned_image_count: sub.assigned_image_count || 0,
@@ -73,10 +84,10 @@ export default function ReviewerTasksPage() {
         });
       });
 
-      // Evaluate overall_status
+      // Evaluate review_status at batch level.
       const formattedTasks = Object.values(groups).map(g => {
-        const allCompleted = g.experiments.every(e => e.status === 'completed');
-        g.overall_status = allCompleted ? 'completed' : 'incomplete';
+        const allReviewed = g.experiments.length > 0 && g.experiments.every(e => e.review_status === 'completed');
+        g.review_status = allReviewed ? 'completed' : 'incomplete';
         return g;
       });
 
@@ -95,23 +106,27 @@ export default function ReviewerTasksPage() {
   // Metrics calculation
   const allExperiments = reviewTasks.flatMap(task => task.experiments);
   const total = allExperiments.length;
-  const pending = allExperiments.filter(item => ['not_started', 'incomplete', 'recognizing', 'pending_image_assignment', 'preparing_review'].includes(item.status)).length;
+  const pending = allExperiments.filter(item => item.review_status !== 'completed').length;
   const reviewing = allExperiments.filter(item => item.status === 'reviewing').length;
-  const completed = allExperiments.filter(item => item.status === 'completed').length;
+  const completed = allExperiments.filter(item => item.review_status === 'completed').length;
 
   const [searchText, setSearchText] = useState('');
-  const [overallStatusFilter, setOverallStatusFilter] = useState('');
+  const [reviewStatusFilter, setReviewStatusFilter] = useState('');
   const [expStatusFilter, setExpStatusFilter] = useState('');
   const [expandedRowKeys, setExpandedRowKeys] = useState([]);
 
   // Filter Data
   const filteredData = reviewTasks.reduce((acc, item) => {
     const matchSearch = item.student_id.includes(searchText) || item.name.includes(searchText);
-    const matchOverall = overallStatusFilter ? item.overall_status === overallStatusFilter : true;
+    const matchReview = reviewStatusFilter ? item.review_status === reviewStatusFilter : true;
 
-    if (matchSearch && matchOverall) {
-      if (expStatusFilter) {
-        const matchingExps = item.experiments.filter(exp => exp.status === expStatusFilter);
+    if (matchSearch && matchReview) {
+      if (expStatusFilter || reviewStatusFilter === 'incomplete') {
+        const matchingExps = item.experiments.filter(exp => {
+          const matchExpStatus = expStatusFilter ? exp.status === expStatusFilter : true;
+          const matchExpReview = reviewStatusFilter === 'incomplete' ? exp.review_status === reviewStatusFilter : true;
+          return matchExpStatus && matchExpReview;
+        });
         if (matchingExps.length > 0) {
           acc.push({ ...item, experiments: matchingExps });
         }
@@ -123,13 +138,13 @@ export default function ReviewerTasksPage() {
   }, []);
 
   useEffect(() => {
-    if (expStatusFilter) {
+    if (expStatusFilter || reviewStatusFilter) {
       setExpandedRowKeys(filteredData.map(item => item.row_key));
     } else {
       // Optional: Collapse all when filter is cleared, or leave as is. We'll collapse.
       setExpandedRowKeys([]);
     }
-  }, [expStatusFilter]); // We specifically only want to trigger this when the filter itself changes.
+  }, [expStatusFilter, reviewStatusFilter]); // We specifically only want to trigger this when the filter itself changes.
 
   const handleActionClick = async (action, exp) => {
     if (action === 'submit') {
@@ -176,6 +191,16 @@ export default function ReviewerTasksPage() {
         align: 'center',
         render: (status) => {
           const meta = STATUS_META[status] ?? STATUS_META.not_started;
+          return <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>;
+        }
+      },
+      {
+        title: '审核状态',
+        dataIndex: 'review_status',
+        key: 'review_status',
+        align: 'center',
+        render: (status) => {
+          const meta = REVIEW_STATUS_META[status] ?? REVIEW_STATUS_META.incomplete;
           return <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>;
         }
       },
@@ -243,11 +268,11 @@ export default function ReviewerTasksPage() {
       render: (_, record) => `${record.assigned_image_count || 0}/${record.image_count || 0}`
     },
     {
-      title: '总进度',
-      dataIndex: 'overall_status',
-      key: 'overall_status',
+      title: '审核状态',
+      dataIndex: 'review_status',
+      key: 'review_status',
       render: (status) => {
-        const meta = OVERALL_STATUS_META[status] ?? OVERALL_STATUS_META.incomplete;
+        const meta = REVIEW_STATUS_META[status] ?? REVIEW_STATUS_META.incomplete;
         return <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>;
       }
     },
@@ -278,7 +303,7 @@ export default function ReviewerTasksPage() {
         <article className="dashboard-metric-card is-amber">
           <span className="metric-icon"><ClockCircleOutlined /></span>
           <div>
-            <span className="metric-label-row"><span>未完成</span></span>
+            <span className="metric-label-row"><span>审核未完成</span></span>
             <strong>{pending}</strong>
           </div>
         </article>
@@ -292,7 +317,7 @@ export default function ReviewerTasksPage() {
         <article className="dashboard-metric-card is-violet">
           <span className="metric-icon"><CheckCircleOutlined /></span>
           <div>
-            <span className="metric-label-row"><span>已完成</span></span>
+            <span className="metric-label-row"><span>审核完成</span></span>
             <strong>{completed}</strong>
           </div>
         </article>
@@ -310,14 +335,14 @@ export default function ReviewerTasksPage() {
               style={{ width: 200 }}
             />
             <Select
-              placeholder="总进度筛选"
+              placeholder="审核状态筛选"
               style={{ width: 140 }}
               allowClear
-              value={overallStatusFilter}
-              onChange={setOverallStatusFilter}
+              value={reviewStatusFilter}
+              onChange={setReviewStatusFilter}
             >
-              {OVERALL_STATUS_LIST.map(key => (
-                <Option key={key} value={key}>{OVERALL_STATUS_META[key].label}</Option>
+              {REVIEW_STATUS_LIST.map(key => (
+                <Option key={key} value={key}>{REVIEW_STATUS_META[key].label}</Option>
               ))}
             </Select>
             <Select

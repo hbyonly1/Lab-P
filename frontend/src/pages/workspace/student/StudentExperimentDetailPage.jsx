@@ -223,7 +223,7 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
             'recognizing': { label: '处理中', tone: 'blue' },
             'reviewing': { label: '审核中', tone: 'amber' },
             'submitting': { label: '提交中', tone: 'blue' },
-            'completed': { label: '已完成', tone: 'green' },
+            'completed': { label: '正式提交完成', tone: 'green' },
             'error': { label: '失败', tone: 'red' },
           };
           setStatus(statusMap[latest.status] || { label: latest.status, tone: 'default' });
@@ -1098,7 +1098,7 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
         onJobUpdate={(job) => {
           if (job.status === 'succeeded') {
             setStatus(job.action === 'final_submit'
-              ? { label: '已完成', tone: 'green' }
+              ? { label: '正式提交完成', tone: 'green' }
               : { label: '已临时提交', tone: 'blue' });
           } else if (job.status === 'failed') {
             setStatus({ label: '提交失败', tone: 'red' });
@@ -1108,7 +1108,7 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
           setIsAutomationModalOpen(false);
           if (job?.status === 'succeeded') {
             setStatus(job.action === 'final_submit'
-              ? { label: '已完成', tone: 'green' }
+              ? { label: '正式提交完成', tone: 'green' }
               : { label: '已临时提交', tone: 'blue' });
           } else if (job?.status === 'failed') {
             setStatus({ label: '提交失败', tone: 'red' });

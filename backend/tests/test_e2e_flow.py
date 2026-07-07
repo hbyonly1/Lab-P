@@ -1733,6 +1733,89 @@ def test_school_overview_sync_creates_public_job(student_token, monkeypatch):
         assert "school_overview_sync_completed" in actions
 
 
+def test_school_overview_latest_merges_list_confirmed_submit_snapshot(student_token):
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id == student.id))
+        session.exec(delete(Submission).where(Submission.id == "SUB-OVERVIEW-MERGE"))
+        now = get_utc_now()
+        submission = Submission(
+            id="SUB-OVERVIEW-MERGE",
+            student_id=student.id,
+            experiment_id="exp_e2e_flow_unique",
+            status="draft_submitted",
+            payment_status="not_required",
+            corrected_json={"experiment_name": "Test Exp E2E", "values": {}},
+        )
+        session.add(submission)
+        session.flush()
+        session.add(
+            SchoolSyncSnapshot(
+                user_id=student.id,
+                snapshot_json={
+                    "source": "school_complete_report_list",
+                    "experiments": [
+                        {
+                            "experimentName": "Test Exp E2E",
+                            "originalStatusText": "未提交",
+                            "schoolStatus": "school_not_submitted",
+                        }
+                    ],
+                },
+                summary_json={
+                    "source": "school_complete_report_list",
+                    "total": 1,
+                    "completed": 0,
+                    "unsubmitted": 1,
+                    "draftSubmitted": 0,
+                    "finalSubmitted": 0,
+                    "unknown": 0,
+                },
+                synced_at=now,
+            )
+        )
+        session.add(
+            SchoolSyncSnapshot(
+                user_id=student.id,
+                submission_id=submission.id,
+                experiment_id=submission.experiment_id,
+                snapshot_json={
+                    "source": "school_submit_confirmed",
+                    "status": {
+                        "experimentName": "Test Exp E2E",
+                        "originalStatusText": "临时提交",
+                        "schoolStatus": "school_draft_submitted",
+                    },
+                },
+                summary_json={
+                    "source": "school_submit_confirmed",
+                    "mode": "draft",
+                    "submitAccepted": True,
+                    "statusConfirmation": "list_confirmed",
+                    "experimentName": "Test Exp E2E",
+                    "originalStatusText": "临时提交",
+                    "schoolStatus": "school_draft_submitted",
+                },
+                synced_at=now,
+            )
+        )
+        session.commit()
+
+    res = client.get(
+        "/api/v1/school-sync/overview/latest",
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert res.status_code == 200, res.text
+    latest = res.json()
+    assert latest["experiments"][0]["experimentName"] == "Test Exp E2E"
+    assert latest["experiments"][0]["schoolStatus"] == "school_draft_submitted"
+    assert latest["experiments"][0]["schoolStatusSource"] == "school_submit_confirmed"
+    assert latest["experiments"][0]["statusConfirmation"] == "list_confirmed"
+    assert latest["summary"]["completed"] == 1
+    assert latest["summary"]["unsubmitted"] == 0
+    assert latest["summary"]["draftSubmitted"] == 1
+
+
 def test_school_overview_sync_blocks_parallel_jobs(student_token):
     with next(get_session()) as session:
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()

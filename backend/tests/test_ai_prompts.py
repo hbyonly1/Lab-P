@@ -99,6 +99,55 @@ def test_photoelectric_prompt_uses_table_mapping_and_experiment_extra_prompt():
     assert "G10-0:" not in prompt
 
 
+def test_sound_velocity_prompt_only_requests_raw_ppt_values():
+    config_path = Path(__file__).resolve().parents[1] / "configs" / "exp_sound_velocity.json"
+    config = json.loads(config_path.read_text())
+    recognition_ids = [
+        field["id"]
+        for field in config["inputs"]["fields"]
+        if field.get("type") == "ai_recognize"
+    ]
+
+    prompt = build_recognition_prompt(config, recognition_ids)
+
+    assert "node_matrix=[[S10-0,S10-1,S10-2,S10-3,S10-4],[S12-0,S12-1,S12-2,S12-3,S12-4]]" in prompt
+    assert "node_matrix=[[S50-0,S50-1,S50-2,S50-3],[S52-0,S52-1,S52-2,S52-3]]" in prompt
+    assert "S2: 单位按 kHz" in prompt
+    assert "S6: 单位按 kHz" in prompt
+    assert "S11-0" not in prompt
+    assert "S51-0" not in prompt
+    assert "S13-0" not in prompt
+    assert "S53-0" not in prompt
+    assert "S3" not in prompt
+    assert "S4" not in prompt
+    assert "S7" not in prompt
+    assert "S8" not in prompt
+
+
+def test_potentiometer_prompt_uses_ppt_raw_values_only():
+    config_path = Path(__file__).resolve().parents[1] / "configs" / "exp_potentiometer.json"
+    config = json.loads(config_path.read_text())
+    recognition_ids = [
+        field["id"]
+        for field in config["inputs"]["fields"]
+        if field.get("type") == "ai_recognize"
+    ]
+
+    prompt = build_recognition_prompt(config, recognition_ids)
+
+    assert "row_axis=n" in prompt
+    assert "row_labels=[t（℃）,U（mV）]" in prompt
+    assert "cols=[1,2,3,4,5,6]" in prompt
+    assert "node_matrix=[[D30-0,D30-1,D30-2,D30-3,D30-4,D30-5],[D31-0,D31-1,D31-2,D31-3,D31-4,D31-5]]" in prompt
+    assert "D2: 单位按 mV" in prompt
+    assert "D11: 单位按 ℃" in prompt
+    assert "D7" not in prompt
+    assert "D8" not in prompt
+    assert "D9" not in prompt
+    assert "D12" not in prompt
+    assert "SYBZ_Fill_0" not in prompt
+
+
 def test_recognition_prompt_ignores_database_extra_prompt():
     class LegacyTemplate:
         recognition_system_prompt = None
