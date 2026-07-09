@@ -1,6 +1,84 @@
 # Progress
 
+## 2026-07-09
+
+### 上传图片自动转码
+
+- `POST /api/v1/files/upload` 新增图片转码链路：常规 `jpg/png/webp/gif/bmp` 继续按原格式保存；非常规图片会尝试用 Pillow / pillow-heif 解码并转为 jpg 保存。
+- 上传接口放宽图片判断：允许 `heic/heif/tif/tiff/mpo/avif` 等图片扩展名进入真实解码校验，不能解码时返回明确 `415`，不保存半成品。
+- 前端 `uploadFile` 在后端返回 `415` 时，会尝试用浏览器 canvas 将可解码图片转为 jpg 后重传一次，减少用户手动转格式。
+- 验证：`python3 -m py_compile backend/api/v1/files.py` 通过；`frontend/ npm run build` 通过。
+
+### 重复识别备用模型接入任务专用配置
+
+- `task_overrides_json` 新增 `image_recognition_retry` 配置项，复用融合图片匹配专用配置结构，支持独立 `base_url/api_key/model/timeout/batch_size/concurrency`。
+- AI 图像识别第 2 次及以后识别时，若 `image_recognition_retry_enabled=true` 且 `image_recognition_retry.enabled=true`，优先使用该 task override；否则继续使用主图片识别模型。
+- Admin 设置页 JSON 配置下拉新增“重复识别备用模型配置”，可直接预览和保存该专用 JSON。
+- 当前数据库已开启重复识别切换备用模型，并将备用配置指向本地 `gpt-5.5` 服务。
+- 旧列 `ai_config.image_recognition_retry_model` 已废弃并由 migration `f9a0b1c2d3e4_drop_image_recognition_retry_model.py` 删除。
+
+## 2026-07-08
+
+### 套餐权益和价格统一
+
+- 统一价格表更新为 Plus 16 元、Pro 35 元、单实验一键托管 5 元；checkout 报价、升级套餐弹窗、仪表盘套餐入口和一键提交付费弹窗均继续从后端报价读取金额。
+- 后端新增统一套餐能力判断：Free 禁止一键填空、AI 图像识别和一键计算数据；Plus 允许 AI 图像识别和一键计算数据、禁止一键填空；Pro 放行全部工具能力。
+- 学生实验详情页同步前端拦截：Free 不能触发 AI 图像识别和一键计算；一键提交入口不再因 Free/Plus 被前端提前拦截，而是进入统一 checkout/paywall 流程购买本次提交或升级 Pro。
+
+### 学校提交任务排队
+
+- `POST /api/v1/school-sync/experiments/{experiment_id}/submit` 不再因同一用户已有 active automation job 直接返回 `JOB_ALREADY_RUNNING`；不同提交任务会创建为 `queued`，后台按创建时间等待前序学校自动化任务结束后再进入 `running`。
+- 其他学校自动化入口仍保留单用户 active job 限制，避免状态刷新、截图和详情同步同时操作同一个学校系统会话。
+- 前端新增统一 API 错误文案提取，后端返回结构化 `detail={code, job}` 时不再显示 `[object Object]`。
+
+### 用户管理批量正式提交
+
+- 用户管理新增“正式提交”按钮：只有学校状态中正式提交 + 临时提交数量刚好为 8 时启动，否则前端直接提示。
+- 新增 Admin 接口 `POST /api/v1/admin/students/{student_id}/final-submit-drafts` 和后台任务 `admin_final_submit_drafts`：实时读取学校列表，按顺序打开临时提交实验并点击正式提交，最后刷新学校状态快照。
+- 用户管理按钮文案调整：“检查填写完整性”改为“填写完整性”，“查看所有提交截图”改为“所有截图”；“正式提交”放在操作区最左侧，使用绿色按钮且不带 icon。
+- 用户管理标题右侧新增“正式提交所有”和“刷新所有状态”：批量任务前端启动现有单学生自动化任务；“刷新所有状态”会先弹出配置弹窗，默认只刷新完成实验数 < 8 的学生，并默认在每个学生刷新结束后关闭学校浏览器会话，避免非 Headless 模式保留大量可视窗口。
+- “刷新所有状态”批量弹窗新增可调度参数：并发数、时间窗口秒数、窗口内最多启动数；默认并发 2，且每 30 秒最多启动 2 个刷新任务，避免仅限制并发但仍快速打开大量学校浏览器会话。
+- `GET /api/v1/admin/students` 新增 `finalCountFilter=lt8|gte8`，用户管理表格可筛选完成实验数 < 8 或 >= 8；`POST /api/v1/admin/students/{student_id}/sync-overview` 新增 `closeSessionAfterFinish`，任务结束后可主动关闭该学生 Playwright 会话。
+
+### 验证码识别专用 AI 配置
+
+- AI Provider 新增 `captcha` 任务专用 override，验证码识别优先读取 `ai_config.task_overrides_json.captcha`，不再只能使用基础 AI 配置中的 `captcha_model/base_url`。
+- 设置页“任务专用 AI JSON 配置”新增“验证码识别专用配置”，结构与融合图片匹配、重复识别备用模型一致。
+- 当前本地数据库已将 `captcha` 专用配置启用并指向 `http://10.26.91.86:59663/v1`、模型 `gpt-5.5`；API Key 保存在数据库配置中，未写入代码默认值。
+- 验证：`py_compile backend/services/ai_provider.py backend/services/captcha_ai.py backend/api/v1/ai.py` 通过；`frontend npm run build` 通过；已重启 `backend` 和 `celery_worker`。
+
+### 用户管理列表性能优化
+
+- 定位用户管理列表慢的主因：列表接口合并 `school_submit_confirmed` 快照时使用 `select(SchoolSyncSnapshot)` 加载整行，导致把单个实验报告的大 `snapshot_json` 一并读入；部分快照 JSON 达到 MB 级，筛选完成实验数时会放大为秒级延迟。
+- `_latest_confirmed_submit_snapshots_by_student()` 改为只查询 `user_id`、`experiment_id`、`synced_at`、`summary_json` 四个轻量列，并用轻量 dataclass 参与原有合并逻辑，不再读取 `snapshot_json`。
+- 验证：确认提交快照查询当前页从约 320ms 降到约 4ms；全量筛选路径从约 4628ms 降到约 27ms；TestClient 实测 `GET /api/v1/admin/students` 普通列表约 36ms，`finalCountFilter=lt8/gte8` 约 20ms；`py_compile backend/api/v1/admin_students.py` 通过。
+
 ## 2026-07-07
+
+### 学校系统 error 弹窗后自动重置会话
+
+- 学校实验同步 / 提交任务在轮询阶段发现阻塞 bootbox 弹窗时，仍标记任务失败并保存弹窗诊断，但现在会同步关闭并移除该学生的学校浏览器会话。
+- 后台任务内部抛出 `SCHOOL_BOOTBOX_ERROR` 时同样关闭学校会话，避免下一次同步复用停留在 `error` 弹窗的旧页面。
+- 验证：`backend/tests/test_e2e_flow.py::test_polling_marks_school_opening_failed_when_bootbox_visible` 通过；`py_compile` 检查相关后端文件通过；`git diff --check` 通过。
+
+### 学生端临时提交统计卡片
+
+- 学生工作台和实验提交页的原“待提交”统计卡片改为“已临时提交”，并改为统计平台 `Submission.status=draft_submitted` 的实验数量。
+- 公共实验指标函数新增 `draftSubmitted` 计数，保留原 `unsubmitted` 统计供其他未提交流程继续使用。
+- 修复学生工作台进度环仍引用旧 `pending` 变量导致的运行时崩溃；进度环“未完成”数量改为 `total - completed`。
+- 验证：`frontend/ npm run build` 通过；`git diff --check` 通过；学生端相关页面已无“待提交”统计卡片文案。
+
+### 钢丝杨氏模量原始数据移入表格区
+
+- `exp_steel_wire_young_modulus` 新增 `1. 原始数据` 数据表，将 `L1/L2/L3/L4` 四个 AI 识别节点从普通数据处理段落移入表格区域，便于审核时和原始图片对照。
+- 识别 Prompt 现在为该组节点生成 `row_axis=测量量`、`rows=[钢丝长度 L,...]`、`cols=[测量值]` 和 `node_matrix=[[L1],[L2],[L3],[L4]]` 的表格映射。
+- 验证：`backend/venv/bin/python -m json.tool backend/configs/exp_steel_wire_young_modulus.json` 通过；`backend/venv/bin/python -m pytest backend/tests/test_ai_prompts.py backend/tests/test_experiment_formulas.py -q` 通过 27 项。
+
+### 空气比热容比表2改为全表识别
+
+- `exp_air_heat_capacity_ratio` 的表2 `P1/P2/γ` 三行由 `computed` 改为 `ai_recognize`，表2现在整体从原始图片识别，不再由一键计算覆盖。
+- 旧的 `P1/P2/γ` 公式移入 `archivedFormulas` 留存；可执行 `formulas` 仅保留 `K2` 斜率、`K4` 平均 γ 和 `K5` 相对标准误差。
+- 验证：`backend/venv/bin/python -m json.tool backend/configs/exp_air_heat_capacity_ratio.json` 通过；`backend/venv/bin/python -m pytest backend/tests/test_experiment_formulas.py backend/tests/test_ai_prompts.py -q` 通过 27 项；`backend/tests/test_e2e_flow.py::test_compute_endpoint_resolves_formula_dependencies_in_one_request` 通过；本地数据库 `exp_air_heat_capacity_ratio` 已确认 `K35/K36/K37` 为 `ai_recognize` 且可执行公式只剩 `K2/K4/K5`。
 
 ### 填写页自动草稿保存
 
@@ -37,6 +115,39 @@
 - `useAsyncTaskRunner` 支持 `progressProfile`，轮询 Celery 任务时根据已用时统一更新浮动任务面板，页面不再散落 `onProgress` 文案判断。
 - 学生实验详情页和 reviewer 复用的 `ExperimentDetailView` 已改为引用公共 profile，因此两侧一键识别、填空、回答生成共享同一套长耗时提示。
 - 验证：在 `frontend/` 执行 `npm run build` 通过；仓库执行 `git diff --check` 通过。
+
+### 自动生成图片槽不阻塞单槽预处理
+
+- 后端单图片槽自动分配逻辑改为只统计需要学生/管理员实际上传的图片槽，排除 `autoGenerated: true` 和 `computedAssets.*.imageSlotId` 引用的生成图片槽。
+- 已扫描当前实验配置中的 `computedAssets`：`exp_potentiometer.json` 的 `IMG_D10Area`、`exp_liquid_crystal_0625.json` 的 `IMG_LC_AVG_CURVE` 已补充 `autoGenerated: true`；落球法自动生成曲线槽 `IMG_L3_CURVE` 同样标记为自动生成。
+- 新增配置一致性测试，要求所有 computed asset 输出图片槽都显式标记为自动生成；新增单图片槽预处理测试，覆盖“只有一个实际上传槽位时自动注入原始图片并进入预处理”。
+- 验证：`json.tool` 校验相关实验配置通过；`backend/tests/test_e2e_flow.py::test_computed_asset_image_slots_are_marked_auto_generated`、`test_auto_generated_image_slots_do_not_block_single_slot_auto_prepare`、`test_single_slot_pending_payment_auto_prepares_after_payment_verify` 通过；`py_compile backend/services/submission_preprocess.py backend/tests/test_e2e_flow.py` 通过。
+
+### 落球法自动生成曲线接入
+
+- 为 `exp_falling_ball_viscosity.json` 补充 `computedAssets.L3Area`，复用现有 `canvas_plot` 生成器，根据温度 30、33、36、39、40、42、44、46℃ 与 `L20-0` 至 `L27-0` 的 η 测量值生成“粘滞系数与温度关系曲线”。
+- 生成图片写入 `IMG_L3_CURVE`，并同步回 `L3Area`，使一键计算数据后可以自动上传该曲线图。
+- 曲线样式按参考图调整为“粘滞系数η与温度T的关系曲线”：蓝色折线圆点、虚线网格、无图例、x 轴偶数温度刻度、y 轴两位小数刻度、每个数据点上方显示三位小数 η 值。
+- 通用 `canvas_plot` 生成器补充配置式点值标签、轴刻度小数位、虚线网格和 nice ticks，供后续类似实验复用。
+- 修正一键计算完成提示的回填数量：前端只统计相对当前表单实际变化的字段；若本次只生成曲线图，则提示生成图片，不再把后端返回的完整表单快照误算为回填项。
+- 新增 `test_falling_ball_viscosity_curve_is_configured_as_computed_asset`，防止该图片槽只保留占位提示但缺少生成配置。
+- 验证：`python3 -m json.tool backend/configs/exp_falling_ball_viscosity.json` 通过；相关 computed asset / 单槽预处理测试通过；数据库实验配置已确认包含参考图样式的 `computedAssets.L3Area`；`frontend/ npm run build` 通过。
+
+### 三线摆和扭摆配置按 PPT 修正
+
+- 参照 `assets/pdf/三线摆扭摆实验内容提要.pdf` 和实验 AI Prompt 配置指南，`exp_three_line_torsion_pendulum` 将三线摆/扭摆表中的前三次 30 周期计时保留为 AI 识别，平均值与单次周期改为公式计算。
+- 新增公式：三线摆 `S23-*` 为前三次计时平均值、`S24-*` 为平均值除以 30；扭摆 `S2223-*` / `S2224-*` 同理。
+- `S4/S5/S6/S7` 由于 PPT 与现有学校表单没有提供完整可计算常量来源，改为从学生数据处理区识别已写结果，并只保留短节点提示：J0/J1/J圆环 单位 `Kg×m²`，G 按 `×10¹⁰ Pa`。
+- 补齐实验测验固定答案：单选 `B/D/B/A/B/B/C/B/C`，多选 `ABCD/ABCD/ABC`。
+- 验证：`python3 -m json.tool backend/configs/exp_three_line_torsion_pendulum.json` 通过；`backend/venv/bin/python -m pytest backend/tests/test_ai_prompts.py backend/tests/test_experiment_formulas.py -q` 通过 23 项。
+
+### 钢丝杨氏模量配置按 PPT 修正
+
+- 参照 `assets/pdf/拉伸法测杨氏模量.pdf` 和实验 AI Prompt 配置指南，`exp_steel_wire_young_modulus` 补齐实验目的、实验原理中的固定填空值。
+- 将 `L1/L2/L3/L4` 明确为原始测量值 AI 识别节点，并添加简短单位提示；表格中的标尺均值、逐差读数、逐差平均值改为公式计算，不再交给 AI 识别。
+- 新增公式：`L50-2` 至 `L57-2` 计算两次标尺读数均值，`L60-0` 至 `L63-0` 按 `r̄ᵢ₊₄-r̄ᵢ` 逐差，`L64-0` 取四次逐差平均，`L7` 按 `E=8FLD/(πd²bl)` 且 `F=4×9.8N` 输出 `×10¹¹ Pa` 数值，`L8` 按 PPT 相对不确定度公式输出百分比数值。
+- 新增 Prompt/公式测试，锁定 AI 只识别原始测量数据，计算节点不进入识别 schema。
+- 验证：`python3 -m json.tool backend/configs/exp_steel_wire_young_modulus.json` 通过；`backend/venv/bin/python -m pytest backend/tests/test_ai_prompts.py backend/tests/test_experiment_formulas.py -q` 通过 25 项；配置 mapping 校验通过；执行实验配置 seed 后数据库已扫描同步。
 
 ## 2026-06-04
 
@@ -311,7 +422,7 @@
 - 落球法测粘滞系数配置中，`L3Area` 改为“粘滞系数与温度关系曲线”的图片上传节点，并从生成式文本问题区移除。
 - 落球法表格补齐 `温度（℃）/η（Pa·s）测量值` 表头和 30/33/36/39/40/42/44/46 行名，避免空 cell 导致页面左侧表格只剩输入框和截断节点标记。
 - 抽出 `SingleImageUploadNode` 公共组件，后续单图片答案节点统一复用 `ExperimentImageUploader` 的上传、预览、缩放和删除能力。
-- 液晶电光效应实验 `YSSJDrawingAreaArea`、`Y2Area` 改为图片上传节点，分别绑定签字原始数据照片和“平均透射率-电压”曲线截图；主识别图片区仍只使用 `IMG_RAW_DATA`。
+- 液晶电光效应实验 `YSSJDrawingAreaArea`、`Y2Area` 改为图片上传节点，分别绑定签字原始数据照片和“平均透射率-电压”曲线截图；签字原始数据槽 `IMG_LC_SIGNED_RAW` 同时作为平均透射率表格识别图片来源。
 - 液晶实验补齐 `Y1` 表格的电压行与透射率列名，并清理数据处理段落中的富文本工具栏乱码，避免预览页中图片上传节点被渲染成普通短输入框。
 - 液晶实验新增 `Y5Area`、`Y7Area` 图片上传节点，分别绑定透光率下降/上升响应曲线照片，补齐学校系统后半段图片上传项的配置结构。
 
@@ -711,7 +822,7 @@
 
 ### 图片重复识别备用模型
 
-- `ai_config` 新增 `image_recognition_retry_enabled` 和 `image_recognition_retry_model`，Admin AI 设置页新增“重复识别切换备用模型”和备用模型输入。
+- `ai_config` 新增 `image_recognition_retry_enabled`，Admin AI 设置页新增“重复识别切换备用模型”；备用模型参数统一改由 `task_overrides_json.image_recognition_retry` 保存。
 - 同一 `submission_id` 第 1 次图片识别继续使用主图片识别模型；第 2 次及以后在开关开启且备用模型非空时使用备用模型。详情页直接识别、审核预处理识别和旧任务列表识别都纳入次数统计。
 - `/api/v1/ai/recognize-direct` 返回 `recognition_attempt` 和实际使用的 `model`，并把对应信息写入 `ai_task_runs` / 审计详情，便于排查模型识别差异。
 - 新增 migration `d5e6f7a8b9c0_add_image_recognition_retry_model.py`，已执行 `alembic upgrade head`。
@@ -722,3 +833,247 @@
 - 新增前端通用 `computedAssets` 支持：一键计算完成后，按实验 JSON 中的图表配置生成 PNG，上传到 `/uploads`，并把图片 URL 写回对应 `image_upload` 节点和 `imageSlots`。
 - 图表配置采用“坐标轴 + 图层 + 模型参数绑定”结构，不使用 `slopeNode/interceptNode` 这类实验专用字段；线性拟合图通过 `model.parameters.slope/intercept` 绑定到已计算节点，保证页面数值和图例一致。
 - `exp_potentiometer` 的 `D10Area` 已接入自动生成“热电偶电动势-温度拟合曲线”：散点来自 `D30-* / D31-*`，拟合直线参数来自 `D7 / D8`，生成图片会自动填入学校图片答案节点。
+
+### 液晶电光效应配置按 PPT 修正
+
+- 参照 `assets/pdf/液晶电光效应实验.pdf` 和实验 AI Prompt 配置指南，`exp_liquid_crystal_0625` 将液晶光开关数据表的电压序列改为 PPT 固定值，只让 AI 识别平均透射率、下降时间和上升时间。
+- 补齐实验目的、原理中的固定填空值；`Y3/Y4` 改为公式计算，按平均透射率-电压曲线对 90% 和 10% 透射率做相邻点线性插值，得到开/关相关电压。
+- `Y2Area` 接入 `computedAssets`，一键计算后根据固定电压数组和平均透射率生成“平均透射率-电压曲线”图片并回填学校图片答案节点。
+- 液晶曲线图生成器从普通 `canvas_plot` 切换为 `excel_style_chart`：按学校示例截图模拟 Excel 图表样式，使用 1642×1188 白底画布、浅灰主网格、黑色绘图区外框、蓝色折线圆点、右上角 90%/10% 阈值虚线图例和固定坐标刻度。
+- 审核图片匹配弹窗改为按 `inputs.images` 槽位逐一卡片展示，避免多图片实验里所有拖拽默认落到第一个识别槽；液晶实验新增 `ai.recognition.groups`，原始数据图只识别平均透射率，下降曲线图只识别 `Y6/Fall`，上升曲线图只识别 `Y8/Rise`。
+- 验证：`python3 -m json.tool backend/configs/exp_liquid_crystal_0625.json` 通过；`backend/venv/bin/python -m pytest backend/tests/test_experiment_formulas.py backend/tests/test_ai_prompts.py -q` 通过 20 项；`backend/venv/bin/python -m pytest backend/tests/test_e2e_flow.py::test_batch_image_assignment_and_prepare_review backend/tests/test_e2e_flow.py::test_repeated_image_recognition_uses_retry_model -q` 通过 2 项；`frontend/ npm run build` 通过；执行实验配置 seed 后数据库中液晶固定电压、公式、曲线资产和识别分组已抽查确认。
+
+### 空气比热容比配置按 PPT 修正
+
+- 参照 `assets/pdf/空气比热容比的测定.pdf` 和电表改装标准配置，补齐固定填空：实验方法为 A，γ 含义为 A，压力传感器灵敏度来自斜率 B，放气/回温过程选择项按 PPT 填入 A/B。
+- 字段来源重新划分：表1 `Ui/mV`、表2 `Up1/UT/Up2/UT/P0` 由 AI 识别；`k`、`P1`、`P2`、6 组 `γ`、平均值和 `S(%)` 改为公式计算，不再让模型识别计算值。
+- 按 PPT 数据处理公式配置：`k` 为 `Ui-Pi` 直线斜率，`P=P0+U/k`，`γ=ln(P1/P0)/ln(P1/P2)`；公式引擎新增通用 `ln`、`mean`、`sample_std`、`std_error` 和 `relative_std_error_percent`，供本实验及后续配置复用。
+- 验证：`python3 -m json.tool backend/configs/exp_air_heat_capacity_ratio.json` 通过；`backend/venv/bin/python -m pytest backend/tests/test_experiment_formulas.py backend/tests/test_ai_prompts.py -q` 通过 21 项。
+
+### 单图片槽托管提交自动预处理
+
+- 完整托管提交创建后，后端会检查实验配置 `inputs.images`：若只有一个图片槽且任务已支付 / Pro / 内部创建，则自动把学生上传的 `image_paths` 归位到唯一 `image_slots`，状态直接进入 `preparing_review` / `preprocess_status=queued`，并入队执行固定填空、AI 识别和生成回答。
+- 未支付托管任务仍停留在 `pending_payment`；管理员确认付款后，如果该任务满足单图片槽条件，会自动归位并入队预处理。
+- 保留审核图片匹配弹窗的单槽预填机制作为人工入口兜底；批量 `prepare-review` 接口对已 queued 的任务不重复入队，避免重复预处理。
+- 验证：`backend/venv/bin/python -m py_compile backend/api/v1/submissions.py backend/api/v1/orders.py backend/services/submission_preprocess.py` 通过；`backend/venv/bin/python -m pytest backend/tests/test_e2e_flow.py::test_student_payment_flow backend/tests/test_e2e_flow.py::test_single_slot_pending_payment_auto_prepares_after_payment_verify backend/tests/test_e2e_flow.py::test_batch_image_assignment_and_prepare_review -q` 通过 3 项。
+
+### 公式依赖自动调度
+
+- `/api/v1/experiments/{id}/compute` 改为按公式依赖自动多轮调度：一键计算时先计算可用公式，遇到缺少其他 computed 节点的公式先跳过，后续轮次在依赖产出后继续计算。
+- 每次计算会忽略请求中已有的旧 computed 目标值，避免用上一次的 P1/P2/γ 结果参与本次推导；真正缺少原始识别/填写节点时仍返回 `FORMULA_INPUT_INCOMPLETE`，公式循环或无法解析时返回 `FORMULA_DEPENDENCY_UNRESOLVED`。
+- 验证：`backend/venv/bin/python -m py_compile backend/api/v1/experiments.py` 通过；`backend/venv/bin/python -m pytest backend/tests/test_experiment_formulas.py backend/tests/test_ai_prompts.py backend/tests/test_e2e_flow.py::test_compute_endpoint_resolves_formula_dependencies_in_one_request -q` 通过 22 项；`frontend/ npm run build` 通过；`git diff --check` 通过。
+
+### 落球法测粘滞系数配置按 PPT 修正
+
+- 参照 `assets/pdf/落球法测液体的粘滞系数.pdf`、学校保存页和电表改装标准配置，`exp_falling_ball_viscosity` 将签字原始数据图片槽绑定到 `YSSJDrawingAreaArea(image_upload)`，并补齐 `wysiwyg_image` 自动化 mapping。
+- 固定选择题按 PPT 原理和页面题干填入答案；`L1` 保持 AI 识别实际测量区间，仅加短节点提示“只返回 A 或 B”。η 数据表继续依赖表头/行名表达温度和单位，实验级识别提示只保留“只识别所选测量区间，未测温度留空”。
+- 移除旧式冗余 `ai.recognition.prompt` 和未使用的 `answerGeneration` prompt，避免和全局 Prompt、表格映射重复。
+- 验证：`python3 -m json.tool backend/configs/exp_falling_ball_viscosity.json` 通过；`backend/venv/bin/python -m pytest backend/tests/test_ai_prompts.py backend/tests/test_experiment_formulas.py -q` 通过 21 项；配置 mapping 校验通过；执行实验配置 seed 后数据库变更 `exp_falling_ball_viscosity`。
+
+### 示波器识别节点提示增强
+
+- `exp_oscilloscope` 中 `OP_Fill_0/OP_Fill_1/S3/S4/S5` 的 `recognitionHint` 从单纯单位说明改为“题干定位 + 物理量 + 单位格式”，分别指向单波正弦波周期、单波正弦波振幅、拍现象 f1、拍现象 f2 和拍现象振幅变化周期 T。
+- 不增加实验级 `extraPrompt`，避免和节点级提示重复。
+- 验证：`python3 -m json.tool backend/configs/exp_oscilloscope.json` 通过；`backend/venv/bin/python -m pytest backend/tests/test_ai_prompts.py -q` 通过 15 项。
+
+### 审核列表预处理状态
+
+- 审核任务父级列表将“批次”列改为“提交组”：单个实验显示“单实验”，多个实验显示“批量 N 个”，原始 batch id 保留在 tooltip 中用于排查。
+- 父级列表新增“预处理状态”列，按提交组下实验的 `preprocess_status`/`status` 聚合为“已完成 / 处理中 / 待处理 / 失败”四类，并显示当前类别数量与总数；展开后的单实验列表保持原有状态列不变。
+- 验证：`frontend/ npm run build` 通过；`git diff --check` 通过。
+
+### 支付与一键批量提交统一 Checkout
+
+- 后端新增统一 checkout 链路：`/api/v1/checkout/quote` 负责报价，`/api/v1/checkout/submit` 负责创建套餐升级订单、按实验计价订单或内部 paid submission。
+- `orders` 新增 `order_type/submission_batch_id/client_request_id/pricing_snapshot`，新增 `order_items` 明细表；同一批一键提交只创建一笔订单，多个实验通过明细表达。
+- 价格集中到 `backend/core/pricing.py`：Plus/Pro 套餐价统一维护；按实验一键托管已在 2026-07-08 调整为统一单价，前端不再写死金额。
+- 旧的 `POST /api/v1/orders`、`POST /api/v1/submissions/submit`、legacy Playwright 触发路由已从代码中移除；前端升级套餐、一键单实验和一键批量提交统一调用 checkout service。
+- Admin 订单页改为展示真实订单和 `order_items`，不再按 10 秒窗口在前端假合并多笔单次订单。
+- 验证：`alembic upgrade head` 已应用迁移；`backend/venv/bin/python -m pytest backend/tests/test_e2e_flow.py -q` 通过 61 项。
+
+### 学校富文本图片提交校验修复
+
+- 排查 `exp_steel_wire_young_modulus` 后确认配置和运行态数据均正确：图片槽 `IMG_RAW_DATA` 绑定 `YSSJDrawingAreaArea`，自动化 mapping 为 `wysiwyg_image`，submission 的 `corrected_json.values.YSSJDrawingAreaArea` 也已有平台图片 URL。
+- 问题在学校富文本图片写入：旧逻辑只验证可视 `.wysiwyg-editor` 中出现 `<img>`，但没有强制把 editor HTML 同步回隐藏 textarea；学校提交时可能读取 textarea，导致报告显示提交成功但图片未保存。
+- `_write_wysiwyg_image_field` 现在会把 editor HTML 写入隐藏 textarea，并在 textarea 仍为空时将该字段判定为失败，避免图片字段假成功。
+- 学校详情同步加载到前端时，若学校返回图片节点为空，会清空平台页面对应图片槽；避免平台本地上传图继续显示，让人误以为学校系统已有图片。
+- 验证：`backend/venv/bin/python -m py_compile backend/services/school_report_sync.py` 通过；学校提交相关 e2e 定向 3 项通过；`frontend/ npm run build` 通过；`git diff --check` 通过。
+
+### 一键批量提交融合图片上传
+
+- 新增 `/api/v1/ai/experiment-image-auto-match-task`：后台从当前提交目标实验配置中提取实验名和图片槽候选。内部区分 AI 识别图片槽和单独上传图片槽，但 Prompt 不写分类标签；识别槽直接展示表格序号和表格关键信息，单独上传槽只展示图片槽标题。
+- 示波器实验已从融合图片匹配候选中排除，不再为李萨如槽位附带参考图；该实验继续走原有单实验/人工图片匹配链路。
+- 新增 Admin 设置项 `oneClick.fusedImageUploadAiEnabled` 和 Prompt 预览入口；预览接口为 `/api/v1/ai/admin/experiment-image-auto-match/preview`。
+- 前端 `ProSubmitModal` 在开关开启时先展示一个全局上传框，AI 匹配完成后切回原有分实验 `ExperimentImageUploader` 界面供人工确认。
+- checkout 支持 `experiments[].image_slots`。完整槽位会直接进入 `preparing_review/queued`；缺槽任务仍进入 `pending_image_assignment`。
+- 验证：`backend/venv/bin/python -m py_compile backend/core/image_assignment_prompts.py backend/services/ai_service.py backend/api/v1/ai.py backend/services/checkout_service.py backend/api/v1/checkout.py backend/api/v1/school_sync.py backend/api/v1/automation_config.py` 通过；`backend/venv/bin/python -m pytest backend/tests/test_e2e_flow.py::test_image_assignment_candidates_exclude_computed_asset_slots backend/tests/test_e2e_flow.py::test_checkout_with_complete_image_slots_queues_multi_slot_preprocess backend/tests/test_e2e_flow.py::test_auto_generated_image_slots_do_not_block_single_slot_auto_prepare -q` 通过 3 项；`frontend/ npm run build` 通过。
+
+### 融合上传候选范围与异步进度
+
+- 新增 `/api/v1/ai/experiment-image-auto-match-task`，融合上传图片预匹配改为 Celery 任务，前端通过 `/api/v1/ai/task/{task_id}` 轮询。
+- 请求支持 `experiment_ids`：单个实验一键提交只传当前实验，批量提交只传当前批量目标实验，不再把全部可见实验都放进候选。
+- `ProSubmitModal` 复用 `AsyncJobFloatingPanel` 展示预匹配进度；进度文案统一放在 `frontend/src/hooks/asyncTaskProgressProfiles.js` 的 `imageAutoMatch`。
+
+### 示波器融合匹配参考图路径修复（已废弃）
+
+- 历史方案曾为示波器李萨如槽位附带后端参考图；当前方案已废弃，示波器实验整体不进入融合图片匹配候选。
+
+### 融合图片匹配单图并发与真实进度
+
+- `experiment_image_auto_match_task` 改为每张图片一次调用视觉模型；Prompt 不再要求模型输出 `imageIndex`，模型只返回 `{"slotCandidateId":"E01-S01"}` 或空字符串，后端根据当前单图请求自动补回原始 `imageIndex` 并合并结果，降低一次请求超出 `max_prompt_tokens` 的概率。
+- 融合图片匹配专用 JSON 配置新增 `concurrency`，默认值为 `3`；worker 通过 `asyncio.Semaphore` 控制最多 3 张图片同时匹配，设置页默认 JSON 中 `batch_size=1`、`concurrency=3`。
+- 图片匹配请求不再设置 `detail=low`，避免融合匹配因低细节视觉输入降低准确率；仍不改用户上传原图、不限制最长边。
+- Celery task 通过 `PROGRESS` meta 返回 `current_batch/total_batches/processed_images/total_images/percent/message`；`/api/v1/ai/task/{task_id}` 透出 `status=progress`。
+- 前端 `useAsyncTaskRunner` 优先显示后端真实进度；没有后端进度时仍使用 `asyncTaskProgressProfiles.imageAutoMatch`。
+- 融合图片匹配新增详细诊断：完整 JSON 直接写入 `audit_logs(action=experiment_image_auto_match).details`，同时落盘到 `backend/tmp/ai_image_auto_match/{task_id}/debug_payload.json`；记录调用模型、base_url、Prompt、候选槽、单图请求图片、模型原始返回、解析结果和 normalize 后结果；不记录 API Key 或 base64 图片正文。
+
+### 融合图片匹配专用 AI JSON 配置
+
+- `ai_config` 新增 `task_overrides_json`，Admin 设置页新增“切换配置 + JSON”区域：原 AI 基础配置保留为只读 JSON 预览，融合图片匹配专用配置可保存 JSON。
+
+### 融合图片自动流转
+
+- 新增自动化配置 `oneClick.fusedImageAutoConfirmEnabled`，默认开启；设置页“一键批量提交图片上传”区域新增“匹配后自动流转”开关。
+- 融合上传点击“自动匹配图片”后立即关闭上传 modal，右下角异步任务继续展示匹配进度；匹配完成后自动调用 checkout 创建审核任务。
+- 自动匹配完成后按实验分别判断图片槽完整性：槽位完整的实验在 checkout payload 中传 `image_assignment_confirmed=true` 并进入 AI 预处理；缺槽实验传 `false`，保留为图片待对应状态，审核页继续处理。
+- 新增 Admin-only `PUT /api/v1/ai/admin/task-overrides`；普通用户无权访问。`experiment_image_auto_match` 启用后使用 JSON 内的 `base_url/api_key/model/timeout_seconds/batch_size/concurrency`。
+- 默认专用 JSON 指向 `http://localhost:59663/v1`、`http://localhost:59663/v1/chat/completions` 和 `gpt-5.5`，api key 由 Admin 直接写入 JSON。
+
+### 审核图片匹配状态锁定
+
+- 审核图片匹配弹窗和审核任务列表将 `queued/running/preparing_review/recognizing` 统一显示为“已进入AI识别”，避免图片匹配列仍显示待匹配数量。
+- `PATCH /submissions/{id}/image-slots` 对已进入 AI 识别 / 预处理 / 审核的任务只返回当前状态，不再把 `preprocess_status` 回退到 `image_assigned`。
+- 批量 `prepare-review` 只会处理仍处于图片匹配阶段的 submission；已进入 AI 的任务返回在 `skipped_already_processing`，不会重复写入 queued 或重复投递 Celery。
+
+### Admin 同学管理页
+
+- 新增 Admin 同学管理页面 `/workspace/admin/students`，复用 `PageHeading`、`StatCard`、`TablePanel`、`StatusBadge`、`ProSubmitModal` 和自动化进度弹窗；主表按学生聚合，展开后展示该学生所有实验的学校提交状态和平台处理状态。
+- 新增 Admin API：`GET /api/v1/admin/students` 查询学生总览，`POST /api/v1/admin/students` 添加或更新学生学校账号密码，`POST /api/v1/admin/students/{student_id}/sync-overview` 为指定学生触发学校概览同步。
+- 添加学生沿用学生登录的学号格式、密码 hash 和学校密码加密策略；学校密码不返回前端。
+- 页面支持按学生刷新学校状态，刷新过程复用现有 `AutomationProgressModal`；展开实验行支持复用一键提交弹窗为该学生发起单实验托管提交。
+- 用户管理页“检查填空完整性”改名为“检查学校系统填空完整性”：`POST /api/v1/admin/students/{student_id}/completion-check` 启动 `school_completion_check` 自动化任务，后端使用目标学生学校会话实时读取完成报告列表，只打开学校状态为临时提交 / 正式提交的实验并快速检查 DOM 是否有值；其他实验在结果中显示“跳过”。结果通过 `GET /api/v1/admin/students/{student_id}/completion-check/{job_id}` 读取，不再使用平台 submission/draft/image_slots 缓存判断。
+- 用户管理页新增“查看所有提交截图”：`POST /api/v1/admin/students/{student_id}/submission-screenshots` 启动 `school_submission_screenshots` 自动化任务，逻辑与完整性检查同源，先读取学校状态，仅对临时提交 / 正式提交实验打开报告并生成长截图；结果 modal 中按实验展开查看截图。
+- 新增 admin 专用截图读取接口 `GET /api/v1/admin/students/{student_id}/submission-screenshots/{job_id}/files/{experiment_id}`，后端校验 job 属于目标学生且截图路径位于 job artifact 目录。
+
+### 学生侧安全加固
+
+- `/api/v1/files/upload` 已要求登录，限制 20MB，并按文件头校验真实图片格式；测试中的上传样例改为真实 PNG。
+- 学生无法通过 draft/correction 接口修改一键托管任务，只能修改自助提交任务。
+- `/api/v1/ai/task/{task_id}` 对学生校验 `ai_task_runs.user_id`，避免 task id 横向读取。
+- 新增 `uploaded_files` 归属表并应用迁移；上传图片记录上传用户、内部 URL、存储路径、文件名、类型和大小。
+- `/uploads` 静态公开挂载已移除，前端图片预览改为通过 `/api/v1/files/view` 带登录态拉取 blob；学生只能读取自己上传或自己任务引用的图片。
+- 已同步 `docs/API_CONTRACT.md` 和 `docs/DECISIONS.md`。
+
+### 学校系统提交情况长截图
+
+- 新增 `school_report_screenshot` 自动化任务：复用学校会话打开对应实验报告 modal，但不读取/回填表单节点；截图前临时展开 modal 滚动容器，生成连续长截图 artifact。
+- 新增学生入口 `POST /api/v1/school-sync/experiments/{experiment_id}/screenshot`，以及 admin/reviewer submission 入口 `POST /api/v1/school-sync/experiments/{experiment_id}/submissions/{submission_id}/screenshot`。
+- 新增 `GET /api/v1/automation-jobs/{job_id}/screenshot` 鉴权读取截图；学生只能读取自己的 job，admin/reviewer 可读取内部可见 job，并校验 artifact 路径不能越过 job 目录。
+- 实验详情页新增“查看系统提交情况”按钮，任务完成后在 modal 中展示长截图。
+- 验证：`py_compile backend/services/school_report_sync.py backend/api/v1/school_sync.py backend/api/v1/automation_jobs.py backend/core/messages.py` 通过；`frontend/ npm run build` 通过。
+
+### 重列表加载优化
+
+- Admin 同学管理、Admin 订单管理、Reviewer 审核任务改为服务端分页、搜索和筛选；三个接口统一返回 `{ items,total,page,pageSize,summary }`，旧数组响应已删除。
+- 同学管理列表首次只加载学生摘要；摘要只读最新学校概览快照，不再逐个学生展开实验或扫描 submission。展开行再通过 `GET /api/v1/admin/students/{student_id}/experiments` 懒加载该学生实验列表，并保留已有的展开状态和滚动位置恢复。
+- 修正同学管理列表摘要口径：列表摘要现在会批量合并 `school_submit_confirmed/list_confirmed` 的学校提交确认快照，避免“已完成实验 / 已临时提交”与展开后的学校提交状态不一致。
+- 用户管理前端不再每次搜索 / 翻页都拉完整实验配置；实验配置改为页面打开后单独加载一次，学生列表刷新只请求学生分页数据。
+- 订单页指标改为使用后端 `summary` 聚合，订单表只传当前页订单及明细。
+- 审核任务页只加载当前页 submission 后在前端聚合提交组；AI 预处理完成提示的轻轮询改为最多查 100 条，避免只轮询当前分页导致提示漏掉。
+- 新增 Alembic migration `f8a9b0c1d2e3_add_list_performance_indexes.py`，为用户、订单、提交和学校状态快照常用查询补索引。
+
+### 学生端学校完整性检查与截图入口
+
+- Student Dashboard 的快速提交区新增“检查填写完整性”和“查看所有提交截图”，放在“一键批量提交”左侧；前者启动当前学生全部实验完整性检查，后者启动当前学生全部已提交实验长截图任务。
+- StudentExperimentsPage 每个实验行的操作左侧新增“检查当前完整性”和“查看当前截图”；完整性检查只传当前 `experiment_id`，当前截图复用已有单实验 `school_report_screenshot` 任务。
+- 新增学生侧接口：`POST /api/v1/school-sync/completion-check`、`POST /api/v1/school-sync/experiments/{experiment_id}/completion-check`、`GET /api/v1/school-sync/completion-check/{job_id}`、`POST /api/v1/school-sync/submission-screenshots`、`GET /api/v1/school-sync/submission-screenshots/{job_id}`、`GET /api/v1/school-sync/submission-screenshots/{job_id}/files/{experiment_id}`。
+- 后端复用 `school_completion_check` 和 `school_submission_screenshots` 服务，新增可选 `experiment_ids` 过滤；学生接口不接受 `student_id`，始终绑定当前登录学生，admin/reviewer 调用学生入口返回 403。
+
+### E2E 测试配置保护
+
+- `backend/tests/test_e2e_flow.py` 新增自动化配置快照/恢复机制，整轮 e2e 运行前记录 `automation_engine_configs`，运行结束后恢复，避免测试把本地 `runtime.headless`、`oneClick.fusedImageUploadAiEnabled` 等设置重置为默认值。
+- 会写自动化配置的测试改为使用统一恢复机制，不再在 `finally` 中写回 `default_automation_config()`。
+- 验证：`py_compile backend/tests/test_e2e_flow.py` 通过；`pytest backend/tests/test_e2e_flow.py::test_admin_automation_config backend/tests/test_e2e_flow.py::test_school_sync_cooldown_reads_sync_policy_only -q` 通过 2 项；`pytest backend/tests/test_e2e_flow.py -q` 通过 79 项。
+
+### Sakura FRP 公网入口
+
+- 前端 API client 默认改为同源请求，生产构建不再默认访问 `http://localhost:8000`；图片 URL 解析也改为当前站点 origin，适配 Sakura FRP 公网域名。
+- `nginx` 服务改为生产入口：构建 React 静态文件，服务前端路由，并将 `/api/` 反代到 `backend:8000`；上传体限制设为 32MB，支持长轮询和 WebSocket upgrade header。
+- `docker-compose.yml` 将 PostgreSQL、Redis、Backend、Nginx 端口统一绑定到 `127.0.0.1`，Sakura FRP 只需转发 `127.0.0.1:${PUBLIC_WEB_PORT:-8080}`，避免数据库和后端 API 直接暴露到局域网/公网。
+- 后端容器启动命令从 `alembic upgrade head` 改为 `alembic upgrade heads`，适配当前多 migration head 状态；新增根目录和 backend 级 `.dockerignore`，避免部署构建时传输 `node_modules/venv/tmp/uploads` 等大目录。
+- 新增 `docs/SAKURA_FRP_DEPLOYMENT.md`，记录 Sakura FRP 面板配置、启动命令和公网试运行安全要求。
+- 验证：`py_compile backend/core/config.py backend/main.py` 通过；`frontend/ npm run build` 通过；`docker compose config` 通过；`docker compose build nginx` 通过；`docker compose up -d --build backend celery_worker nginx` 后容器稳定；`curl http://127.0.0.1:8080/` 返回 200，`curl http://127.0.0.1:8080/api/v1/auth/me` 经 Nginx 返回 401。
+
+### Admin 自动化任务与 Playwright 会话管理
+
+- 新增 Admin 页面 `/workspace/admin/playwright-sessions`，导航命名为“自动化任务”，复用现有后台页面样式，提供状态小卡片、会话表格、诊断 JSON modal、关闭单个会话和关闭全部会话。
+- 新增 admin-only API：`GET /api/v1/automation-jobs/school-browser-sessions`、`DELETE /api/v1/automation-jobs/school-browser-sessions/{user_id}`、`DELETE /api/v1/automation-jobs/school-browser-sessions`。
+- 后端 `school_session_manager` 增加 `list_sessions()` 和 `close_all()`，接口会实时诊断会话当前页面状态并展示学号、姓名、URL、创建任务、活跃任务数和最后使用时间。
+- 关闭操作写入 `audit_logs`，方便追踪 headless 模式下手动释放浏览器会话。
+
+### 已评分实验状态识别
+
+- 学校报告列表同步新增读取成绩列；成绩为数字时状态映射为 `school_graded`，保留 `score` 字段。
+- 前端学校状态 badge 不新增成绩列，直接显示 `已评分：{score}`，使用提示态叹号。
+- 完整性检查和所有提交截图遇到 `school_graded` 直接跳过，不再点击禁用的“完成报告”按钮。
+- 用户管理和学生实验统计把 `school_graded` 计入已完成实验。
+- 当前数据库自动化配置已同步为 `experimentName=0,status=6,score=7`，对应学校列表的报告名称、状态和成绩列。
+
+### Admin 后端重启按钮
+
+- 自动化任务页新增“重启后端”按钮，二次确认后调用 admin-only 接口。
+- 新增 `POST /api/v1/automation-jobs/backend/restart`，写入审计日志后延迟退出当前 backend 进程，由 Docker restart policy 自动拉起。
+- 该操作会清空后端内存中的 Playwright 会话；正在执行的学校自动化任务可能失败，前端确认文案已明确提示。
+- 自动化任务页新增“活跃自动化任务”表：通过 `GET /api/v1/automation-jobs/active` 展示排队 / 运行中的学校自动化任务，即使后端内存中没有可诊断浏览器会话也能定位并手动终止；页面支持终止单个任务或全部活跃任务，Playwright 浏览器会话表只负责诊断和关闭浏览器会话。
+- `AutomationJobPublic` 对绑定 submission 的任务新增 `targetStudentNo`、`targetRealName`，用于 admin 运维页定位实际目标学生，避免 admin 代操作时只显示 admin 自己。
+- 前端学校自动化轮询遇到网络中断时不再只显示 `Network Error`，会提示可能是后端重启 / 服务不可达，并引导到“自动化任务”页面查看活跃任务。
+
+### 完整性检查超时保护
+
+- `school_completion_check` 增加整次任务总超时，默认 300 秒，可通过自动化配置 `runtime.completionCheckTimeoutMs` 调整。
+- 完整性检查发生超时或未知异常时，后端会把 automation job 收敛为 `failed`，避免前端长期停留在“正在读取完成报告列表”。
+- 已将卡住的 `JOB-578D15174C` 手动标记为 `failed / JOB_STALE_TERMINATED`，并重启 backend 释放挂起的后台协程。
+
+### 托管预处理自动计算开关
+
+- 新增自动化配置 `oneClick.preprocessAutoComputeEnabled`，默认关闭；设置页“一键批量提交图片上传”区域新增“AI识别后自动一键计算”开关。
+- 将实验公式计算逻辑抽为 `services.formula_compute.compute_formula_values()`，学生/后台接口和 Celery 预处理共用同一套依赖式计算逻辑。
+- 审核预处理顺序调整为固定填空 -> AI 图片识别 -> 可选公式计算 -> 实验问题生成。开启开关后，计算结果会并入 `submission.recognition_json`，且问题生成使用包含计算值的完整 `working_values`。
+- 预处理内公式计算失败不会导致整条预处理失败，只写入 `submission_prepare_review_formula_compute` 审计日志并继续后续回答生成。
+- 验证：`py_compile api/v1/experiments.py api/v1/automation_config.py services/formula_compute.py worker/ai_tasks.py` 通过；`frontend/ npm run build` 通过。
+
+### Admin / Reviewer 数据合理性检查
+
+- 新增后端 `services.score_check` 和接口 `POST /api/v1/experiments/{experiment_id}/score-check`；接口只对 admin / reviewer 开放，student 调用返回 403。
+- 检查逻辑只读取当前页面传入的 `current_form_values`，不触发 `formulas`，不自动计算，也不回填前端数据。
+- 实验配置新增顶层 `scoreCheck`，普通实验详情配置接口只返回摘要，不返回规则明细；完整规则仍可通过 admin raw-config 管理接口查看和编辑。
+- 实验详情页顶部标题栏按钮区新增“检查数据合理性”，仅 admin / reviewer 可见；结果 modal 复用 AntD Table + `StatusBadge` 的既有展示方式。
+- 已为首批明确区间/关系规则写入配置：电表的改装、电位差计、示波器、液晶电光效应、空气比热容比、声速、光电效应。未明确参考值或需要主观/图片评分的项目未纳入。
+- 验证：实验配置 JSON 校验通过；`py_compile backend/api/v1/experiments.py backend/services/score_check.py` 通过；`frontend/ npm run build` 通过。
+
+### 数据合理性检查有效数字
+
+- `scoreCheck.numeric_range` 支持 `requiredSignificantDigits` / `requiredDecimalPlaces`，后端按当前页面原始字符串判断格式；命中区间且格式正确给满分，只有区间正确时给区间分。
+- 声速实验的相位法/驻波法频率补 5 位有效数字满分条件，声速结果补 3 或 4 位有效数字满分条件。
+- 电表改装将 `DBGZ4` 相关系数 R² 纳入检查：`0.990≤R²≤1.00` 给区间分，且 3 位有效数字给满分。
+- 三线摆和扭摆将题干明确的 `S6` 四位有效数字、`S7` 三位有效数字作为不计分格式提示检查。
+
+### 学校提交失败诊断与内联图片写回
+
+- 自动化任务公开数据新增压缩后的 `diagnosticSummary`，学校提交写入校验失败时会返回失败节点、目标类型、阶段和错误摘要；前端右下角异步任务失败信息会显示具体节点。
+- 修复从学校系统读取富文本图片后再提交失败的问题：若图片值为 `data:image/...;base64,...`，后端提交前会将内联图片解码为临时本地文件，再复用原有学校富文本图片上传流程。
+- 已定位 `26A2510490403 / 钢丝杨氏模量的测定` 的失败原因为 `YSSJDrawingAreaArea` 图片节点：学校读取返回了内联 base64 图片，旧逻辑按文件路径解析导致 `image file not found: data:image/jpeg;base64`。
+
+### 光电实验电流比例验证
+
+- `exp_photoelectric_planck` 新增 `referenceValueCheck`，把 G3/G4/G5 三个电流比例写入教师说明关系检查：G3=I(4mm)/I(2mm) 参考 4，G4=I(8mm)/I(4mm) 参考 4，G5=I(8mm)/I(2mm) 参考 16。
+- 该规则来源于教师步骤中“2mm、4mm、8mm 光阑电流比例接近 1:4:16”，只作为合理性提示，不计入学校评分和 `scoreCheck.computableScore`。
+- 验证：`json.tool backend/configs/exp_photoelectric_planck.json` 通过；用 `services.score_check.evaluate_score_check()` 对 G3=3.67、G4=3.57、G5=13.1 的示例值验证，参考检查返回 3 个节点结果。
+
+### 学校提交打开报告超时保护
+
+- 定位 `26A2510320321 / 液晶电光效应实验0625` 的提交任务反复停在 `school.submit.opening`，历史失败为 `REPORT_MODAL_NOT_FOUND` 且诊断显示 Playwright 页面已关闭；当前 `JOB-9F6E89802D` 已手动收敛为 `JOB_STALE_TERMINATED` 并关闭该学生学校会话。
+- 提交流程打开学校报告 modal 现在使用 13 秒 modal 等待和 45 秒外层硬超时，避免 Playwright 会话异常时前端长期停留在“正在打开实验报告”。
+- 修复液晶电光等含大图报告已打开但状态仍显示“正在打开实验报告”的误判：提交链路打开 modal 后不再读取完整报告快照，避免 `_read_modal_snapshot` / modal 截图保存耗时被外层 45 秒超时误报为 `REPORT_MODAL_NOT_FOUND`；详情查看和截图链路仍保留快照读取。
+- `REPORT_MODAL_NOT_FOUND`、报告行/按钮异常、未知提交错误等打开阶段失败会关闭该学生学校会话，避免下一次复用坏会话。
+- 验证：`py_compile backend/services/school_report_sync.py` 通过；数据库确认 active automation job 数量为 0。

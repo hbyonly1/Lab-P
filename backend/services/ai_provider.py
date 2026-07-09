@@ -13,6 +13,8 @@ from models.core import AiConfig, get_utc_now
 AI_TASK_IMAGE_RECOGNITION = "image_recognition"
 AI_TASK_ANSWER_GENERATION = "answer_generation"
 AI_TASK_CAPTCHA = "captcha"
+AI_TASK_EXPERIMENT_IMAGE_AUTO_MATCH = "experiment_image_auto_match"
+AI_TASK_IMAGE_RECOGNITION_RETRY = "image_recognition_retry"
 
 DEFAULT_AI_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_AI_MODEL = "gpt-4o"
@@ -28,6 +30,35 @@ DEFAULT_IMAGE_RECOGNITION_RETRY_ENABLED = False
 DEFAULT_ANSWER_GENERATION_TEMPERATURE = 0.85
 DEFAULT_CAPTCHA_TIMEOUT_SECONDS = 30
 DEFAULT_CAPTCHA_TEMPERATURE = 0
+DEFAULT_EXPERIMENT_IMAGE_AUTO_MATCH_OVERRIDE = {
+    "enabled": False,
+    "provider": "openai_compatible",
+    "base_url": "http://localhost:59663/v1",
+    "chat_completions_url": "http://localhost:59663/v1/chat/completions",
+    "api_key": "",
+    "model": "gpt-5.5",
+    "temperature": 0,
+    "timeout_seconds": 120,
+    "batch_size": 1,
+    "concurrency": 3,
+    "max_retries": 2,
+    "retry_delay_seconds": 30,
+}
+DEFAULT_IMAGE_RECOGNITION_RETRY_OVERRIDE = {
+    **DEFAULT_EXPERIMENT_IMAGE_AUTO_MATCH_OVERRIDE,
+    "enabled": False,
+    "batch_size": 5,
+}
+DEFAULT_CAPTCHA_OVERRIDE = {
+    **DEFAULT_EXPERIMENT_IMAGE_AUTO_MATCH_OVERRIDE,
+    "enabled": False,
+    "base_url": "http://10.26.91.86:59663/v1",
+    "chat_completions_url": "http://10.26.91.86:59663/v1/chat/completions",
+    "model": "gpt-5.5",
+    "timeout_seconds": DEFAULT_CAPTCHA_TIMEOUT_SECONDS,
+    "batch_size": 1,
+    "concurrency": 1,
+}
 
 
 class AiProviderConfigError(ValueError):
@@ -59,6 +90,7 @@ class AiTaskProfile:
     timeout_seconds: int
     temperature: float
     max_images_per_task: int
+    concurrency: int = 1
     prompt: Optional[str] = None
 
 
@@ -82,7 +114,6 @@ def ai_config_from_settings() -> AiConfig:
         auto_recognize=DEFAULT_AUTO_RECOGNIZE,
         image_recognition_model=normalize_image_recognition_model(settings.AI_IMAGE_RECOGNITION_MODEL),
         image_recognition_retry_enabled=DEFAULT_IMAGE_RECOGNITION_RETRY_ENABLED,
-        image_recognition_retry_model=None,
         image_recognition_timeout_seconds=DEFAULT_TIMEOUT_SECONDS,
         image_recognition_temperature=DEFAULT_IMAGE_RECOGNITION_TEMPERATURE,
         image_recognition_max_images_per_task=DEFAULT_MAX_IMAGES_PER_TASK,
@@ -93,6 +124,11 @@ def ai_config_from_settings() -> AiConfig:
         captcha_timeout_seconds=DEFAULT_CAPTCHA_TIMEOUT_SECONDS,
         captcha_temperature=DEFAULT_CAPTCHA_TEMPERATURE,
         captcha_prompt=DEFAULT_CAPTCHA_PROMPT,
+        task_overrides_json={
+            AI_TASK_EXPERIMENT_IMAGE_AUTO_MATCH: dict(DEFAULT_EXPERIMENT_IMAGE_AUTO_MATCH_OVERRIDE),
+            AI_TASK_IMAGE_RECOGNITION_RETRY: dict(DEFAULT_IMAGE_RECOGNITION_RETRY_OVERRIDE),
+            AI_TASK_CAPTCHA: dict(DEFAULT_CAPTCHA_OVERRIDE),
+        },
         updated_at=get_utc_now(),
     )
 
@@ -100,19 +136,32 @@ def ai_config_from_settings() -> AiConfig:
 def ensure_ai_config(session: Session) -> AiConfig:
     config = session.get(AiConfig, 1)
     if config:
+        if not isinstance(config.task_overrides_json, dict):
+            config.task_overrides_json = {}
+            config.updated_at = get_utc_now()
+            session.add(config)
+            session.flush()
+        overrides_json = dict(config.task_overrides_json or {})
+        changed = False
+        for task_key, default_override in {
+            AI_TASK_EXPERIMENT_IMAGE_AUTO_MATCH: DEFAULT_EXPERIMENT_IMAGE_AUTO_MATCH_OVERRIDE,
+            AI_TASK_IMAGE_RECOGNITION_RETRY: DEFAULT_IMAGE_RECOGNITION_RETRY_OVERRIDE,
+            AI_TASK_CAPTCHA: DEFAULT_CAPTCHA_OVERRIDE,
+        }.items():
+            if task_key not in overrides_json:
+                overrides_json[task_key] = dict(default_override)
+                changed = True
         normalized_image_model = normalize_image_recognition_model(config.image_recognition_model)
         if config.image_recognition_model != normalized_image_model:
             config.image_recognition_model = normalized_image_model
             config.updated_at = get_utc_now()
             session.add(config)
             session.flush()
-        if config.image_recognition_retry_model:
-            normalized_retry_model = normalize_image_recognition_model(config.image_recognition_retry_model)
-            if config.image_recognition_retry_model != normalized_retry_model:
-                config.image_recognition_retry_model = normalized_retry_model
-                config.updated_at = get_utc_now()
-                session.add(config)
-                session.flush()
+        if changed:
+            config.task_overrides_json = overrides_json
+            config.updated_at = get_utc_now()
+            session.add(config)
+            session.flush()
         return config
     config = ai_config_from_settings()
     session.add(config)
@@ -131,18 +180,23 @@ class AiProvider:
         if config.provider != "openai_compatible":
             raise AiProviderConfigError(f"Unsupported AI provider: {config.provider}")
 
+        requested_task = task
+        if task == AI_TASK_EXPERIMENT_IMAGE_AUTO_MATCH:
+            override_profile = self._task_override_profile(config, task)
+            if override_profile:
+                return override_profile
+            task = AI_TASK_IMAGE_RECOGNITION
+
         api_key = _settings_value("AI_API_KEY")
         if not api_key:
             raise AiProviderConfigError("AI API key is not configured. Expected env: AI_API_KEY.")
 
         if task == AI_TASK_IMAGE_RECOGNITION:
-            retry_model = str(config.image_recognition_retry_model or "").strip()
-            use_retry_model = (
-                bool(config.image_recognition_retry_enabled)
-                and int(recognition_attempt or 1) > 1
-                and bool(retry_model)
-            )
-            model = retry_model if use_retry_model else config.image_recognition_model
+            if bool(config.image_recognition_retry_enabled) and int(recognition_attempt or 1) > 1:
+                override_profile = self._task_override_profile(config, AI_TASK_IMAGE_RECOGNITION_RETRY)
+                if override_profile:
+                    return override_profile
+            model = config.image_recognition_model
             timeout_seconds = config.image_recognition_timeout_seconds
             temperature = config.image_recognition_temperature
             max_images_per_task = config.image_recognition_max_images_per_task
@@ -154,6 +208,20 @@ class AiProvider:
             max_images_per_task = config.default_max_images_per_task
             prompt = None
         elif task == AI_TASK_CAPTCHA:
+            override_profile = self._task_override_profile(config, AI_TASK_CAPTCHA)
+            if override_profile:
+                return AiTaskProfile(
+                    task=override_profile.task,
+                    provider=override_profile.provider,
+                    api_key=override_profile.api_key,
+                    base_url=override_profile.base_url,
+                    model=override_profile.model,
+                    timeout_seconds=override_profile.timeout_seconds,
+                    temperature=override_profile.temperature,
+                    max_images_per_task=1,
+                    concurrency=1,
+                    prompt=config.captcha_prompt,
+                )
             model = config.captcha_model
             timeout_seconds = config.captcha_timeout_seconds
             temperature = config.captcha_temperature
@@ -175,7 +243,51 @@ class AiProvider:
             timeout_seconds=int(timeout_seconds),
             temperature=float(temperature),
             max_images_per_task=int(max_images_per_task),
+            concurrency=3 if requested_task == AI_TASK_EXPERIMENT_IMAGE_AUTO_MATCH else 1,
             prompt=prompt,
+        )
+
+    def _task_override_profile(self, config: AiConfig, task: str) -> Optional[AiTaskProfile]:
+        overrides = config.task_overrides_json or {}
+        override = overrides.get(task) if isinstance(overrides, dict) else None
+        if not isinstance(override, dict) or override.get("enabled") is not True:
+            return None
+        provider = str(override.get("provider") or "openai_compatible").strip()
+        if provider != "openai_compatible":
+            raise AiProviderConfigError(f"Unsupported AI task override provider: {provider}")
+        api_key = str(override.get("api_key") or "").strip()
+        if not api_key:
+            raise AiProviderConfigError(f"AI task override {task} is missing api_key.")
+        base_url = str(override.get("base_url") or "").strip()
+        chat_url = str(override.get("chat_completions_url") or "").strip()
+        if not base_url:
+            if chat_url.endswith("/chat/completions"):
+                base_url = chat_url[: -len("/chat/completions")]
+        if not base_url:
+            raise AiProviderConfigError(f"AI task override {task} is missing base_url.")
+        model = str(override.get("model") or "").strip()
+        if not model:
+            raise AiProviderConfigError(f"AI task override {task} is missing model.")
+        timeout_seconds = int(override.get("timeout_seconds") or 120)
+        temperature = float(override.get("temperature") if override.get("temperature") is not None else 0)
+        max_images_per_task = int(
+            override.get("batch_size")
+            or override.get("max_images_per_task")
+            or config.image_recognition_max_images_per_task
+            or 5
+        )
+        concurrency = int(override.get("concurrency") or 3)
+        return AiTaskProfile(
+            task=task,
+            provider=provider,
+            api_key=api_key,
+            base_url=base_url.rstrip("/"),
+            model=model,
+            timeout_seconds=timeout_seconds,
+            temperature=temperature,
+            max_images_per_task=max(1, max_images_per_task),
+            concurrency=max(1, min(10, concurrency)),
+            prompt=None,
         )
 
     def _client(self, profile: AiTaskProfile):

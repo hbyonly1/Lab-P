@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Table, Tag, message, Popconfirm, Space, Input, Select } from 'antd';
 import {
   ExclamationCircleOutlined,
@@ -10,8 +10,6 @@ import {
 import { PageHeading, StatCard, TablePanel, StatusBadge, OutlineButton } from '../../../components/ui';
 import { ORDER_STATUS_META } from '../../../constants/statusEnums';
 import { getOrders, verifyOrderPayment } from '../../../services/ordersApi';
-
-const PAY_PER_USE_BATCH_WINDOW_MS = 10 * 1000;
 
 function toTimestamp(value) {
   if (!value) return 0;
@@ -38,61 +36,25 @@ function isToday(timestamp) {
     date.getDate() === today.getDate();
 }
 
-function makeBatchKey(order) {
-  if (order.type !== 'pay_per_use') return order.id;
-  const bucket = Math.floor((order.createdAtMs || 0) / PAY_PER_USE_BATCH_WINDOW_MS);
-  return ['pay_per_use', order.studentId, order.status, bucket].join(':');
-}
-
-function makeBatchDisplayId(firstOrder) {
-  return `BATCH-${String(firstOrder.id || '').replace(/^ORD-/, '').slice(-6) || 'PAY'}`;
-}
-
-function buildPaymentRows(orderList) {
-  const groups = new Map();
-
-  orderList.forEach((order) => {
-    const key = makeBatchKey(order);
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(order);
-  });
-
-  return Array.from(groups.entries()).map(([key, group]) => {
-    const sortedChildren = [...group].sort((a, b) => (a.createdAtMs || 0) - (b.createdAtMs || 0));
-    const first = sortedChildren[0];
-    const amount = sortedChildren.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-    const isBatch = first.type === 'pay_per_use' && sortedChildren.length > 1;
-
-    return {
-      ...first,
-      id: isBatch ? makeBatchDisplayId(first) : first.id,
-      orderIds: sortedChildren.map(item => item.id),
-      childOrders: sortedChildren,
-      isBatch,
-      typeLabel: isBatch ? `pay_per_use × ${sortedChildren.length}` : first.typeLabel,
-      amount,
-      createdAt: first.createdAt,
-      createdAtMs: first.createdAtMs,
-    };
-  }).sort((a, b) => (b.createdAtMs || 0) - (a.createdAtMs || 0));
-}
-
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [searchText, setSearchText] = useState('');
   const [typeFilter, setTypeFilter] = useState(undefined);
   const [statusFilter, setStatusFilter] = useState(undefined);
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 20 });
+  const [orderTotal, setOrderTotal] = useState(0);
+  const [summary, setSummary] = useState({});
 
   // ================= 派生指标数据 =================
-  const paymentRows = useMemo(() => buildPaymentRows(orders), [orders]);
-  const pendingCount = paymentRows.filter((o) => o.status === 'pending_payment').length;
-  const todayRevenue = paymentRows
+  const paymentRows = useMemo(() => orders, [orders]);
+  const pendingCount = summary.pendingCount ?? paymentRows.filter((o) => o.status === 'pending_payment').length;
+  const todayRevenue = summary.paidTodayAmount ?? paymentRows
     .filter((o) => o.status === 'paid' && isToday(o.createdAtMs))
     .reduce((sum, o) => sum + o.amount, 0);
-  const totalRevenue = paymentRows
+  const totalRevenue = summary.paidTotalAmount ?? paymentRows
     .filter((o) => o.status === 'paid')
     .reduce((sum, o) => sum + o.amount, 0);
-  const errorCount = paymentRows.filter((o) => o.status === 'rejected').length;
+  const errorCount = summary.rejectedCount ?? paymentRows.filter((o) => o.status === 'rejected').length;
 
   const metrics = [
     { key: 'pending', title: '待确认', value: pendingCount, tone: 'amber', icon: <ExclamationCircleOutlined /> },
@@ -102,34 +64,46 @@ export default function AdminOrdersPage() {
   ];
 
   // ================= 操作逻辑 =================
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
-      const data = await getOrders();
-      setOrders(data.map(o => ({
+      const data = await getOrders({
+        page: pagination.current || 1,
+        pageSize: pagination.pageSize || 20,
+        query: searchText.trim() || undefined,
+        plan: typeFilter || undefined,
+        status: statusFilter || undefined,
+      });
+      const rows = data.items || [];
+      setOrderTotal(data.total || 0);
+      setSummary(data.summary || {});
+      setOrders(rows.map(o => ({
         id: o.id,
         studentId: o.student_username || o.student_id,
         experimentId: o.experiment_id,
         type: o.plan,
-        typeLabel: o.plan,
+        orderType: o.order_type,
+        typeLabel: o.order_type === 'plan_upgrade' ? `${o.plan} 套餐` : '按实验计价',
         amount: o.amount,
         createdAt: formatDateTime(o.created_at),
         createdAtMs: toTimestamp(o.created_at),
-        status: o.status
+        status: o.status,
+        submissionBatchId: o.submission_batch_id,
+        items: o.items || [],
+        isBatch: Boolean(o.submission_batch_id) || (o.items || []).length > 1,
       })));
     } catch (err) {
       message.error('无法拉取订单数据');
     }
-  };
+  }, [pagination.current, pagination.pageSize, searchText, statusFilter, typeFilter]);
 
   useEffect(() => {
-    fetchOrders();
-  }, []);
+    const timer = window.setTimeout(fetchOrders, 250);
+    return () => window.clearTimeout(timer);
+  }, [fetchOrders]);
 
   const handleVerify = async (record) => {
     try {
-      for (const orderId of record.orderIds || [record.id]) {
-        await verifyOrderPayment(orderId, 'verify');
-      }
+      await verifyOrderPayment(record.id, 'verify');
       message.success('已确认支付，订单已放行');
       fetchOrders();
     } catch (e) {
@@ -139,9 +113,7 @@ export default function AdminOrdersPage() {
 
   const handleReject = async (record) => {
     try {
-      for (const orderId of record.orderIds || [record.id]) {
-        await verifyOrderPayment(orderId, 'reject');
-      }
+      await verifyOrderPayment(record.id, 'reject');
       message.warning('订单已驳回');
       fetchOrders();
     } catch (e) {
@@ -168,11 +140,11 @@ export default function AdminOrdersPage() {
       dataIndex: 'typeLabel',
       key: 'type',
       render: (text, record) => {
-        const isUpgrade = record.type.includes('upgrade');
+        const isUpgrade = record.orderType === 'plan_upgrade';
         return (
           <Space>
             <Tag color={isUpgrade ? 'blue' : 'default'} bordered={false}>{text}</Tag>
-            {record.isBatch && <Tag color="gold" bordered={false}>合并收款</Tag>}
+            {record.submissionBatchId && <Tag color="gold" bordered={false}>提交组</Tag>}
           </Space>
         );
       },
@@ -207,7 +179,7 @@ export default function AdminOrdersPage() {
           <Space>
             <Popconfirm
               title="确认收款"
-              description={`确认学号 ${record.studentId} 已支付 ¥${formatCurrency(record.amount)} 吗？${record.isBatch ? `将放行 ${record.childOrders.length} 个实验。` : ''}`}
+              description={`确认学号 ${record.studentId} 已支付 ¥${formatCurrency(record.amount)} 吗？${record.submissionBatchId ? `将放行提交组 ${record.submissionBatchId}。` : ''}`}
               onConfirm={() => handleVerify(record)}
               okText="是的，已收到"
               cancelText="取消"
@@ -226,7 +198,7 @@ export default function AdminOrdersPage() {
 
             <Popconfirm
               title="驳回订单"
-              description={record.isBatch ? `该合并收款下 ${record.childOrders.length} 笔订单都将标记为支付异常，确定驳回？` : '该笔订单将被标记为支付异常，确定驳回？'}
+              description={record.submissionBatchId ? '该提交组关联的任务都将标记为支付异常，确定驳回？' : '该笔订单将被标记为支付异常，确定驳回？'}
               onConfirm={() => handleReject(record)}
               okText="驳回"
               cancelText="取消"
@@ -249,60 +221,54 @@ export default function AdminOrdersPage() {
     },
   ];
 
-  const filteredOrders = useMemo(() => {
-    return paymentRows.filter((o) => {
-      const lowerSearch = searchText.toLowerCase().trim();
-      const matchSearch = String(o.studentId || '').toLowerCase().includes(lowerSearch) ||
-        String(o.id || '').toLowerCase().includes(lowerSearch) ||
-        (o.childOrders || []).some(child =>
-          String(child.id || '').toLowerCase().includes(lowerSearch) ||
-          String(child.experimentId || '').toLowerCase().includes(lowerSearch)
-        );
-      const matchType = typeFilter ? o.type === typeFilter : true;
-      const matchStatus = statusFilter ? o.status === statusFilter : true;
-      return matchSearch && matchType && matchStatus;
-    });
-  }, [paymentRows, searchText, typeFilter, statusFilter]);
+  const filteredOrders = paymentRows;
 
   const expandedRowRender = (record) => {
     const childColumns = [
-      { title: '订单号', dataIndex: 'id', key: 'id', width: 180 },
+      { title: '明细类型', dataIndex: 'item_type', key: 'item_type', width: 180 },
       {
         title: '实验',
-        dataIndex: 'experimentId',
-        key: 'experimentId',
+        dataIndex: 'experiment_id',
+        key: 'experiment_id',
         render: (value) => value || '套餐升级',
       },
       {
-        title: 'plan',
-        dataIndex: 'typeLabel',
-        key: 'typeLabel',
-        render: (value) => <Tag bordered={false}>{value}</Tag>,
+        title: '提交',
+        dataIndex: 'submission_id',
+        key: 'submission_id',
+        render: (value) => value || '-',
+      },
+      {
+        title: '数量',
+        dataIndex: 'quantity',
+        key: 'quantity',
+      },
+      {
+        title: '单价',
+        dataIndex: 'unit_amount',
+        key: 'unit_amount',
+        render: (amount) => `¥${formatCurrency(amount)}`,
       },
       {
         title: '金额',
-        dataIndex: 'amount',
-        key: 'amount',
+        dataIndex: 'total_amount',
+        key: 'total_amount',
         render: (amount) => `¥${formatCurrency(amount)}`,
       },
-      { title: '提交时间', dataIndex: 'createdAt', key: 'createdAt' },
       {
-        title: '状态',
-        dataIndex: 'status',
-        key: 'status',
-        render: (status) => {
-          const meta = ORDER_STATUS_META[status] || ORDER_STATUS_META.pending_payment;
-          return <StatusBadge tone={meta.tone} label={meta.label} />;
-        },
+        title: '来源',
+        dataIndex: ['pricing_snapshot', 'source'],
+        key: 'pricing_source',
+        render: (value) => <Tag bordered={false}>{value}</Tag>,
       },
     ];
 
     return (
       <Table
         columns={childColumns}
-        dataSource={record.childOrders}
+        dataSource={record.items}
         pagination={false}
-        rowKey="id"
+        rowKey={(item) => `${item.item_type}-${item.submission_id || item.experiment_id || item.id}`}
         size="small"
       />
     );
@@ -335,7 +301,10 @@ export default function AdminOrdersPage() {
               placeholder="搜索学号 / 订单号"
               prefix={<SearchOutlined />}
               value={searchText}
-              onChange={e => setSearchText(e.target.value)}
+              onChange={e => {
+                setSearchText(e.target.value);
+                setPagination((prev) => ({ ...prev, current: 1 }));
+              }}
               style={{ width: 200 }}
             />
             <Select
@@ -343,18 +312,24 @@ export default function AdminOrdersPage() {
               style={{ width: 140 }}
               allowClear
               value={typeFilter}
-              onChange={setTypeFilter}
+              onChange={(value) => {
+                setTypeFilter(value);
+                setPagination((prev) => ({ ...prev, current: 1 }));
+              }}
             >
-              <Select.Option value="pro">Pro 包月</Select.Option>
-              <Select.Option value="plus">Plus 包月</Select.Option>
-              <Select.Option value="pay_per_use">单次代劳</Select.Option>
+              <Select.Option value="pro">Pro 套餐</Select.Option>
+              <Select.Option value="plus">Plus 套餐</Select.Option>
+              <Select.Option value="pay_per_use">按实验计价</Select.Option>
             </Select>
             <Select
               placeholder="状态"
               style={{ width: 120 }}
               allowClear
               value={statusFilter}
-              onChange={setStatusFilter}
+              onChange={(value) => {
+                setStatusFilter(value);
+                setPagination((prev) => ({ ...prev, current: 1 }));
+              }}
             >
               <Select.Option value="pending_payment">待核实</Select.Option>
               <Select.Option value="paid">已收款</Select.Option>
@@ -368,9 +343,19 @@ export default function AdminOrdersPage() {
           dataSource={filteredOrders}
           expandable={{
             expandedRowRender,
-            rowExpandable: (record) => record.isBatch,
+            rowExpandable: (record) => (record.items || []).length > 0,
           }}
-          pagination={false}
+          pagination={{
+            ...pagination,
+            total: orderTotal,
+            showSizeChanger: false,
+          }}
+          onChange={(nextPagination) => {
+            setPagination({
+              current: nextPagination.current || 1,
+              pageSize: nextPagination.pageSize || pagination.pageSize || 20,
+            });
+          }}
           rowKey="id"
           scroll={{ x: 800 }}
         />

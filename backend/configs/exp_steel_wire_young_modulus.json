@@ -17,55 +17,68 @@
     "fields": [
       {
         "id": "SYMD_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "杨氏模量"
       },
       {
         "id": "SYMD_Fill_1",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "光杠杆"
       },
       {
         "id": "SYMD_Fill_2",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "逐差法"
       },
       {
         "id": "SYMD_Fill_3",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "误差均分原则"
       },
       {
         "id": "SYMD_Fill_4",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "杨氏模量仪"
       },
       {
         "id": "SYYL_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "应力"
       },
       {
         "id": "SYYL_Fill_1",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "应变"
       },
       {
         "id": "SYYL_Fill_2",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "杨氏模量"
       },
       {
         "id": "SYYL_Fill_3",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "光杠杆"
       },
       {
         "id": "SYYL_Fill_4",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "卷尺"
       },
       {
         "id": "SYYL_Fill_5",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "卷尺"
       },
       {
         "id": "SYYL_Fill_6",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "螺旋测微器"
       },
       {
         "id": "SYYL_Fill_7",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "游标卡尺"
       },
       {
         "id": "YSSJDrawingAreaArea",
@@ -74,19 +87,27 @@
       },
       {
         "id": "L1",
-        "type": "computed"
+        "type": "ai_recognize",
+        "label": "钢丝长度 L",
+        "recognitionHint": "单位按 cm，只返回数值，不带单位。"
       },
       {
         "id": "L2",
-        "type": "computed"
+        "type": "ai_recognize",
+        "label": "光杠杆镜面到标尺的距离 D",
+        "recognitionHint": "单位按 cm，只返回数值，不带单位。"
       },
       {
         "id": "L3",
-        "type": "computed"
+        "type": "ai_recognize",
+        "label": "钢丝直径 d",
+        "recognitionHint": "单位按 mm，只返回数值，不带单位。"
       },
       {
         "id": "L4",
-        "type": "computed"
+        "type": "ai_recognize",
+        "label": "光杠杆前后足垂直距离 b",
+        "recognitionHint": "单位按 cm，只返回数值，不带单位。"
       },
       {
         "id": "L50-0",
@@ -98,7 +119,7 @@
       },
       {
         "id": "L50-2",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "L51-0",
@@ -110,7 +131,7 @@
       },
       {
         "id": "L51-2",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "L52-0",
@@ -122,7 +143,7 @@
       },
       {
         "id": "L52-2",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "L53-0",
@@ -134,7 +155,7 @@
       },
       {
         "id": "L53-2",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "L54-0",
@@ -146,7 +167,7 @@
       },
       {
         "id": "L54-2",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "L55-0",
@@ -158,7 +179,7 @@
       },
       {
         "id": "L55-2",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "L56-0",
@@ -170,7 +191,7 @@
       },
       {
         "id": "L56-2",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "L57-0",
@@ -182,27 +203,27 @@
       },
       {
         "id": "L57-2",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "L60-0",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "L61-0",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "L62-0",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "L63-0",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "L64-0",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "L7",
@@ -317,6 +338,81 @@
       }
     ],
     "dataTables": [
+      {
+        "caption": "1. 原始数据",
+        "rows": [
+          {
+            "isHeader": true,
+            "cells": [
+              {
+                "text": "测量量"
+              },
+              {
+                "text": "单位"
+              },
+              {
+                "text": "测量值"
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "text": "钢丝长度 L"
+              },
+              {
+                "text": "cm"
+              },
+              {
+                "nodeId": "L1"
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "text": "光杠杆镜面到标尺的距离 D"
+              },
+              {
+                "text": "cm"
+              },
+              {
+                "nodeId": "L2"
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "text": "钢丝直径 d"
+              },
+              {
+                "text": "mm"
+              },
+              {
+                "nodeId": "L3"
+              }
+            ]
+          },
+          {
+            "isHeader": false,
+            "cells": [
+              {
+                "text": "光杠杆前后足垂直距离 b"
+              },
+              {
+                "text": "cm"
+              },
+              {
+                "nodeId": "L4"
+              }
+            ]
+          }
+        ]
+      },
       {
         "caption": "（5）每增加1kg重量，记录标尺读数。超出7kg后再返回，每减少1kg重量，记录标尺读数。求出平均值。",
         "rows": [
@@ -630,26 +726,7 @@
         "title": "数据处理",
         "segments": [
           "实验内容：拉伸法测杨氏模量",
-          "\n1. 原始数据\n（1）L（cm）=",
-          {
-            "nodeId": "L1",
-            "width": "80px"
-          },
-          "\n（2）D（cm）=",
-          {
-            "nodeId": "L2",
-            "width": "80px"
-          },
-          "\n（3）d（mm）=",
-          {
-            "nodeId": "L3",
-            "width": "80px"
-          },
-          "\n（4）b（cm）=",
-          {
-            "nodeId": "L4",
-            "width": "80px"
-          },
+          "\n1. 原始数据见上方表格。",
           "\n（5）每增加1kg重量，记录标尺读数。超出7kg后再返回，每减少1kg重量，记录标尺读数。求出平均值。",
           "（6）逐差法，求出每增加4kg重量时标尺读数增量（即后4组数值对应减去前4组数值）。并求出4次增量的平均值。",
           "2. 计算杨氏模量E（注意逐差法每增加4kg重量，因此公式中的F=4×9.8N。） E（ ×10¹¹ Pa）=",
@@ -680,7 +757,44 @@
       "imageRef": "IMG_RAW_DATA"
     }
   },
-  "formulas": {},
+  "formulas": {
+    "L50-2": "format_fixed((v('L50-0') + v('L50-1')) / 2, 2)",
+    "L51-2": "format_fixed((v('L51-0') + v('L51-1')) / 2, 2)",
+    "L52-2": "format_fixed((v('L52-0') + v('L52-1')) / 2, 2)",
+    "L53-2": "format_fixed((v('L53-0') + v('L53-1')) / 2, 2)",
+    "L54-2": "format_fixed((v('L54-0') + v('L54-1')) / 2, 2)",
+    "L55-2": "format_fixed((v('L55-0') + v('L55-1')) / 2, 2)",
+    "L56-2": "format_fixed((v('L56-0') + v('L56-1')) / 2, 2)",
+    "L57-2": "format_fixed((v('L57-0') + v('L57-1')) / 2, 2)",
+    "L60-0": "format_fixed(v('L54-2') - v('L50-2'), 2)",
+    "L61-0": "format_fixed(v('L55-2') - v('L51-2'), 2)",
+    "L62-0": "format_fixed(v('L56-2') - v('L52-2'), 2)",
+    "L63-0": "format_fixed(v('L57-2') - v('L53-2'), 2)",
+    "L64-0": "format_fixed(mean(v('L60-0', 'L61-0', 'L62-0', 'L63-0')), 2)",
+    "L7": "format_sig(8 * 4 * 9.8 * v('L1') * v('L2') / (3.141592653589793 * v('L3') * v('L3') * v('L4') * v('L64-0')) * 0.00001, 3)",
+    "L8": "format_sig((((0.5 / (v('L1') * 10)) ** 2 + ((2 * 0.005 / v('L3')) ** 2)) ** 0.5) * 100, 3)"
+  },
+  "referenceValueCheck": {
+    "enabled": true,
+    "label": "按典型参考值检查",
+    "items": [
+      {
+        "id": "steel_wire_young_modulus_typical",
+        "title": "钢丝杨氏模量 E",
+        "nodeId": "L7",
+        "type": "relative_error_percent",
+        "referenceValue": 2.0,
+        "referenceUnit": "10¹¹ Pa",
+        "referenceSource": "钢材典型杨氏模量约 2.0×10¹¹ Pa，非学校评分标准。",
+        "ranges": [
+          { "min": 0, "max": 10, "level": "good", "label": "与钢材典型杨氏模量接近" },
+          { "min": 10, "max": 25, "level": "warning", "label": "相对钢材典型杨氏模量偏差较大" },
+          { "min": 25, "level": "danger", "label": "相对钢材典型杨氏模量明显异常" }
+        ]
+      }
+    ],
+    "notes": ["按材料典型值做合理性提示，不计入学校评分。"]
+  },
   "automation": {
     "mappings": [
       {

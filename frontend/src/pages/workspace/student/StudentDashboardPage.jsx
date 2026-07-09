@@ -12,9 +12,11 @@ import {
   EditOutlined,
   ExclamationCircleOutlined,
   EyeOutlined,
+  FileSearchOutlined,
   FileTextOutlined,
   LineChartOutlined,
   MoreOutlined,
+  PictureOutlined,
   ReloadOutlined,
   SettingOutlined,
   UploadOutlined,
@@ -28,11 +30,29 @@ import { auditApi } from '../../../services/auditApi.js';
 import { getMe } from '../../../services/authApi.js';
 import { getMySubmissions } from '../../../services/submissionsApi.js';
 import { experimentsApi } from '../../../services/experimentsApi.js';
-import { getSchoolOverviewLatest, startSchoolOverviewSync } from '../../../services/schoolSyncApi.js';
+import {
+  getSchoolCompletionCheckResult,
+  getSchoolOverviewLatest,
+  getSchoolSubmissionScreenshotBlob,
+  getSchoolSubmissionScreenshotsResult,
+  startSchoolCompletionCheck,
+  startSchoolOverviewSync,
+  startSchoolSubmissionScreenshots,
+} from '../../../services/schoolSyncApi.js';
 import { getActiveAutomationJobs } from '../../../services/automationJobsApi.js';
 import { STATUS_META, OVERALL_STATUS_META } from '../../../constants/statusEnums.js';
 import { AUDIT_ACTION_META } from '../../../constants/auditEnums.js';
 import { submitOneClickExperimentBatch } from '../../../utils/oneClickSubmitUtils.js';
+import { getApiErrorMessage } from '../../../utils/apiErrorUtils.js';
+import { applySchoolStatusToExperiments } from '../../../utils/schoolStatusUtils.js';
+import {
+  COMPLETION_CHECK_STEP_ALIASES,
+  COMPLETION_CHECK_STEPS,
+  SchoolCompletionResultModal,
+  SchoolSubmissionScreenshotsModal,
+  SUBMISSION_SCREENSHOT_STEP_ALIASES,
+  SUBMISSION_SCREENSHOT_STEPS,
+} from '../../../components/school/SchoolAutomationResultModals.jsx';
 
 const dashboardData = {
   plan: {
@@ -47,7 +67,7 @@ const dashboardData = {
       features: [
         { text: '全流程提交辅助：只需上传实验材料，系统完成全流程提交', available: false },
         { text: '自动化数据处理：固定填空、根据公式计算数据与主观题生成式回答', available: false },
-        { text: 'AI 智能视觉提取：可供体验的实验数据图片解析并自动回填（需自行核对识别结果）', available: true, warning: true },
+        { text: 'AI 智能视觉提取：无高级提取权限', available: false },
         { text: '直接上传数据到实验网站', available: true },
       ],
     },
@@ -104,6 +124,7 @@ export default function StudentDashboardPage() {
     completed: 0,
     total: 0,
     reviewing: 0,
+    draftSubmitted: 0,
     unsubmitted: 0,
     latestName: '暂无记录',
     latestTime: '-',
@@ -111,7 +132,8 @@ export default function StudentDashboardPage() {
 
   const completed = metricsData.completed;
   const total = metricsData.total;
-  const pending = metricsData.unsubmitted;
+  const draftSubmitted = metricsData.draftSubmitted;
+  const unfinished = Math.max(total - completed, 0);
   const progress = total > 0 ? completed / total : 0;
 
   const dynamicMetrics = [
@@ -122,9 +144,9 @@ export default function StudentDashboardPage() {
       tone: 'completion',
     },
     {
-      key: 'pending',
-      label: '待提交',
-      value: String(pending),
+      key: 'draft-submitted',
+      label: '已临时提交',
+      value: String(draftSubmitted),
       icon: <CloudUploadOutlined />,
       tone: 'amber',
     },
@@ -153,6 +175,27 @@ export default function StudentDashboardPage() {
   const [overviewJob, setOverviewJob] = useState(null);
   const [isOverviewModalOpen, setIsOverviewModalOpen] = useState(false);
   const [lastOverviewSyncedAt, setLastOverviewSyncedAt] = useState(null);
+  const [completionJob, setCompletionJob] = useState(null);
+  const [isCompletionProgressOpen, setIsCompletionProgressOpen] = useState(false);
+  const [isCompletionResultOpen, setIsCompletionResultOpen] = useState(false);
+  const [completionResult, setCompletionResult] = useState(null);
+  const [completionLoading, setCompletionLoading] = useState(false);
+  const [screenshotsJob, setScreenshotsJob] = useState(null);
+  const [isScreenshotsProgressOpen, setIsScreenshotsProgressOpen] = useState(false);
+  const [isScreenshotsResultOpen, setIsScreenshotsResultOpen] = useState(false);
+  const [screenshotsResult, setScreenshotsResult] = useState(null);
+  const [screenshotsLoading, setScreenshotsLoading] = useState(false);
+  const [screenshotUrls, setScreenshotUrls] = useState({});
+
+  const revokeScreenshotUrls = useCallback((urls) => {
+    Object.values(urls || {}).forEach((url) => {
+      if (url) URL.revokeObjectURL(url);
+    });
+  }, []);
+
+  useEffect(() => () => {
+    revokeScreenshotUrls(screenshotUrls);
+  }, [revokeScreenshotUrls, screenshotUrls]);
 
   const refreshUserProfile = useCallback(async () => {
     const data = await getMe();
@@ -194,12 +237,15 @@ export default function StudentDashboardPage() {
   useEffect(() => {
     const fetchRecent = async () => {
       try {
-        const [experimentList, data] = await Promise.all([
+        const [experimentList, data, overviewLatest] = await Promise.all([
           experimentsApi.listExperiments(),
           getMySubmissions(),
+          getSchoolOverviewLatest().catch(() => ({ experiments: [] })),
         ]);
-        setExperiments(experimentList);
-        const { metrics } = calculateExperimentMetrics(data, experimentList);
+        const experimentsWithSchoolStatus = applySchoolStatusToExperiments(experimentList, overviewLatest);
+        setExperiments(experimentsWithSchoolStatus);
+        setLastOverviewSyncedAt(overviewLatest.lastSyncedAt || null);
+        const { metrics } = calculateExperimentMetrics(data, experimentsWithSchoolStatus);
         setMetricsData(metrics);
       } catch (err) {
         console.error('Failed to load metrics:', err);
@@ -262,14 +308,110 @@ export default function StudentDashboardPage() {
     setIsSubmitModalOpen(true);
   };
 
-  const handleModalSubmit = async (batchImages, targetStudent, isHungup = false, planName = 'pay_per_use') => {
+  const loadCompletionResult = useCallback(async (job = completionJob) => {
+    if (!job?.jobId) return;
+    setCompletionLoading(true);
+    try {
+      const result = await getSchoolCompletionCheckResult(job.jobId);
+      setCompletionResult(result);
+      setIsCompletionProgressOpen(false);
+      setIsCompletionResultOpen(true);
+    } catch (err) {
+      message.error(err.response?.data?.detail || err.message || '读取完整性检查结果失败');
+    } finally {
+      setCompletionLoading(false);
+    }
+  }, [completionJob]);
+
+  const handleCompletionCheck = async () => {
+    setCompletionResult(null);
+    setCompletionLoading(true);
+    try {
+      const job = await startSchoolCompletionCheck();
+      setCompletionJob(job);
+      setIsCompletionProgressOpen(true);
+      if (job.status === 'succeeded') {
+        await loadCompletionResult(job);
+      }
+    } catch (err) {
+      const activeJob = err.response?.data?.detail?.job;
+      if (err.response?.status === 409 && activeJob) {
+        setCompletionJob(activeJob);
+        setIsCompletionProgressOpen(true);
+        message.warning('已有学校系统任务正在执行，请等待当前任务完成。');
+      } else {
+        message.error(err.response?.data?.detail || err.message || '完整性检查启动失败');
+      }
+    } finally {
+      setCompletionLoading(false);
+    }
+  };
+
+  const loadSubmissionScreenshotsResult = useCallback(async (job = screenshotsJob) => {
+    if (!job?.jobId) return;
+    setScreenshotsLoading(true);
+    try {
+      const result = await getSchoolSubmissionScreenshotsResult(job.jobId);
+      const captured = (result.experiments || []).filter((item) => item.captureStatus === 'captured' && item.screenshotAvailable);
+      const entries = await Promise.all(captured.map(async (item) => {
+        try {
+          const blob = await getSchoolSubmissionScreenshotBlob(job.jobId, item.experimentId);
+          return [item.experimentId, URL.createObjectURL(blob)];
+        } catch (error) {
+          return [item.experimentId, ''];
+        }
+      }));
+      setScreenshotUrls((prev) => {
+        revokeScreenshotUrls(prev);
+        return Object.fromEntries(entries.filter(([, url]) => url));
+      });
+      setScreenshotsResult(result);
+      setIsScreenshotsProgressOpen(false);
+      setIsScreenshotsResultOpen(true);
+    } catch (err) {
+      message.error(err.response?.data?.detail || err.message || '读取提交截图结果失败');
+    } finally {
+      setScreenshotsLoading(false);
+    }
+  }, [revokeScreenshotUrls, screenshotsJob]);
+
+  const handleSubmissionScreenshots = async () => {
+    setScreenshotsResult(null);
+    setScreenshotsLoading(true);
+    setScreenshotUrls((prev) => {
+      revokeScreenshotUrls(prev);
+      return {};
+    });
+    try {
+      const job = await startSchoolSubmissionScreenshots();
+      setScreenshotsJob(job);
+      setIsScreenshotsProgressOpen(true);
+      if (job.status === 'succeeded') {
+        await loadSubmissionScreenshotsResult(job);
+      }
+    } catch (err) {
+      const activeJob = err.response?.data?.detail?.job;
+      if (err.response?.status === 409 && activeJob) {
+        setScreenshotsJob(activeJob);
+        setIsScreenshotsProgressOpen(true);
+        message.warning('已有学校系统任务正在执行，请等待当前任务完成。');
+      } else {
+        message.error(err.response?.data?.detail || err.message || '查看所有提交截图启动失败');
+      }
+    } finally {
+      setScreenshotsLoading(false);
+    }
+  };
+
+  const handleModalSubmit = async (batchImages, targetStudent, isHungup = false, planName = 'pay_per_use', resolvedTargets = null, submitOptions = {}) => {
     try {
       const { submittedCount } = await submitOneClickExperimentBatch({
-        targets: submitTargets,
+        targets: resolvedTargets || submitTargets,
         batchImages,
         targetStudent,
         isHungup,
         planName,
+        ...submitOptions,
       });
 
       if (submittedCount === 0) {
@@ -284,7 +426,7 @@ export default function StudentDashboardPage() {
       }, 1500);
     } catch (e) {
       if (e.response?.status !== 403 && e.status !== 403) {
-        const msg = e.response?.data?.detail || e.message;
+        const msg = getApiErrorMessage(e);
         message.error(`提交失败: ${msg}`);
       }
       throw e; // 继续抛出让下层拦截并弹出二维码
@@ -302,6 +444,8 @@ export default function StudentDashboardPage() {
       />
 
       <QuickSubmitCard
+        onCompletionCheck={handleCompletionCheck}
+        onSubmissionScreenshots={handleSubmissionScreenshots}
         onBatchSubmit={handleBatchSubmitClick}
         onManualSubmit={() => navigate('/workspace/student/experiments')}
       />
@@ -314,7 +458,7 @@ export default function StudentDashboardPage() {
           plans={dashboardData.plans}
           onUpgrade={() => setIsUpgradeModalOpen(true)}
         />
-        <ProgressRingCard completed={completed} pending={pending} progress={progress} total={total} />
+        <ProgressRingCard completed={completed} pending={unfinished} progress={progress} total={total} />
       </div>
 
       <RecentOperationsTable operations={recentOperations} />
@@ -333,7 +477,7 @@ export default function StudentDashboardPage() {
       <AutomationProgressModal
         open={isOverviewModalOpen}
         initialJob={overviewJob}
-        title="学校系统概览同步"
+        title={`${studentNo || ''} 学校系统概览同步`.trim()}
         steps={[
           'school.overview.connecting',
           'school.overview.recognizingCaptcha',
@@ -364,6 +508,59 @@ export default function StudentDashboardPage() {
           refreshUserProfile().catch((err) => console.error('Failed to refresh user profile:', err));
           refreshOverviewLatest().catch((err) => console.error('Failed to refresh overview latest:', err));
         }}
+      />
+      <AutomationProgressModal
+        open={isCompletionProgressOpen}
+        initialJob={completionJob}
+        title={`${studentNo || ''} 学校系统填空完整性检查`.trim()}
+        steps={COMPLETION_CHECK_STEPS}
+        stepAliases={COMPLETION_CHECK_STEP_ALIASES}
+        defaultMessageCode="school.completion.syncing"
+        failureMessageCode="school.completion.failed"
+        onJobUpdate={(job) => {
+          if (job.status === 'succeeded') {
+            loadCompletionResult(job);
+          }
+        }}
+        onClose={(job) => {
+          setIsCompletionProgressOpen(false);
+          if (job?.status === 'succeeded') {
+            loadCompletionResult(job);
+          }
+        }}
+      />
+      <SchoolCompletionResultModal
+        open={isCompletionResultOpen}
+        result={completionResult}
+        loading={completionLoading}
+        onClose={() => setIsCompletionResultOpen(false)}
+      />
+      <AutomationProgressModal
+        open={isScreenshotsProgressOpen}
+        initialJob={screenshotsJob}
+        title={`${studentNo || ''} 学校系统所有提交截图`.trim()}
+        steps={SUBMISSION_SCREENSHOT_STEPS}
+        stepAliases={SUBMISSION_SCREENSHOT_STEP_ALIASES}
+        defaultMessageCode="school.submissionScreenshots.syncing"
+        failureMessageCode="school.submissionScreenshots.failed"
+        onJobUpdate={(job) => {
+          if (job.status === 'succeeded') {
+            loadSubmissionScreenshotsResult(job);
+          }
+        }}
+        onClose={(job) => {
+          setIsScreenshotsProgressOpen(false);
+          if (job?.status === 'succeeded') {
+            loadSubmissionScreenshotsResult(job);
+          }
+        }}
+      />
+      <SchoolSubmissionScreenshotsModal
+        open={isScreenshotsResultOpen}
+        result={screenshotsResult}
+        screenshotUrls={screenshotUrls}
+        loading={screenshotsLoading}
+        onClose={() => setIsScreenshotsResultOpen(false)}
       />
     </section>
   );
@@ -448,7 +645,7 @@ function DashboardTopbar({ realName, studentNo, isOverviewSyncing, lastSyncedAt,
   );
 }
 
-function QuickSubmitCard({ onBatchSubmit, onManualSubmit }) {
+function QuickSubmitCard({ onBatchSubmit, onManualSubmit, onCompletionCheck, onSubmissionScreenshots }) {
   return (
     <aside className="dashboard-quick-submit-card">
       <div className="quick-submit-illustration">
@@ -536,7 +733,7 @@ function ServicePlanCard({ plan, plans, onUpgrade }) {
       </div>
 
       <div style={{ marginTop: 'auto', paddingTop: '5px', fontSize: '12px', color: '#8c8c8c', textAlign: 'center' }}>
-        不想购买套餐？您可以在带有皇冠标识的一键提交操作时选择低至 ¥8/次的单次付费。
+        不想购买套餐？您可以在带有皇冠标识的一键提交操作时选择按实验计价的单次付费。
       </div>
     </section>
   );

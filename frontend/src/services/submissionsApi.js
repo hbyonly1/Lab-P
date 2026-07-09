@@ -5,20 +5,6 @@ export async function getMySubmissions() {
   return response.data;
 }
 
-export const createSubmissionBatchId = () => `BATCH-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-
-export async function submitExperiment(experimentId, targetStudent = null, isHungup = false, imagePaths = [], planName = 'pay_per_use', submissionBatchId = null) {
-  const payload = { experiment_id: experimentId, is_hungup: isHungup, image_paths: imagePaths, plan: planName };
-  if (targetStudent) {
-    payload.target_student = targetStudent;
-  }
-  if (submissionBatchId) {
-    payload.submission_batch_id = submissionBatchId;
-  }
-  const response = await apiClient.post('/api/v1/submissions/submit', payload);
-  return response.data;
-}
-
 export async function createSelfManagedSubmission(experimentId, imagePaths = []) {
   const response = await apiClient.post('/api/v1/submissions/self-managed', {
     experiment_id: experimentId,
@@ -27,13 +13,8 @@ export async function createSelfManagedSubmission(experimentId, imagePaths = [])
   return response.data;
 }
 
-export async function getReviewPool() {
-  const response = await apiClient.get('/api/v1/submissions/review-pool');
-  return response.data;
-}
-
-export async function approveSubmission(submissionId) {
-  const response = await apiClient.post(`/api/v1/submissions/${submissionId}/approve`);
+export async function getReviewPool(params = {}) {
+  const response = await apiClient.get('/api/v1/submissions/review-pool', { params });
   return response.data;
 }
 

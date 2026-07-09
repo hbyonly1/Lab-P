@@ -3,7 +3,7 @@ from .config import settings
 
 engine = create_engine(
     settings.SQLALCHEMY_DATABASE_URI,
-    echo=True, # Echo SQL queries for debugging
+    echo=False,
 )
 
 # Register SQLAlchemy event listeners

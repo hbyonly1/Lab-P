@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from core.ai_prompts import build_generation_answers_prompt, build_recognition_prompt
 from services.ai_provider import model_supports_json_mode, normalize_image_recognition_model
 from services.ai_service import image_path_to_model_url, parse_json_object_from_ai_response
+from services.experimentConfigStore import collect_ai_recognition_groups
 
 
 def test_recognition_prompt_maps_meter_columns_to_node_ids():
@@ -124,6 +125,79 @@ def test_sound_velocity_prompt_only_requests_raw_ppt_values():
     assert "S8" not in prompt
 
 
+def test_air_heat_capacity_ratio_prompt_requests_full_table2_values():
+    config_path = Path(__file__).resolve().parents[1] / "configs" / "exp_air_heat_capacity_ratio.json"
+    config = json.loads(config_path.read_text())
+    recognition_ids = [
+        field["id"]
+        for field in config["inputs"]["fields"]
+        if field.get("type") == "ai_recognize"
+    ]
+
+    prompt = build_recognition_prompt(config, recognition_ids)
+
+    assert "K35-0" in recognition_ids
+    assert "K36-0" in recognition_ids
+    assert "K37-0" in recognition_ids
+    assert "node_matrix=[[K30-0,K30-1,K30-2,K30-3,K30-4,K30-5],[K31-0,K31-1,K31-2,K31-3,K31-4,K31-5],[K32-0,K32-1,K32-2,K32-3,K32-4,K32-5],[K33-0,K33-1,K33-2,K33-3,K33-4,K33-5],[K34-0,K34-1,K34-2,K34-3,K34-4,K34-5],[K35-0,K35-1,K35-2,K35-3,K35-4,K35-5],[K36-0,K36-1,K36-2,K36-3,K36-4,K36-5],[K37-0,K37-1,K37-2,K37-3,K37-4,K37-5]]" in prompt
+    assert set(config["formulas"]) == {"K2", "K4", "K5"}
+    assert {"K35-0", "K36-0", "K37-0"} <= set(config["archivedFormulas"])
+
+
+def test_three_line_torsion_prompt_excludes_computed_average_and_period_rows():
+    config_path = Path(__file__).resolve().parents[1] / "configs" / "exp_three_line_torsion_pendulum.json"
+    config = json.loads(config_path.read_text())
+    recognition_ids = [
+        field["id"]
+        for field in config["inputs"]["fields"]
+        if field.get("type") == "ai_recognize"
+    ]
+
+    prompt = build_recognition_prompt(config, recognition_ids)
+
+    assert "node_matrix=[[S20-0,S20-1],[S21-0,S21-1],[S22-0,S22-1]]" in prompt
+    assert "node_matrix=[[S2220-0,S2220-1],[S2221-0,S2221-1],[S2222-0,S2222-1]]" in prompt
+    assert "S23-0" not in prompt
+    assert "S23-1" not in prompt
+    assert "S24-0" not in prompt
+    assert "S24-1" not in prompt
+    assert "S2223-0" not in prompt
+    assert "S2223-1" not in prompt
+    assert "S2224-0" not in prompt
+    assert "S2224-1" not in prompt
+    assert "S4: 三线摆悬盘转动惯量 J0" in prompt
+    assert "S7: 扭摆钢丝切变模量 G" in prompt
+
+
+def test_steel_wire_young_modulus_prompt_requests_raw_values_only():
+    config_path = Path(__file__).resolve().parents[1] / "configs" / "exp_steel_wire_young_modulus.json"
+    config = json.loads(config_path.read_text())
+    recognition_ids = [
+        field["id"]
+        for field in config["inputs"]["fields"]
+        if field.get("type") == "ai_recognize"
+    ]
+
+    prompt = build_recognition_prompt(config, recognition_ids)
+
+    assert "row_axis=测量量" in prompt
+    assert "rows=[钢丝长度 L,光杠杆镜面到标尺的距离 D,钢丝直径 d,光杠杆前后足垂直距离 b]" in prompt
+    assert "cols=[测量值]" in prompt
+    assert "node_matrix=[[L1],[L2],[L3],[L4]]" in prompt
+    assert "row_axis=增重" in prompt
+    assert "cols=[标尺读数rᵢ',标尺读数rᵢ'']" in prompt
+    assert "node_matrix=[[L50-0,L50-1],[L51-0,L51-1],[L52-0,L52-1],[L53-0,L53-1],[L54-0,L54-1],[L55-0,L55-1],[L56-0,L56-1],[L57-0,L57-1]]" in prompt
+    assert "L1: 单位按 cm" in prompt
+    assert "L2: 单位按 cm" in prompt
+    assert "L3: 单位按 mm" in prompt
+    assert "L4: 单位按 cm" in prompt
+    assert '"L50-2": ""' not in prompt
+    assert '"L60-0": ""' not in prompt
+    assert '"L64-0": ""' not in prompt
+    assert '"L7": ""' not in prompt
+    assert '"L8": ""' not in prompt
+
+
 def test_potentiometer_prompt_uses_ppt_raw_values_only():
     config_path = Path(__file__).resolve().parents[1] / "configs" / "exp_potentiometer.json"
     config = json.loads(config_path.read_text())
@@ -146,6 +220,39 @@ def test_potentiometer_prompt_uses_ppt_raw_values_only():
     assert "D9" not in prompt
     assert "D12" not in prompt
     assert "SYBZ_Fill_0" not in prompt
+
+
+def test_liquid_crystal_recognition_groups_split_raw_and_response_images():
+    config_path = Path(__file__).resolve().parents[1] / "configs" / "exp_liquid_crystal_0625.json"
+    config = json.loads(config_path.read_text())
+    groups = collect_ai_recognition_groups(config)
+    by_id = {group["id"]: group for group in groups}
+
+    assert by_id["avg_transmittance"]["imageRef"] == "IMG_LC_SIGNED_RAW"
+    assert by_id["avg_transmittance"]["nodeIds"] == [
+        "Y10-1", "Y11-1", "Y12-1", "Y13-1", "Y14-1",
+        "Y15-1", "Y16-1", "Y17-1", "Y18-1", "Y19-1",
+        "Y110-1", "Y111-1", "Y112-1", "Y113-1", "Y114-1",
+    ]
+    assert by_id["fall_time"]["imageRef"] == "IMG_LC_FALL_CURVE"
+    assert by_id["fall_time"]["nodeIds"] == ["Y6"]
+    assert by_id["rise_time"]["imageRef"] == "IMG_LC_RISE_CURVE"
+    assert by_id["rise_time"]["nodeIds"] == ["Y8"]
+
+    fall_prompt_config = dict(config)
+    fall_prompt_config["ai"] = {
+        **config["ai"],
+        "recognition": {
+            **config["ai"]["recognition"],
+            "extraPrompt": by_id["fall_time"].get("extraPrompt", ""),
+        },
+    }
+    fall_prompt = build_recognition_prompt(fall_prompt_config, by_id["fall_time"]["nodeIds"])
+
+    assert '"Y6": ""' in fall_prompt
+    assert '"Y10-1": ""' not in fall_prompt
+    assert "Y6: 单位按 ms" in fall_prompt
+    assert "液晶光开关表格中电压为PPT固定序列" not in fall_prompt
 
 
 def test_recognition_prompt_ignores_database_extra_prompt():

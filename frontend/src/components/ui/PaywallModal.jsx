@@ -1,26 +1,40 @@
 import React, { useState } from 'react';
 import { Modal, Button, Tag, Space, Typography, Alert } from 'antd';
 import { CrownOutlined, PayCircleOutlined } from '@ant-design/icons';
+import { quoteCheckout } from '../../services/checkoutApi.js';
 
 const { Text, Paragraph } = Typography;
 
-export function PaywallModal({ open, onCancel, taskCount = 1 }) {
+export function PaywallModal({ open, onCancel, taskCount = 1, experiments = [] }) {
   const [showQR, setShowQR] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('');
-
-  const singlePrice = 8;
-  const totalPrice = taskCount * singlePrice;
-  const proPrice = 50;
-
-  const isUpsell = totalPrice >= 32; // 如果金额接近或超过 Pro，强力推荐
+  const [quotes, setQuotes] = useState({});
+  const [quoteError, setQuoteError] = useState('');
 
   // 重置状态
   React.useEffect(() => {
     if (open) {
       setShowQR(false);
       setSelectedPlan('');
+      setQuoteError('');
+      Promise.all([
+        quoteCheckout({ plan: 'pay_per_use', experiments }),
+        quoteCheckout({ plan: 'pro', experiments }),
+      ]).then(([payPerUse, pro]) => {
+        setQuotes({ pay_per_use: payPerUse, pro });
+      }).catch((error) => {
+        setQuotes({});
+        setQuoteError(error.response?.data?.detail || error.message || '报价失败');
+      });
     }
-  }, [open]);
+  }, [open, experiments]);
+
+  const payPerUseAmount = Number(quotes.pay_per_use?.total_amount || 0);
+  const proAmount = Number(quotes.pro?.total_amount || 0);
+  const isUpsell = payPerUseAmount > 0 && proAmount > 0 && payPerUseAmount >= proAmount * 0.64;
+  const formatAmount = (amount) => Number(amount || 0).toFixed(2);
+  const selectedQuote = quotes[selectedPlan];
+  const selectedLabel = selectedPlan === 'pro' ? 'Pro 包月套餐' : '单次购买';
 
   const handleSelect = (planName) => {
     setSelectedPlan(planName);
@@ -38,12 +52,16 @@ export function PaywallModal({ open, onCancel, taskCount = 1 }) {
 
   const renderQRState = () => (
     <div style={{ textAlign: 'center', padding: '10px 10px' }}>
-      <h3 style={{ fontSize: '24px', fontWeight: 600, marginBottom: '8px' }}>扫码支付 - {selectedPlan}</h3>
+      <h3 style={{ fontSize: '24px', fontWeight: 600, marginBottom: '8px' }}>扫码支付 - {selectedLabel}</h3>
       <div style={{ fontSize: '20px', color: '#1677ff', fontWeight: 500, marginBottom: '24px' }}>
-        您需支付 ¥{selectedPlan.includes('单次') ? totalPrice : proPrice} 元
+        您需支付 ¥{formatAmount(selectedQuote?.total_amount)} 元
       </div>
-      <div style={{ width: '200px', height: '200px', background: '#f0f2f5', margin: '0 auto 24px auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #d9d9d9', borderRadius: '8px' }}>
-        <span style={{ color: '#8c8c8c' }}>微信收款码占位图</span>
+      <div style={{ width: '220px', height: '220px', background: '#fff', margin: '0 auto 24px auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #d9d9d9', borderRadius: '8px', padding: '10px' }}>
+        <img
+          src="/assets/payment/pay.jpg"
+          alt="收款码"
+          style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+        />
       </div>
       <p style={{ fontSize: '16px', color: '#1a1a1a', fontWeight: 500, marginBottom: '12px' }}>
         请备注您的学号
@@ -57,7 +75,7 @@ export function PaywallModal({ open, onCancel, taskCount = 1 }) {
         </Button>
         <Button type="primary" onClick={(e) => {
           if (e?.stopPropagation) e.stopPropagation();
-          onCancel(true, selectedPlan.includes('单次') ? 'pay_per_use' : 'pro');
+          onCancel(true, selectedPlan);
         }} size="large" style={{ background: '#1677ff' }}>
           我已支付，下一步
         </Button>
@@ -75,10 +93,20 @@ export function PaywallModal({ open, onCancel, taskCount = 1 }) {
         </p>
       </div>
 
+      {quoteError && (
+        <Alert
+          message="获取报价失败"
+          description={quoteError}
+          type="error"
+          showIcon
+          style={{ marginBottom: '24px' }}
+        />
+      )}
+
       {isUpsell && (
         <Alert
           message="强烈建议开通 Pro 套餐！"
-          description={`您本次按次付费需要花费 ¥${totalPrice}，而开通一整个月的 Pro 畅享套餐仅需 ¥${proPrice}！立马回本且本月不限次数！`}
+          description={`您本次按实验计价需要支付 ¥${formatAmount(payPerUseAmount)}，开通 Pro 套餐为 ¥${formatAmount(proAmount)}。`}
           type="warning"
           showIcon
           style={{ marginBottom: '24px', border: '1px solid #ffe58f' }}
@@ -100,9 +128,9 @@ export function PaywallModal({ open, onCancel, taskCount = 1 }) {
             <p style={{ margin: '4px 0 0 0', color: '#666' }}>仅针对本次选择的实验进行人工代劳。</p>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1677ff' }}>¥ {totalPrice}</div>
-            <Button onClick={() => handleSelect('单次购买')} type={isUpsell ? 'default' : 'primary'} style={{ marginTop: '8px' }}>
-              ¥{totalPrice} 购买单次
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1677ff' }}>¥ {formatAmount(payPerUseAmount)}</div>
+            <Button disabled={!quotes.pay_per_use} onClick={() => handleSelect('pay_per_use')} type={isUpsell ? 'default' : 'primary'} style={{ marginTop: '8px' }}>
+              ¥{formatAmount(payPerUseAmount)} 购买本次
             </Button>
           </div>
         </div>
@@ -124,9 +152,9 @@ export function PaywallModal({ open, onCancel, taskCount = 1 }) {
             <p style={{ margin: '4px 0 0 0', color: '#666' }}>尊享本学号无限次一键提交、自动填报及所有高阶 AI 特性。</p>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#faad14' }}>¥ {proPrice}</div>
-            <Button onClick={() => handleSelect('Pro 包月套餐')} type={isUpsell ? 'primary' : 'default'} style={isUpsell ? { background: '#faad14', borderColor: '#faad14' } : { marginTop: '8px' }}>
-              ¥{proPrice} 立即升级
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#faad14' }}>¥ {formatAmount(proAmount)}</div>
+            <Button disabled={!quotes.pro} onClick={() => handleSelect('pro')} type={isUpsell ? 'primary' : 'default'} style={isUpsell ? { background: '#faad14', borderColor: '#faad14' } : { marginTop: '8px' }}>
+              ¥{formatAmount(proAmount)} 立即升级
             </Button>
           </div>
         </div>

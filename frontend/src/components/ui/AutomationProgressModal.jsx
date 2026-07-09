@@ -36,6 +36,9 @@ function defaultSuccessMessageCode(job) {
   if (job?.action === 'final_submit') return 'school.submit.finalSuccess';
   if (job?.action === 'school_overview_sync') return 'school.overview.success';
   if (job?.action === 'school_detail_sync') return 'school.detail.success';
+  if (job?.action === 'school_report_screenshot') return 'school.screenshot.success';
+  if (job?.action === 'school_submission_screenshots') return 'school.submissionScreenshots.success';
+  if (job?.action === 'school_completion_check') return 'school.completion.success';
   return 'school.submit.success';
 }
 
@@ -49,7 +52,7 @@ function defaultStepMessageCode(step, job) {
 export function AutomationProgressModal({
   open,
   initialJob,
-  title = '学校系统任务进度',
+  title = '学校系统提交进度',
   steps = SUBMIT_STEPS,
   defaultMessageCode = 'school.submit.saving',
   failureMessageCode = 'school.submit.failed',

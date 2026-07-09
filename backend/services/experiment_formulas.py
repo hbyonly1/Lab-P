@@ -96,6 +96,48 @@ def linear_r2(x_values: List[Any], y_values: List[Any]) -> float:
     return 1 - residual / total
 
 
+def interp_x_at_y(x_values: List[Any], y_values: List[Any], target_y: Any) -> float:
+    pairs = _numeric_pairs(x_values, y_values)
+    target = float(target_y)
+    for (x1, y1), (x2, y2) in zip(pairs, pairs[1:]):
+        if y1 == target:
+            return x1
+        if (y1 - target) * (y2 - target) <= 0:
+            if y2 == y1:
+                return x1
+            return x1 + (target - y1) * (x2 - x1) / (y2 - y1)
+    raise ValueError("target y is outside interpolation range")
+
+
+def mean_values(values: List[Any]) -> float:
+    numbers = [float(value) for value in values if value not in (None, "")]
+    if not numbers:
+        raise ValueError("At least one valid value is required")
+    return sum(numbers) / len(numbers)
+
+
+def sample_std(values: List[Any]) -> float:
+    numbers = [float(value) for value in values if value not in (None, "")]
+    if len(numbers) < 2:
+        raise ValueError("At least two valid values are required")
+    mean = sum(numbers) / len(numbers)
+    return math.sqrt(sum((number - mean) ** 2 for number in numbers) / (len(numbers) - 1))
+
+
+def std_error(values: List[Any]) -> float:
+    numbers = [float(value) for value in values if value not in (None, "")]
+    if len(numbers) < 2:
+        raise ValueError("At least two valid values are required")
+    return sample_std(numbers) / math.sqrt(len(numbers))
+
+
+def relative_std_error_percent(values: List[Any]) -> float:
+    mean = mean_values(values)
+    if mean == 0:
+        raise ValueError("Mean must not be zero")
+    return std_error(values) / abs(mean) * 100
+
+
 def format_sig(value: Any, digits: int = 3) -> str:
     digits = int(digits)
     number = float(value)
@@ -123,6 +165,13 @@ def build_formula_functions(values: Dict[str, Any]) -> Dict[str, Any]:
         "linear_slope": linear_slope,
         "linear_intercept": linear_intercept,
         "linear_r2": linear_r2,
+        "interp_x_at_y": interp_x_at_y,
+        "ln": math.log,
+        "mean": mean_values,
+        "sample_std": sample_std,
+        "std_error": std_error,
+        "relative_std_error_percent": relative_std_error_percent,
+        "abs": abs,
         "format_sig": format_sig,
         "format_fixed": format_fixed,
     }

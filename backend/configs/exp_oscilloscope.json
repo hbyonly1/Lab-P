@@ -66,43 +66,53 @@
     "fields": [
       {
         "id": "SYYL_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "低"
       },
       {
         "id": "SYYL_Fill_1",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "加速"
       },
       {
         "id": "SYYL_Fill_2",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "正比"
       },
       {
         "id": "SYYL_Fill_3",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "锯齿波电压"
       },
       {
         "id": "SYYL_Fill_4",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "等于"
       },
       {
         "id": "SYYL_Fill_5",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "n"
       },
       {
         "id": "SYBZ_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "CH1"
       },
       {
         "id": "SYBZ_Fill_1",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "ADD"
       },
       {
         "id": "SYBZ_Fill_2",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "CH1"
       },
       {
         "id": "SYBZ_Fill_3",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "X-Y"
       },
       {
         "id": "YSSJDrawingAreaArea",
@@ -116,19 +126,23 @@
       },
       {
         "id": "OP_Fill_0",
-        "type": "ai_recognize"
+        "type": "ai_recognize",
+        "recognitionHint": "从单波正弦波照片中读取该正弦波周期，单位 ms，只返回数值，不带单位。"
       },
       {
         "id": "OP_Fill_1",
-        "type": "ai_recognize"
+        "type": "ai_recognize",
+        "recognitionHint": "从单波正弦波照片中读取该正弦波振幅，单位 V，只返回数值，不带单位。"
       },
       {
         "id": "OP1_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "1.0"
       },
       {
         "id": "OP1_Fill_1",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "0.4"
       },
       {
         "id": "S2Area",
@@ -137,15 +151,18 @@
       },
       {
         "id": "S3",
-        "type": "computed"
+        "type": "ai_recognize",
+        "recognitionHint": "读取用于合成“拍”现象的第一个正弦信号频率 f1，单位 Hz，只返回数值，不带单位。"
       },
       {
         "id": "S4",
-        "type": "computed"
+        "type": "ai_recognize",
+        "recognitionHint": "读取用于合成“拍”现象的第二个正弦信号频率 f2，单位 Hz，只返回数值，不带单位。"
       },
       {
         "id": "S5",
-        "type": "ai_recognize"
+        "type": "ai_recognize",
+        "recognitionHint": "根据“拍”现象图形读取振幅变化周期 T，单位 s，只返回数值，不带单位。"
       },
       {
         "id": "S6Area",
@@ -154,7 +171,8 @@
       },
       {
         "id": "OP2_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "0"
       },
       {
         "id": "S7Area",
@@ -163,7 +181,8 @@
       },
       {
         "id": "OP3_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "45"
       },
       {
         "id": "S8Area",
@@ -172,7 +191,8 @@
       },
       {
         "id": "OP4_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "90"
       },
       {
         "id": "S9Area",
@@ -181,7 +201,8 @@
       },
       {
         "id": "OP5_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "2"
       },
       {
         "id": "S10Area",
@@ -190,7 +211,8 @@
       },
       {
         "id": "OP6_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "3"
       }
     ]
   },
@@ -456,6 +478,26 @@
     }
   },
   "formulas": {},
+  "scoreCheck": {
+    "enabled": true,
+    "source": "assets/complete_saves_teacher/24_示波器的使用.html",
+    "totalScore": 10,
+    "computableScore": 1,
+    "items": [
+      {
+        "id": "oscilloscope_beat_period",
+        "title": "拍现象周期 T 与频率差关系",
+        "type": "beat_period_consistency",
+        "periodNodeId": "S5",
+        "frequencyNodeIds": ["S3", "S4"],
+        "periodScale": 1,
+        "lowerFactor": 0.8,
+        "upperFactor": 1.2,
+        "maxScore": 1
+      }
+    ],
+    "notes": ["仅检查教师 HTML 中明确给出 0.8/|f1-f2|＜T＜1.2/|f1-f2| 的项目；波形图片由教师手动评分。"]
+  },
   "automation": {
     "mappings": [
       {

@@ -1,98 +1,93 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
-from typing import Any, List, Optional
-import uuid
+from typing import Any, Dict, List, Optional
+from sqlalchemy import func, or_
 
 from core.db import get_session
-from core.pricing import PRICES
-from models.core import Order, Submission, AuditLog, User
-from api.deps import get_current_user, get_current_admin
+from models.core import Order, OrderItem, User, get_utc_now
+from api.deps import get_current_admin
 from pydantic import BaseModel
+from services.checkout_service import apply_order_payment_action
 
 router = APIRouter()
-
-class OrderCreate(BaseModel):
-    experiment_id: Optional[str] = None
-    plan: str # free, pay_per_use, plus, pro
-
-class OrderResponse(Order):
-    student_username: str
-    student_no: Optional[str] = None
-    real_name: Optional[str] = None
 
 class OrderVerifyRequest(BaseModel):
     action: str # "verify" or "reject"
 
-@router.post("/", response_model=Order)
-def create_order(
-    *,
-    session: Session = Depends(get_session),
-    order_in: OrderCreate,
-    current_user: User = Depends(get_current_user)
-) -> Any:
-    """Create a new order for an experiment."""
-    # Centralized pricing logic
-    amount = PRICES.get(order_in.plan, 0.0)
-    
-    is_upgrade = order_in.plan in ["plus", "pro"]
-    actual_exp_id = None if is_upgrade else (order_in.experiment_id if order_in.experiment_id != "UPGRADE_PLAN" else None)
-    
-    order = Order(
-        id=f"ORD-{str(uuid.uuid4())[:8].upper()}",
-        student_id=current_user.id,
-        experiment_id=actual_exp_id,
-        plan=order_in.plan,
-        amount=amount,
-        status="paid" if amount == 0 else "pending_payment"
-    )
-    session.add(order)
-    
-    # Pre-create the submission linked to this order ONLY for real experiments
-    if not is_upgrade and actual_exp_id:
-        submission = Submission(
-            id=f"SUB-{str(uuid.uuid4())[:8].upper()}",
-            student_id=current_user.id,
-            experiment_id=actual_exp_id,
-            order_id=order.id,
-            status="not_started" if amount == 0 else "pending_payment",
-            payment_status="paid" if amount == 0 else "unpaid"
-        )
-        session.add(submission)
-    
-    # Audit Log
-    log = AuditLog(
-        user_id=current_user.id,
-        action="order_created",
-        status="success",
-        target_id=order.id,
-        details=f"Created {order_in.plan} order for exp {order_in.experiment_id}"
-    )
-    session.add(log)
-    
-    session.commit()
-    session.refresh(order)
-    return order
 
-@router.get("/", response_model=List[OrderResponse])
+class OrderListResponse(BaseModel):
+    items: List[Dict[str, Any]]
+    total: int
+    page: int
+    pageSize: int
+    summary: Dict[str, Any]
+
+
+@router.get("/")
 def list_orders(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_admin), # Only admins list all orders for now
-    skip: int = 0,
-    limit: int = 100
-) -> Any:
+    page: int = Query(1, ge=1),
+    pageSize: int = Query(20, ge=1, le=100),
+    status: Optional[str] = None,
+    plan: Optional[str] = None,
+    query: Optional[str] = None,
+) -> OrderListResponse:
     """Admin retrieves all orders."""
-    statement = select(Order, User).join(User, Order.student_id == User.id).order_by(Order.created_at.desc()).offset(skip).limit(limit)
+    filters = []
+    if status:
+        filters.append(Order.status == status)
+    if plan:
+        filters.append(Order.plan == plan)
+    keyword = str(query or "").strip()
+    if keyword:
+        pattern = f"%{keyword}%"
+        filters.append(or_(
+            Order.id.ilike(pattern),
+            Order.submission_batch_id.ilike(pattern),
+            User.username.ilike(pattern),
+            User.student_no.ilike(pattern),
+            User.real_name.ilike(pattern),
+        ))
+
+    base = select(Order, User).join(User, Order.student_id == User.id)
+    count_statement = select(func.count()).select_from(Order).join(User, Order.student_id == User.id)
+    if filters:
+        base = base.where(*filters)
+        count_statement = count_statement.where(*filters)
+    total = session.exec(count_statement).one()
+    offset = (page - 1) * pageSize
+    statement = base.order_by(Order.created_at.desc()).offset(offset).limit(pageSize)
     results = session.exec(statement).all()
-    
-    return [
+    order_ids = [order.id for order, _user in results]
+    items_by_order = {order_id: [] for order_id in order_ids}
+    if order_ids:
+        for item in session.exec(select(OrderItem).where(OrderItem.order_id.in_(order_ids)).order_by(OrderItem.id.asc())).all():
+            items_by_order.setdefault(item.order_id, []).append(item.model_dump())
+
+    today = get_utc_now().date()
+    summary = {
+        "pendingCount": session.exec(select(func.count()).where(Order.status == "pending_payment")).one(),
+        "rejectedCount": session.exec(select(func.count()).where(Order.status == "rejected")).one(),
+        "paidTotalAmount": float(session.exec(select(func.coalesce(func.sum(Order.amount), 0)).where(Order.status == "paid")).one() or 0),
+        "paidTodayAmount": float(session.exec(
+            select(func.coalesce(func.sum(Order.amount), 0))
+            .where(Order.status == "paid")
+            .where(func.date(Order.created_at) == today)
+        ).one() or 0),
+    }
+
+    items = [
         {
             **order.model_dump(),
             "student_username": user.student_no or user.username,
             "student_no": user.student_no,
             "real_name": user.real_name,
+            "items": items_by_order.get(order.id, []),
         }
         for order, user in results
     ]
+    return OrderListResponse(items=items, total=total, page=page, pageSize=pageSize, summary=summary)
 
 @router.post("/{order_id}/verify")
 def verify_payment(
@@ -106,54 +101,5 @@ def verify_payment(
     order = session.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-        
-    if action_req.action == "verify":
-        order.status = "paid"
-        action_name = "payment_verified"
-        if order.plan in ["plus", "pro"]:
-            student_user = session.get(User, order.student_id)
-            if student_user:
-                caps = dict(student_user.capabilities) if student_user.capabilities else {}
-                caps["plan"] = order.plan
-                student_user.capabilities = caps
-                session.add(student_user)
-                session.add(student_user)
-    else:
-        order.status = "rejected"
-        action_name = "payment_rejected"
-        
-    session.add(order)
-    
-    # Update linked submission state machine
-    submission = session.exec(select(Submission).where(Submission.order_id == order.id)).first()
-    if submission:
-        if action_req.action == "verify":
-            submission.status = "pending_image_assignment" if submission.is_one_click_handoff else "incomplete"
-            submission.payment_status = "paid"
-            submission.preprocess_status = "waiting_for_image_assignment" if submission.is_one_click_handoff else None
-            submission.preprocess_error = None
-        else:
-            submission.status = "error"
-        session.add(submission)
-    
-    student_user = session.get(User, order.student_id)
-    if student_user:
-        student_identity = student_user.real_name or "姓名未同步"
-        if student_user.student_no:
-            student_identity = f"{student_identity}，学号 {student_user.student_no}"
-    else:
-        student_identity = f"用户 {order.student_id}"
-    action_cn = "确认了" if action_req.action == "verify" else "驳回了"
-    
-    # Audit log
-    log = AuditLog(
-        user_id=current_user.id,
-        action=action_name,
-        status="success",
-        target_id=order.id,
-        details=f"{action_cn}订单 {order.id} ({student_identity}) 的收款请求"
-    )
-    session.add(log)
-    
-    session.commit()
-    return {"message": f"Order successfully {action_req.action}ed"}
+    result = apply_order_payment_action(session, order, action_req.action, current_user.id)
+    return {"message": f"Order successfully {action_req.action}ed", **result}

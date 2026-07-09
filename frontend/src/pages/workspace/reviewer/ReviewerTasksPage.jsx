@@ -6,7 +6,6 @@ import {
   ClockCircleOutlined,
   EditOutlined,
   PictureOutlined,
-  SendOutlined,
   SearchOutlined,
   RobotOutlined
 } from '@ant-design/icons';
@@ -20,10 +19,11 @@ import {
   REVIEW_COMPLETED_SUBMISSION_STATUSES,
 } from '../../../constants/statusEnums.js';
 
-import { getReviewPool, approveSubmission } from '../../../services/submissionsApi.js';
+import { getReviewPool } from '../../../services/submissionsApi.js';
 import { triggerSubmissionRecognition } from '../../../services/aiApi.js';
 import { experimentsApi } from '../../../services/experimentsApi.js';
 import { ReviewBatchImageAssignmentModal } from '../../../components/reviewer/ReviewBatchImageAssignmentModal.jsx';
+import { readReviewerTasksListState, writeReviewerTasksListState } from '../../../utils/reviewerTasksListState.js';
 
 const { Option } = Select;
 
@@ -32,29 +32,125 @@ const resolveReviewStatus = (submissionStatus) => (
 );
 
 const PREPROCESS_TERMINAL_STATUSES = new Set(['done', 'failed', 'image_assignment_required']);
+const PREPROCESS_COMPLETED_SUBMISSION_STATUSES = new Set(['reviewing', 'draft_submitted', 'completed']);
+const PREPROCESS_PROCESSING_SUBMISSION_STATUSES = new Set(['preparing_review', 'recognizing']);
+const PREPROCESS_FAILED_SUBMISSION_STATUSES = new Set(['error']);
+
+const PREPROCESS_STATUS_META = {
+  completed: { label: '已完成', tone: 'completed' },
+  processing: { label: '已进入AI识别', tone: 'processing' },
+  pending: { label: '待处理', tone: 'pending' },
+  failed: { label: '失败', tone: 'failed' },
+};
+
+const hasEnteredAiPreprocess = (exp) => (
+  exp?.preprocess_status === 'queued'
+  || exp?.preprocess_status === 'running'
+  || PREPROCESS_PROCESSING_SUBMISSION_STATUSES.has(exp?.status)
+);
+
+function resolvePreprocessState(exp) {
+  const preprocessStatus = exp.preprocess_status;
+  const submissionStatus = exp.status;
+
+  if (preprocessStatus === 'done' || PREPROCESS_COMPLETED_SUBMISSION_STATUSES.has(submissionStatus)) {
+    return 'completed';
+  }
+  if (preprocessStatus === 'failed' || PREPROCESS_FAILED_SUBMISSION_STATUSES.has(submissionStatus)) {
+    return 'failed';
+  }
+  if (preprocessStatus === 'queued' || preprocessStatus === 'running' || PREPROCESS_PROCESSING_SUBMISSION_STATUSES.has(submissionStatus)) {
+    return 'processing';
+  }
+  return 'pending';
+}
+
+function resolvePreprocessSummary(experiments = []) {
+  const total = experiments.length;
+  const counts = { completed: 0, processing: 0, pending: 0, failed: 0 };
+  experiments.forEach((exp) => {
+    counts[resolvePreprocessState(exp)] += 1;
+  });
+
+  let state = 'pending';
+  if (total > 0 && counts.completed === total) {
+    state = 'completed';
+  } else if (counts.failed > 0) {
+    state = 'failed';
+  } else if (counts.processing > 0) {
+    state = 'processing';
+  }
+
+  const numerator = state === 'completed' ? counts.completed : counts[state];
+  return { state, count: numerator, total };
+}
 
 export default function ReviewerTasksPage() {
   const navigate = useNavigate();
+  const restoredListStateRef = useRef(readReviewerTasksListState());
+  const initialListState = restoredListStateRef.current || {};
 
   const [reviewTasks, setReviewTasks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeBatch, setActiveBatch] = useState(null);
+  const [searchText, setSearchText] = useState(initialListState.searchText || '');
+  const [reviewStatusFilter, setReviewStatusFilter] = useState(initialListState.reviewStatusFilter || '');
+  const [expStatusFilter, setExpStatusFilter] = useState(initialListState.expStatusFilter || '');
+  const [expandedRowKeys, setExpandedRowKeys] = useState(initialListState.expandedRowKeys || []);
+  const [pagination, setPagination] = useState(initialListState.pagination || { current: 1, pageSize: 10 });
+  const [taskTotal, setTaskTotal] = useState(0);
+  const restoredScrollYRef = useRef(Number(initialListState.scrollY || 0));
+  const didRestoreScrollRef = useRef(false);
+  const didMountStateSaverRef = useRef(false);
+  const skipNextFilterExpansionRef = useRef(Boolean(restoredListStateRef.current));
+  const listStateRef = useRef({
+    searchText: initialListState.searchText || '',
+    reviewStatusFilter: initialListState.reviewStatusFilter || '',
+    expStatusFilter: initialListState.expStatusFilter || '',
+    expandedRowKeys: initialListState.expandedRowKeys || [],
+    pagination: initialListState.pagination || { current: 1, pageSize: 10 },
+    scrollY: Number(initialListState.scrollY || 0),
+  });
   const preprocessWatchRef = useRef(new Map());
   const preprocessPollTimerRef = useRef(null);
+
+  const saveListState = useCallback((overrides = {}) => {
+    const nextState = {
+      ...listStateRef.current,
+      searchText,
+      reviewStatusFilter,
+      expStatusFilter,
+      expandedRowKeys,
+      pagination,
+      scrollY: window.scrollY || listStateRef.current.scrollY || 0,
+      ...overrides,
+    };
+    listStateRef.current = nextState;
+    restoredScrollYRef.current = Number(nextState.scrollY || 0);
+    writeReviewerTasksListState(nextState);
+  }, [expStatusFilter, expandedRowKeys, pagination, reviewStatusFilter, searchText]);
 
   const fetchTasks = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     try {
       const [data, allConfigs] = await Promise.all([
-        getReviewPool(),
+        getReviewPool({
+          page: pagination.current || 1,
+          pageSize: pagination.pageSize || 10,
+          query: searchText.trim() || undefined,
+          status: expStatusFilter || undefined,
+          reviewStatus: reviewStatusFilter || undefined,
+        }),
         experimentsApi.listExperiments(),
       ]);
+      const submissionRows = data.items || [];
+      setTaskTotal(data.total || 0);
       const configMap = {};
       allConfigs.forEach(c => { configMap[c.id] = c.name; });
 
       // Group by student + submission batch.
       const groups = {};
-      data.forEach(sub => {
+      submissionRows.forEach(sub => {
         const batchId = sub.submission_batch_id || `LEGACY-${sub.student_username}`;
         const groupKey = `${sub.student_username}-${batchId}`;
         if (!groups[groupKey]) {
@@ -92,8 +188,28 @@ export default function ReviewerTasksPage() {
       const formattedTasks = Object.values(groups).map(g => {
         const allReviewed = g.experiments.length > 0 && g.experiments.every(e => e.review_status === 'completed');
         g.review_status = allReviewed ? 'completed' : 'incomplete';
+        g.experiment_count = g.experiments.length;
+        g.preprocess_summary = resolvePreprocessSummary(g.experiments);
         return g;
       });
+
+      const focusedSubmissionId = listStateRef.current.focusSubmissionId;
+      if (focusedSubmissionId) {
+        const focusedGroup = formattedTasks.find(group => (
+          (group.experiments || []).some(exp => exp.submission_id === focusedSubmissionId)
+        ));
+        if (focusedGroup && !listStateRef.current.expandedRowKeys?.includes(focusedGroup.row_key)) {
+          const nextExpandedRowKeys = [
+            ...(listStateRef.current.expandedRowKeys || []),
+            focusedGroup.row_key,
+          ];
+          listStateRef.current = {
+            ...listStateRef.current,
+            expandedRowKeys: nextExpandedRowKeys,
+          };
+          setExpandedRowKeys(nextExpandedRowKeys);
+        }
+      }
 
       setReviewTasks(formattedTasks);
     } catch (error) {
@@ -101,7 +217,7 @@ export default function ReviewerTasksPage() {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, []);
+  }, [expStatusFilter, pagination.current, pagination.pageSize, reviewStatusFilter, searchText]);
 
   const stopPreprocessPolling = useCallback(() => {
     if (preprocessPollTimerRef.current) {
@@ -118,8 +234,9 @@ export default function ReviewerTasksPage() {
     }
 
     try {
-      const data = await getReviewPool();
-      const latestById = new Map(data.map((item) => [item.id, item]));
+      const data = await getReviewPool({ page: 1, pageSize: 100 });
+      const submissionRows = data.items || [];
+      const latestById = new Map(submissionRows.map((item) => [item.id, item]));
       let hasTerminalChange = false;
 
       watched.forEach((tracked, submissionId) => {
@@ -197,52 +314,42 @@ export default function ReviewerTasksPage() {
   const reviewing = allExperiments.filter(item => item.status === 'reviewing').length;
   const completed = allExperiments.filter(item => item.review_status === 'completed').length;
 
-  const [searchText, setSearchText] = useState('');
-  const [reviewStatusFilter, setReviewStatusFilter] = useState('');
-  const [expStatusFilter, setExpStatusFilter] = useState('');
-  const [expandedRowKeys, setExpandedRowKeys] = useState([]);
-
-  // Filter Data
-  const filteredData = reviewTasks.reduce((acc, item) => {
-    const matchSearch = item.student_id.includes(searchText) || item.name.includes(searchText);
-    const matchReview = reviewStatusFilter ? item.review_status === reviewStatusFilter : true;
-
-    if (matchSearch && matchReview) {
-      if (expStatusFilter || reviewStatusFilter === 'incomplete') {
-        const matchingExps = item.experiments.filter(exp => {
-          const matchExpStatus = expStatusFilter ? exp.status === expStatusFilter : true;
-          const matchExpReview = reviewStatusFilter === 'incomplete' ? exp.review_status === reviewStatusFilter : true;
-          return matchExpStatus && matchExpReview;
-        });
-        if (matchingExps.length > 0) {
-          acc.push({ ...item, experiments: matchingExps });
-        }
-      } else {
-        acc.push(item);
-      }
-    }
-    return acc;
-  }, []);
+  const filteredData = reviewTasks;
 
   useEffect(() => {
-    if (expStatusFilter || reviewStatusFilter) {
-      setExpandedRowKeys(filteredData.map(item => item.row_key));
-    } else {
-      // Optional: Collapse all when filter is cleared, or leave as is. We'll collapse.
-      setExpandedRowKeys([]);
+    if (skipNextFilterExpansionRef.current) {
+      skipNextFilterExpansionRef.current = false;
+      return;
     }
-  }, [expStatusFilter, reviewStatusFilter]); // We specifically only want to trigger this when the filter itself changes.
+    if (expStatusFilter || reviewStatusFilter) {
+      setExpandedRowKeys(reviewTasks.map(item => item.row_key));
+      return;
+    }
+    setExpandedRowKeys([]);
+    // Only react to filter changes. Reacting to reviewTasks refresh collapses restored rows.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expStatusFilter, reviewStatusFilter]);
+
+  useEffect(() => {
+    if (!didMountStateSaverRef.current) {
+      didMountStateSaverRef.current = true;
+      return;
+    }
+    saveListState();
+  }, [saveListState]);
+
+  useEffect(() => {
+    if (didRestoreScrollRef.current || loading || reviewTasks.length === 0) return;
+    didRestoreScrollRef.current = true;
+    const scrollY = restoredScrollYRef.current;
+    if (!scrollY) return;
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: scrollY, behavior: 'auto' });
+    });
+  }, [loading, reviewTasks.length]);
 
   const handleActionClick = async (action, exp) => {
-    if (action === 'submit') {
-      try {
-        await approveSubmission(exp.submission_id);
-        message.success('已提交流程');
-        fetchTasks();
-      } catch (e) {
-        message.error('提交失败：' + (e.response?.data?.detail || e.message));
-      }
-    } else if (action === 'recognize') {
+    if (action === 'recognize') {
       try {
         message.loading({ content: '正在触发识别任务...', key: 'recognize' });
         await triggerSubmissionRecognition(exp.submission_id);
@@ -252,7 +359,17 @@ export default function ReviewerTasksPage() {
         message.error({ content: '触发识别失败：' + (e.response?.data?.detail || e.message), key: 'recognize' });
       }
     } else {
-      navigate(`/workspace/reviewer/tasks/${exp.submission_id}?exp=${exp.id}`);
+      const parentRowKey = exp.student_id && exp.batch_id ? `${exp.student_id}-${exp.batch_id}` : null;
+      const nextExpandedRowKeys = parentRowKey
+        ? Array.from(new Set([...(expandedRowKeys || []), parentRowKey]))
+        : expandedRowKeys;
+      saveListState({
+        expandedRowKeys: nextExpandedRowKeys,
+        focusSubmissionId: exp.submission_id,
+        focusExperimentId: exp.id,
+        scrollY: window.scrollY || 0,
+      });
+      navigate(`/workspace/reviewer/tasks/${exp.submission_id}?exp=${exp.id}&from=reviewer-tasks`);
     }
   };
 
@@ -295,7 +412,15 @@ export default function ReviewerTasksPage() {
         title: '图片匹配',
         key: 'images',
         align: 'center',
-        render: (_, exp) => `${exp.assigned_image_count || 0}/${exp.image_count || 0}`,
+        render: (_, exp) => {
+          if (hasEnteredAiPreprocess(exp)) {
+            return <StatusBadge tone="processing">已进入AI识别</StatusBadge>;
+          }
+          if (exp.preprocess_status === 'done' || PREPROCESS_COMPLETED_SUBMISSION_STATUSES.has(exp.status)) {
+            return <StatusBadge tone="completed">已完成</StatusBadge>;
+          }
+          return `${exp.assigned_image_count || 0}/${exp.image_count || 0}`;
+        },
       },
       { title: '最后更新', dataIndex: 'updated_at', key: 'updated_at' },
       {
@@ -312,9 +437,6 @@ export default function ReviewerTasksPage() {
                 <OutlineButton icon={<RobotOutlined />} onClick={() => handleActionClick('recognize', exp)} />
               </Tooltip>
             )}
-            <Tooltip title="提交">
-              <OutlineButton icon={<SendOutlined />} onClick={() => handleActionClick('submit', exp)} />
-            </Tooltip>
           </div>
         )
       },
@@ -343,16 +465,50 @@ export default function ReviewerTasksPage() {
       key: 'name'
     },
     {
-      title: '批次',
+      title: '提交组',
       dataIndex: 'batch_id',
       key: 'batch_id',
-      render: (batchId) => <Tag color="blue">{batchId}</Tag>
+      render: (batchId, record) => {
+        const count = record.experiment_count || record.experiments?.length || 0;
+        const label = count <= 1 ? '单实验' : `批量 ${count} 个`;
+        return (
+          <Tooltip title={batchId}>
+            <Tag color={count <= 1 ? 'default' : 'blue'}>{label}</Tag>
+          </Tooltip>
+        );
+      }
     },
     {
       title: '图片',
       key: 'images',
       align: 'center',
-      render: (_, record) => `${record.assigned_image_count || 0}/${record.image_count || 0}`
+      render: (_, record) => {
+        const experiments = record.experiments || [];
+        const enteredCount = experiments.filter(hasEnteredAiPreprocess).length;
+        if (enteredCount > 0) {
+          return (
+            <StatusBadge tone="processing">
+              已进入AI识别 {enteredCount}/{experiments.length}
+            </StatusBadge>
+          );
+        }
+        return `${record.assigned_image_count || 0}/${record.image_count || 0}`;
+      }
+    },
+    {
+      title: '预处理状态',
+      dataIndex: 'preprocess_summary',
+      key: 'preprocess_summary',
+      align: 'center',
+      render: (summary) => {
+        const safeSummary = summary || { state: 'pending', count: 0, total: 0 };
+        const meta = PREPROCESS_STATUS_META[safeSummary.state] ?? PREPROCESS_STATUS_META.pending;
+        return (
+          <StatusBadge tone={meta.tone}>
+            {meta.label} {safeSummary.count}/{safeSummary.total}
+          </StatusBadge>
+        );
+      }
     },
     {
       title: '审核状态',
@@ -418,7 +574,10 @@ export default function ReviewerTasksPage() {
               placeholder="搜索学号 / 姓名"
               prefix={<SearchOutlined />}
               value={searchText}
-              onChange={e => setSearchText(e.target.value)}
+              onChange={e => {
+                setSearchText(e.target.value);
+                setPagination((prev) => ({ ...prev, current: 1 }));
+              }}
               style={{ width: 200 }}
             />
             <Select
@@ -426,7 +585,10 @@ export default function ReviewerTasksPage() {
               style={{ width: 140 }}
               allowClear
               value={reviewStatusFilter}
-              onChange={setReviewStatusFilter}
+              onChange={(value) => {
+                setReviewStatusFilter(value || '');
+                setPagination((prev) => ({ ...prev, current: 1 }));
+              }}
             >
               {REVIEW_STATUS_LIST.map(key => (
                 <Option key={key} value={key}>{REVIEW_STATUS_META[key].label}</Option>
@@ -437,7 +599,10 @@ export default function ReviewerTasksPage() {
               style={{ width: 140 }}
               allowClear
               value={expStatusFilter}
-              onChange={setExpStatusFilter}
+              onChange={(value) => {
+                setExpStatusFilter(value || '');
+                setPagination((prev) => ({ ...prev, current: 1 }));
+              }}
             >
               {STATUS_LIST.map(key => (
                 <Option key={key} value={key}>{STATUS_META[key].label}</Option>
@@ -453,11 +618,27 @@ export default function ReviewerTasksPage() {
           expandable={{
             expandedRowRender,
             expandedRowKeys,
-            onExpandedRowsChange: setExpandedRowKeys,
+            onExpandedRowsChange: (nextKeys) => {
+              const keys = Array.from(nextKeys);
+              setExpandedRowKeys(keys);
+              saveListState({ expandedRowKeys: keys, scrollY: window.scrollY || 0 });
+            },
           }}
           dataSource={filteredData}
           rowKey="row_key"
-          pagination={{ pageSize: 10 }}
+          pagination={{
+            ...pagination,
+            total: taskTotal,
+            showSizeChanger: false,
+          }}
+          onChange={(nextPagination) => {
+            const nextState = {
+              current: nextPagination.current || 1,
+              pageSize: nextPagination.pageSize || pagination.pageSize || 10,
+            };
+            setPagination(nextState);
+            saveListState({ pagination: nextState, scrollY: window.scrollY || 0 });
+          }}
         />
       </TablePanel>
       <ReviewBatchImageAssignmentModal

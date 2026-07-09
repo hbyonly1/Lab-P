@@ -20,6 +20,8 @@ const AdminOperationLogsPage = React.lazy(() => import('./pages/workspace/admin/
 const SettingsPage = React.lazy(() => import('./pages/workspace/admin/SettingsPage.jsx'));
 const ExperimentConfigPage = React.lazy(() => import('./pages/workspace/admin/ExperimentConfigPage.jsx'));
 const AdminOrdersPage = React.lazy(() => import('./pages/workspace/admin/AdminOrdersPage.jsx'));
+const AdminStudentsPage = React.lazy(() => import('./pages/workspace/admin/AdminStudentsPage.jsx'));
+const AdminPlaywrightSessionsPage = React.lazy(() => import('./pages/workspace/admin/AdminPlaywrightSessionsPage.jsx'));
 const AdminExperimentPreviewPage = React.lazy(() => import('./pages/workspace/admin/AdminExperimentPreviewPage.jsx'));
 const AdminFeedbackPage = React.lazy(() => import('./pages/workspace/admin/AdminFeedbackPage.jsx'));
 import { getAdminUserRole, hasAdminAccessToken } from './auth.js';
@@ -121,6 +123,22 @@ function App() {
           element={
             <RequireWorkspaceRole moduleId="admin-review-tasks">
               <WorkspaceBlankPage />
+            </RequireWorkspaceRole>
+          }
+        />
+        <Route
+          path="admin/students"
+          element={
+            <RequireWorkspaceRole moduleId="admin-students">
+              <AdminStudentsPage />
+            </RequireWorkspaceRole>
+          }
+        />
+        <Route
+          path="admin/playwright-sessions"
+          element={
+            <RequireWorkspaceRole moduleId="admin-playwright-sessions">
+              <AdminPlaywrightSessionsPage />
             </RequireWorkspaceRole>
           }
         />

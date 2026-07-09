@@ -7,17 +7,27 @@ from services.experiment_seed import seed_experiment_configs
 from services.experiment_seed import CONFIG_DIR
 from services.experiment_seed import stable_json_hash
 from services.experiment_seed import file_mtime_datetime
-from services.experiment_formulas import FormulaInputError, build_formula_functions
 from services.ai_task_audit import add_ai_task_audit, audit_target_id
+from services.formula_compute import (
+    FormulaComputeError,
+    FormulaDependencyUnresolved,
+    FormulaInputIncomplete,
+    compute_formula_values,
+)
+from services.score_check import ScoreCheckConfigError, evaluate_score_check
+from core.plan_capabilities import can_use_formula_compute
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 from datetime import datetime
-import simpleeval
 import json
 
 router = APIRouter()
 
 class ComputeRequest(BaseModel):
+    current_form_values: Dict[str, Any]
+    submission_id: Optional[str] = None
+
+class ScoreCheckRequest(BaseModel):
     current_form_values: Dict[str, Any]
     submission_id: Optional[str] = None
 
@@ -116,6 +126,39 @@ def config_list_item(experiment: Experiment) -> ExperimentListItem:
         config_file_mtime=experiment.config_file_mtime,
     )
 
+def public_experiment_config(config_json: Dict[str, Any], current_user: User) -> Dict[str, Any]:
+    public_config = dict(config_json or {})
+    score_check = public_config.get("scoreCheck")
+    if isinstance(score_check, dict):
+        public_config["scoreCheck"] = {
+            "enabled": bool(score_check.get("enabled")),
+            "totalScore": score_check.get("totalScore"),
+            "computableScore": score_check.get("computableScore"),
+            "itemCount": len(score_check.get("items") or []),
+        }
+    reference_check = public_config.get("referenceValueCheck")
+    if isinstance(reference_check, dict):
+        public_config["referenceValueCheck"] = {
+            "enabled": bool(reference_check.get("enabled")),
+            "label": reference_check.get("label") or "按典型参考值检查",
+            "itemCount": len(reference_check.get("items") or []),
+        }
+    return public_config
+
+def assert_submission_access(
+    session: Session,
+    experiment_id: str,
+    submission_id: Optional[str],
+    current_user: User,
+) -> None:
+    if not submission_id:
+        return
+    submission = session.get(Submission, submission_id)
+    if not submission or submission.experiment_id != experiment_id:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    if current_user.role == "student" and submission.student_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
 def save_experiment_config_to_file_and_db(
     experiment: Experiment,
     config_json: Dict[str, Any],
@@ -192,7 +235,7 @@ def get_experiment_config(
         id=experiment.id,
         title=experiment.title,
         version=experiment.version,
-        config_json=experiment.config_json,
+        config_json=public_experiment_config(experiment.config_json, current_user),
     )
 
 @router.get("/{experiment_id}/raw-config", response_model=ExperimentRawConfigResponse)
@@ -296,18 +339,16 @@ def compute_experiment_data(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
+    if current_user.role == "student" and not can_use_formula_compute(current_user):
+        raise HTTPException(status_code=403, detail="此功能需要 Plus 或 Pro 套餐")
+
     experiment = session.get(Experiment, experiment_id)
     if not experiment:
         raise HTTPException(status_code=404, detail="Experiment not found")
     if not experiment_visible_to_user(experiment, current_user):
         raise HTTPException(status_code=404, detail="Experiment not found")
 
-    if req.submission_id:
-        submission = session.get(Submission, req.submission_id)
-        if not submission or submission.experiment_id != experiment_id:
-            raise HTTPException(status_code=404, detail="Submission not found")
-        if current_user.role == "student" and submission.student_id != current_user.id:
-            raise HTTPException(status_code=403, detail="Forbidden")
+    assert_submission_access(session, experiment_id, req.submission_id, current_user)
 
     target_id = audit_target_id(experiment_id, req.submission_id)
     add_ai_task_audit(
@@ -323,114 +364,73 @@ def compute_experiment_data(
     )
     session.commit()
         
-    formulas = experiment.config_json.get("formulas", {})
-    if not formulas:
-        formulas = {}
-        
-    form_values = dict(req.current_form_values)
-    
-    max_iterations = 10
-    changed = True
-    
-    evaluator = simpleeval.SimpleEval()
-    
-    for _ in range(max_iterations):
-        if not changed:
-            break
-        changed = False
-        
-        # update evaluator namespace
-        names = {}
-        for k, v in form_values.items():
-            try:
-                if isinstance(v, str) and v.strip() != "":
-                    names[k] = float(v)
-                else:
-                    names[k] = v
-            except ValueError:
-                names[k] = v
-        evaluator.names = names
-        
-        evaluator.functions.update(build_formula_functions(names))
-        
-        for target_node, formula_str in formulas.items():
-            if not formula_str:
-                continue
-            try:
-                result = evaluator.eval(formula_str)
-                # Keep up to 4 decimal places for floats
-                if isinstance(result, float):
-                    result_str = f"{result:.4g}"
-                else:
-                    result_str = str(result)
-                    
-                if form_values.get(target_node) != result_str:
-                    form_values[target_node] = result_str
-                    changed = True
-            except FormulaInputError as e:
-                add_ai_task_audit(
-                    session,
-                    user_id=current_user.id,
-                    task_kind="formula_compute",
-                    phase="failed",
-                    target_id=target_id,
-                    details={
-                        "experiment_id": experiment_id,
-                        "submission_id": req.submission_id,
-                        "code": "FORMULA_INPUT_INCOMPLETE",
-                        "missing_node_ids": e.missing_node_ids,
-                    },
-                )
-                session.commit()
-                raise HTTPException(
-                    status_code=400,
-                    detail={
-                        "code": "FORMULA_INPUT_INCOMPLETE",
-                        "message": "填写不完整，无法计算",
-                        "missing_node_ids": e.missing_node_ids,
-                    },
-                )
-            except KeyError as e:
-                missing_node = str(e.args[0]) if e.args else ""
-                add_ai_task_audit(
-                    session,
-                    user_id=current_user.id,
-                    task_kind="formula_compute",
-                    phase="failed",
-                    target_id=target_id,
-                    details={
-                        "experiment_id": experiment_id,
-                        "submission_id": req.submission_id,
-                        "code": "FORMULA_INPUT_INCOMPLETE",
-                        "missing_node_ids": [missing_node] if missing_node else [],
-                    },
-                )
-                session.commit()
-                raise HTTPException(
-                    status_code=400,
-                    detail={
-                        "code": "FORMULA_INPUT_INCOMPLETE",
-                        "message": "填写不完整，无法计算",
-                        "missing_node_ids": [missing_node] if missing_node else [],
-                    },
-                )
-            except Exception as e:
-                add_ai_task_audit(
-                    session,
-                    user_id=current_user.id,
-                    task_kind="formula_compute",
-                    phase="failed",
-                    target_id=target_id,
-                    details={
-                        "experiment_id": experiment_id,
-                        "submission_id": req.submission_id,
-                        "error": str(e),
-                        "error_type": type(e).__name__,
-                    },
-                )
-                session.commit()
-                raise HTTPException(status_code=400, detail="公式计算失败，请检查已填写数据")
-                
+    formulas = experiment.config_json.get("formulas", {}) or {}
+    try:
+        form_values = compute_formula_values(formulas, req.current_form_values)
+    except FormulaInputIncomplete as exc:
+        add_ai_task_audit(
+            session,
+            user_id=current_user.id,
+            task_kind="formula_compute",
+            phase="failed",
+            target_id=target_id,
+            details={
+                "experiment_id": experiment_id,
+                "submission_id": req.submission_id,
+                "code": "FORMULA_INPUT_INCOMPLETE",
+                "missing_node_ids": exc.missing_node_ids,
+            },
+        )
+        session.commit()
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FORMULA_INPUT_INCOMPLETE",
+                "message": "填写不完整，无法计算",
+                "missing_node_ids": exc.missing_node_ids,
+            },
+        )
+    except FormulaDependencyUnresolved as exc:
+        add_ai_task_audit(
+            session,
+            user_id=current_user.id,
+            task_kind="formula_compute",
+            phase="failed",
+            target_id=target_id,
+            details={
+                "experiment_id": experiment_id,
+                "submission_id": req.submission_id,
+                "code": "FORMULA_DEPENDENCY_UNRESOLVED",
+                "unresolved_targets": exc.unresolved_targets,
+                "missing_computed_node_ids": exc.missing_computed_node_ids,
+            },
+        )
+        session.commit()
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "FORMULA_DEPENDENCY_UNRESOLVED",
+                "message": "公式依赖无法解析，请检查实验配置",
+                "unresolved_targets": exc.unresolved_targets,
+            },
+        )
+    except FormulaComputeError as exc:
+        add_ai_task_audit(
+            session,
+            user_id=current_user.id,
+            task_kind="formula_compute",
+            phase="failed",
+            target_id=target_id,
+            details={
+                "experiment_id": experiment_id,
+                "submission_id": req.submission_id,
+                "error": str(exc),
+                "error_type": type(exc).__name__,
+            },
+        )
+        session.commit()
+        raise HTTPException(status_code=400, detail="公式计算失败，请检查已填写数据")
+
     original_values = dict(req.current_form_values)
     computed_changes = {k: v for k, v in form_values.items() if original_values.get(k) != v}
 
@@ -452,6 +452,76 @@ def compute_experiment_data(
     session.commit()
     
     return {"computed_values": form_values}
+
+@router.post("/{experiment_id}/score-check")
+def score_check_experiment_data(
+    experiment_id: str,
+    req: ScoreCheckRequest,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role not in {"admin", "reviewer"}:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    experiment = session.get(Experiment, experiment_id)
+    if not experiment or not experiment.config_json:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    if not experiment_visible_to_user(experiment, current_user):
+        raise HTTPException(status_code=404, detail="Experiment not found")
+
+    assert_submission_access(session, experiment_id, req.submission_id, current_user)
+
+    config_json = experiment.config_json or {}
+    score_config = config_json.get("scoreCheck") or {}
+    reference_config = config_json.get("referenceValueCheck") or {}
+    if not score_config.get("enabled") and not reference_config.get("enabled"):
+        return {
+            "experimentId": experiment_id,
+            "experimentTitle": experiment.title,
+            "enabled": False,
+            "totalScore": 0,
+            "computableScore": 0,
+            "score": 0,
+            "itemCount": 0,
+            "items": [],
+            "referenceChecks": {
+                "enabled": False,
+                "label": "按典型参考值检查",
+                "itemCount": 0,
+                "items": [],
+                "notes": [],
+            },
+            "notes": ["当前实验暂未配置可自动检查的评分规则。"],
+        }
+
+    try:
+        result = evaluate_score_check(
+            experiment_id,
+            experiment.title,
+            score_config,
+            req.current_form_values or {},
+            reference_config,
+            include_reference_values=current_user.role == "admin",
+        )
+    except ScoreCheckConfigError as exc:
+        raise HTTPException(status_code=400, detail={"code": "SCORE_CHECK_CONFIG_ERROR", "message": str(exc)})
+
+    add_ai_task_audit(
+        session,
+        user_id=current_user.id,
+        task_kind="score_check",
+        phase="completed",
+        target_id=audit_target_id(experiment_id, req.submission_id),
+        details={
+            "experiment_id": experiment_id,
+            "submission_id": req.submission_id,
+            "item_count": result.get("itemCount"),
+            "score": result.get("score"),
+            "computable_score": result.get("computableScore"),
+        },
+    )
+    session.commit()
+    return result
 
 @router.put("/{experiment_id}/formulas")
 def update_experiment_formulas(

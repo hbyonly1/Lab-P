@@ -21,6 +21,7 @@ export function calculateExperimentMetrics(submissions, experiments = []) {
   
   let completedCount = 0;
   let reviewingCount = 0;
+  let draftSubmittedCount = 0;
   let unsubmittedCount = 0;
   let latestCompleted = null;
 
@@ -28,15 +29,20 @@ export function calculateExperimentMetrics(submissions, experiments = []) {
     const sub = subMap[exp.id];
     const status = sub ? sub.status : 'unsubmitted';
     
-    if (status === 'completed') {
+    const schoolStatus = exp.schoolStatus;
+    if (schoolStatus === 'school_final_submitted' || schoolStatus === 'school_graded' || status === 'completed') {
       completedCount++;
-      const subTimeStr = sub.updated_at || sub.created_at;
-      const latestTimeStr = latestCompleted ? (latestCompleted.updated_at || latestCompleted.created_at) : null;
-      
-      // 找出最近完成的实验
-      if (!latestCompleted || new Date(subTimeStr) > new Date(latestTimeStr)) {
-        latestCompleted = { ...sub, experimentName: exp.name };
+      if (sub) {
+        const subTimeStr = sub.updated_at || sub.created_at;
+        const latestTimeStr = latestCompleted ? (latestCompleted.updated_at || latestCompleted.created_at) : null;
+
+        // 找出最近完成的实验
+        if (!latestCompleted || new Date(subTimeStr) > new Date(latestTimeStr)) {
+          latestCompleted = { ...sub, experimentName: exp.name };
+        }
       }
+    } else if (schoolStatus === 'school_draft_submitted') {
+      draftSubmittedCount++;
     } else if (['pending_payment', 'recognizing', 'reviewing', 'submitting'].includes(status)) {
       reviewingCount++;
     } else {
@@ -64,6 +70,7 @@ export function calculateExperimentMetrics(submissions, experiments = []) {
     metrics: {
       total: allExps.length,
       unsubmitted: unsubmittedCount,
+      draftSubmitted: draftSubmittedCount,
       reviewing: reviewingCount,
       completed: completedCount,
       latestName: latestCompleted ? latestCompleted.experimentName : '暂无记录',

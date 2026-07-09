@@ -874,6 +874,124 @@
     "G7": "format_sig(16.02 * (linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')) if linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')) >= 0 else -linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4'))), 3)",
     "G8": "format_sig((((16.02 * (linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')) if linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')) >= 0 else -linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')))) - 6.626) if (16.02 * (linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')) if linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')) >= 0 else -linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')))) >= 6.626 else (6.626 - (16.02 * (linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')) if linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')) >= 0 else -linear_slope(v(8.214, 7.408, 6.879, 5.490, 5.196), v('G61-0', 'G61-1', 'G61-2', 'G61-3', 'G61-4')))))) / 6.626 * 100, 3)"
   },
+  "scoreCheck": {
+    "enabled": true,
+    "source": "assets/complete_saves_teacher/06_光电效应和普朗克常量的测定.html",
+    "totalScore": 10,
+    "computableScore": 1,
+    "items": [
+      {
+        "id": "photoelectric_cutoff_voltage_1",
+        "title": "截止电压 U₀ 1",
+        "nodeId": "G61-0",
+        "type": "numeric_range",
+        "maxScore": 0.2,
+        "metricLabel": "U₀",
+        "ranges": [
+          { "min": -1.8, "max": 0, "score": 0.2 },
+          { "score": 0.1 }
+        ]
+      },
+      {
+        "id": "photoelectric_cutoff_voltage_2",
+        "title": "截止电压 U₀ 2",
+        "nodeId": "G61-1",
+        "type": "numeric_range",
+        "maxScore": 0.2,
+        "metricLabel": "U₀",
+        "ranges": [
+          { "min": -1.8, "max": 0, "score": 0.2 },
+          { "score": 0.1 }
+        ]
+      },
+      {
+        "id": "photoelectric_cutoff_voltage_3",
+        "title": "截止电压 U₀ 3",
+        "nodeId": "G61-2",
+        "type": "numeric_range",
+        "maxScore": 0.2,
+        "metricLabel": "U₀",
+        "ranges": [
+          { "min": -1.8, "max": 0, "score": 0.2 },
+          { "score": 0.1 }
+        ]
+      },
+      {
+        "id": "photoelectric_cutoff_voltage_4",
+        "title": "截止电压 U₀ 4",
+        "nodeId": "G61-3",
+        "type": "numeric_range",
+        "maxScore": 0.2,
+        "metricLabel": "U₀",
+        "ranges": [
+          { "min": -1.8, "max": 0, "score": 0.2 },
+          { "score": 0.1 }
+        ]
+      },
+      {
+        "id": "photoelectric_cutoff_voltage_5",
+        "title": "截止电压 U₀ 5",
+        "nodeId": "G61-4",
+        "type": "numeric_range",
+        "maxScore": 0.2,
+        "metricLabel": "U₀",
+        "ranges": [
+          { "min": -1.8, "max": 0, "score": 0.2 },
+          { "score": 0.1 }
+        ]
+      }
+    ],
+    "notes": ["仅检查教师 HTML 中明确给出 -1.8≤U₀≤0 的项目；普朗克常数偏差项暂不自动计算。电流比例按教师步骤中的 2mm、4mm、8mm 光阑电流应接近 1:4:16 放入典型关系检查，不计入可检查得分。"]
+  },
+  "referenceValueCheck": {
+    "enabled": true,
+    "label": "教师说明关系检查",
+    "items": [
+      {
+        "id": "photoelectric_current_ratio_4mm_to_2mm",
+        "title": "电流比例 I(4mm)/I(2mm)",
+        "nodeId": "G3",
+        "type": "relative_error_percent",
+        "referenceValue": 4,
+        "referenceUnit": "",
+        "referenceSource": "教师步骤写明同一谱线、同一入射距离下，2mm、4mm、8mm 光阑电流比例接近 1:4:16；该项对应 4mm/2mm，参考值 4。",
+        "ranges": [
+          { "min": 0, "max": 15, "level": "good", "label": "接近 1:4:16 中的 4/1" },
+          { "min": 15, "max": 35, "level": "warning", "label": "相对理论比例有一定偏差" },
+          { "min": 35, "level": "danger", "label": "相对理论比例偏差明显" }
+        ]
+      },
+      {
+        "id": "photoelectric_current_ratio_8mm_to_4mm",
+        "title": "电流比例 I(8mm)/I(4mm)",
+        "nodeId": "G4",
+        "type": "relative_error_percent",
+        "referenceValue": 4,
+        "referenceUnit": "",
+        "referenceSource": "教师步骤写明同一谱线、同一入射距离下，2mm、4mm、8mm 光阑电流比例接近 1:4:16；该项对应 8mm/4mm，参考值 4。",
+        "ranges": [
+          { "min": 0, "max": 15, "level": "good", "label": "接近 1:4:16 中的 16/4" },
+          { "min": 15, "max": 35, "level": "warning", "label": "相对理论比例有一定偏差" },
+          { "min": 35, "level": "danger", "label": "相对理论比例偏差明显" }
+        ]
+      },
+      {
+        "id": "photoelectric_current_ratio_8mm_to_2mm",
+        "title": "电流比例 I(8mm)/I(2mm)",
+        "nodeId": "G5",
+        "type": "relative_error_percent",
+        "referenceValue": 16,
+        "referenceUnit": "",
+        "referenceSource": "教师步骤写明同一谱线、同一入射距离下，2mm、4mm、8mm 光阑电流比例接近 1:4:16；该项对应 8mm/2mm，参考值 16。",
+        "ranges": [
+          { "min": 0, "max": 15, "level": "good", "label": "接近 1:4:16 中的 16/1" },
+          { "min": 15, "max": 35, "level": "warning", "label": "相对理论比例有一定偏差" },
+          { "min": 35, "level": "danger", "label": "相对理论比例偏差明显" }
+        ]
+      }
+    ],
+    "notes": ["该检查来自教师实验步骤中的电流比例说明，只用于提示合理性，不计入学校评分。"]
+  },
   "automation": {
     "mappings": [
       {

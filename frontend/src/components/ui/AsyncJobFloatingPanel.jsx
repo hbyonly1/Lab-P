@@ -27,7 +27,7 @@ function statusLabel(status) {
   return '处理中';
 }
 
-export function AsyncJobFloatingPanel({ jobs = [], onDismiss, onClearDone, onRetry }) {
+export function AsyncJobFloatingPanel({ jobs = [], onDismiss, onClearDone, onRetry, onView }) {
   const [collapsed, setCollapsed] = useState(false);
   const [now, setNow] = useState(Date.now());
 
@@ -57,18 +57,17 @@ export function AsyncJobFloatingPanel({ jobs = [], onDismiss, onClearDone, onRet
   if (visibleJobs.length === 0) return null;
 
   return (
-    <aside className={`async-job-floating-panel ${collapsed ? 'is-collapsed' : ''}`} aria-live="polite">
-      {collapsed ? (
-        <button
-          className={`async-job-collapsed-button ${activeCount > 0 ? 'is-active' : ''}`}
-          type="button"
-          aria-label="展开任务"
-          onClick={() => setCollapsed(false)}
-        >
-          <ThunderboltOutlined />
-        </button>
-      ) : (
-        <>
+    <aside className={`async-job-floating-panel ${collapsed ? 'is-collapsed' : 'is-expanded'}`} aria-live="polite">
+      <button
+        className={`async-job-collapsed-button ${activeCount > 0 ? 'is-active' : ''}`}
+        type="button"
+        aria-label="展开任务"
+        onClick={() => setCollapsed(false)}
+        tabIndex={collapsed ? 0 : -1}
+      >
+        <ThunderboltOutlined />
+      </button>
+      <div className="async-job-expanded-shell" aria-hidden={collapsed}>
           <div className="async-job-floating-header">
             <strong>任务</strong>
             <div className="async-job-floating-actions">
@@ -115,6 +114,13 @@ export function AsyncJobFloatingPanel({ jobs = [], onDismiss, onClearDone, onRet
                     status={job.status === 'failed' ? 'exception' : undefined}
                     strokeColor={job.status === 'succeeded' ? '#24a148' : '#1f77ff'}
                   />
+                  {(job.status === 'succeeded' && job.viewAction && onView) && (
+                    <div className="async-job-card-actions">
+                      <Button size="small" type="primary" onClick={() => onView(job)}>
+                        {job.viewAction.label || '查看'}
+                      </Button>
+                    </div>
+                  )}
                   {job.status === 'failed' && onRetry && (
                     <div className="async-job-card-actions">
                       <Button size="small" onClick={() => onRetry(job)}>重试</Button>
@@ -124,8 +130,7 @@ export function AsyncJobFloatingPanel({ jobs = [], onDismiss, onClearDone, onRet
               );
             })}
           </div>
-        </>
-      )}
+      </div>
     </aside>
   );
 }

@@ -5,6 +5,7 @@ import { buildExperimentConfig } from '../../../services/experimentConfigStore.j
 import { getSubmission } from '../../../services/submissionsApi.js';
 import { ExperimentDetailView } from '../student/StudentExperimentDetailPage.jsx';
 import { experimentsApi } from '../../../services/experimentsApi.js';
+import { mergeReviewerTasksListState } from '../../../utils/reviewerTasksListState.js';
 
 const unwrapSubmissionValues = (payload) => {
   const values = payload?.values && typeof payload.values === 'object' ? payload.values : payload;
@@ -18,6 +19,8 @@ export default function ReviewerTaskDetailPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const experimentId = searchParams.get('exp');
+  const from = searchParams.get('from');
+  const backPath = from === 'admin-students' ? '/workspace/admin/students' : '/workspace/reviewer/tasks';
 
   const [submission, setSubmission] = useState(null);
   const [experiment, setExperiment] = useState(null);
@@ -32,6 +35,12 @@ export default function ReviewerTaskDetailPage() {
         .then(([submissionRes, config]) => {
           setSubmission(submissionRes);
           setExperiment(buildExperimentConfig(config));
+          if (from === 'reviewer-tasks') {
+            mergeReviewerTasksListState({
+              focusSubmissionId: submissionRes.id,
+              focusExperimentId: experimentId,
+            });
+          }
         })
         .catch(err => {
           message.error('无法获取任务信息: ' + (err.response?.data?.detail || err.message));
@@ -40,7 +49,7 @@ export default function ReviewerTaskDetailPage() {
           setLoading(false);
         });
     }
-  }, [taskId, experimentId]);
+  }, [experimentId, from, taskId]);
 
   if (!experiment || (loading && !submission)) {
     return (
@@ -52,7 +61,7 @@ export default function ReviewerTaskDetailPage() {
             <p style={{ color: '#696969', maxWidth: '700px', margin: '16px auto' }}>
               当前请求的实验配置不存在，或者对应的审核任务已被删除。
             </p>
-            <Button onClick={() => navigate('/workspace/reviewer/tasks')}>返回列表</Button>
+            <Button onClick={() => navigate(backPath)}>返回列表</Button>
           </>
         )}
       </div>
@@ -69,7 +78,7 @@ export default function ReviewerTaskDetailPage() {
   return (
     <ExperimentDetailView
       experiment={experiment}
-      onBack={() => navigate('/workspace/reviewer/tasks')}
+      onBack={() => navigate(backPath)}
       isReviewer={true}
       initialSubmission={submission}
       initialImagePaths={submission?.image_paths || []}

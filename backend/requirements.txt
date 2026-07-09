@@ -15,3 +15,5 @@ pydantic-settings
 openai>=1.0.0
 cryptography>=41.0.0
 simpleeval==0.9.13
+Pillow>=10.0.0
+pillow-heif>=0.16.0

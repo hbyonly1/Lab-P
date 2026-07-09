@@ -1,6 +1,31 @@
 # Decisions
 
+## 2026-07-08
+
+### 重列表分页与懒加载
+
+- Admin 同学管理、Admin 订单管理、Reviewer 审核任务三类重列表统一改为服务端分页、搜索和筛选；接口返回 `{ items,total,page,pageSize,summary }`，不再保留旧数组响应。
+- 同学管理列表只返回学生摘要，且摘要按“最新学校概览快照 + 已确认的临时/正式提交快照”计算；展开某个学生时再调用 `/api/v1/admin/students/{student_id}/experiments` 读取该学生实验行，避免首次加载传输和计算所有学生 × 所有实验，同时保证列表摘要和展开行学校状态口径一致。
+- 订单列表只返回当前页订单及其明细；顶部金额和待处理数量由后端聚合生成，前端不再拉全量订单后本地统计。
+- 审核任务列表按分页返回 submission 行，前端继续在当前页内聚合提交组；跨页批量聚合后续如有需求再单独做 batch 级后端接口。
+- 为列表常用排序和过滤字段补充数据库索引：`users(role, created_at)`、`submissions(status, created_at)`、`submissions(student_id, created_at)`、`orders(status, created_at)`、`orders(student_id, created_at)`、`school_sync_snapshots(user_id, synced_at)`。
+
+### 套餐权益和统一价格表
+
+- 学生侧能力按套餐强制校验：Free 不能使用一键填空、AI 图像识别和一键计算数据；Plus 可以使用 AI 图像识别和一键计算数据，但不能使用一键填空；Pro 可以使用全部工具能力和一键提交。
+- 一键提交只允许 Pro 直接放行，非 Pro 学生必须通过 `pay_per_use` 创建本次托管订单；前端不得用套餐判断直接阻止用户进入单次购买流程。
+- 价格只从 `backend/core/pricing.py` 读取：Plus 16 元，Pro 35 元，单实验一键托管 5 元。
+- 当前不读取实验 JSON 中的 `pricing.oneClick` 覆盖价，避免同一批次和不同页面金额不一致；后续如做实验级自定义价格，需要先扩展统一价格表和 checkout 测试。
+
 ## 2026-07-07
+
+### 支付与一键批量提交统一 Checkout
+
+- 套餐升级、按实验计价和学生一键批量提交统一走 `POST /api/v1/checkout/quote` 与 `POST /api/v1/checkout/submit`；旧的 `POST /api/v1/orders` 和 `POST /api/v1/submissions/submit` 创建入口不再保留。
+- 金额只由后端计算：套餐金额和按实验一键托管价格集中在 `backend/core/pricing.py`。
+- 一个批次只生成一笔订单。`pay_per_use` 订单金额等于所有实验一键托管价格之和；`pro` 批量提交只生成一笔 Pro 升级订单，批次内实验作为 0 元 `batch_submission` 明细记录。
+- `order_items` 作为订单明细表保存套餐升级项、按实验计价项和套餐订单放行的实验项；管理员订单页不再做“时间窗口合并多订单”的前端假聚合。
+- 前端所有升级套餐、一键单实验提交和一键批量提交都调用统一 checkout service，不再散落调用订单创建或 submission 创建接口。
 
 ### 自动草稿与提交历史分离
 
@@ -128,6 +153,8 @@
 
 - 一键托管提交默认进入 `pending_image_assignment`，等待管理员 / 审核员完成图片归位；`AiConfig.auto_recognize` 保持关闭或内部调试语义，不作为完整提交主链路。
 - 批量预处理只做编排，不重写 AI 能力：固定填空复用 `ai_service.get_fixed_fill()`，图片识别复用 `ai_service.recognize_images()`，生成回答复用 `ai_service.generate_answers()`。
+- 一键托管预处理内的公式计算由自动化配置 `oneClick.preprocessAutoComputeEnabled` 控制，默认关闭；开启时顺序固定为固定填空 -> AI 图片识别 -> 公式计算 -> 问题生成，确保问题生成拿到识别值和计算值。
+- 预处理内公式计算失败只写审计日志并继续后续步骤，不把整条预处理打失败，避免少数实验配置或缺值导致 AI 识别结果丢失。
 - AI 识别图片来源以实验配置 `ai.recognition.imageRef` 对应的 `submission.image_slots` 为准，避免对学生上传的整批图片盲识别。
 - 预处理结果第一阶段继续写入扁平 `submission.recognition_json`，以兼容现有审核详情页；长期可升级为 `{ values, _meta }` 结构。
 - 学校详情自动加载属于学校自动化策略，放在 `automation_config.syncPolicy`；学生默认开启，admin / reviewer 默认关闭。
@@ -150,4 +177,63 @@
 - AI 图片识别不做同一次请求内部自动 fallback，避免一次任务中出现模型来源不透明、失败难追踪的问题。
 - 对同一 `submission_id` 的重复识别采用显式切换策略：第 1 次使用主图片识别模型，第 2 次及以后在 Admin AI 设置开启后使用备用图片识别模型。
 - 识别次数复用已有 `ai_task_runs` 和 `audit_logs` 统计，不新增识别尝试表；覆盖详情页直接识别、审核预处理和旧任务列表识别入口。
-- 设置项保存到 `ai_config.image_recognition_retry_enabled` 与 `ai_config.image_recognition_retry_model`。关闭开关或备用模型为空时，重复识别继续使用主模型。
+- 设置项保存到 `ai_config.image_recognition_retry_enabled` 与 `task_overrides_json.image_recognition_retry`。关闭开关或 task override 未启用时，重复识别继续使用主模型。
+
+### 一键批量提交融合图片上传
+
+- 融合上传模式由自动化配置 `oneClick.fusedImageUploadAiEnabled` 控制；学生端只读设置接口只返回布尔开关，不暴露完整自动化配置。
+- 后端内部区分 AI 识别图片槽和单独上传图片槽，但图片匹配 Prompt 不暴露该分类标签。识别图片槽直接以 `slotCandidateId -> 表格序号和表格关键信息` 表达；无表格信息的单独上传槽只展示图片槽标题。模型每次只处理一张图片，只返回当前图片的槽位候选编号或空字符串，不返回图片序号、URL、实验真实 id、实验候选 id 或 DOM / 表单节点 id。
+- 示波器实验当前不进入融合图片匹配候选，继续走原有单实验/人工图片匹配链路。
+- 平台在模型返回后做二次映射：当前单图请求的原始 `imageIndex -> 已上传图片 URL`，`slotCandidateId -> 真实 experiment_id / slot_id`，再把归位结果作为 `checkout.submit.experiments[].image_slots` 提交。
+- 自动生成曲线图等 `computedAssets` 图片槽不进入融合匹配候选，也不参与 checkout 图片槽完整性判断。
+- checkout 收到完整 `image_slots` 且任务已支付 / Pro / 内部创建时直接进入审核预处理；槽位不完整时仍进入 `pending_image_assignment`，复用现有人工图片匹配流程。
+- `oneClick.fusedImageAutoConfirmEnabled` 默认开启：融合上传点击自动匹配后关闭上传 modal；匹配完成后自动调用 checkout。前端按实验分别计算 `image_assignment_confirmed`：已覆盖全部实际上传槽位的实验直接进入预处理，缺槽实验保留在图片待对应状态。
+- 融合上传预匹配只保留 Celery task 接口，不保留同步匹配入口；前端统一复用 `AsyncJobFloatingPanel` 和 `asyncTaskProgressProfiles.imageAutoMatch`。
+- 融合上传候选实验必须由发起一键提交时的目标实验列表决定：单实验入口只传当前实验，批量入口只传当前批量目标实验，不把所有可见实验作为候选。
+- 融合上传图片匹配通过“每张图片一次模型请求 + 默认最多 3 个并发请求 + Celery 真实进度”控制视觉 token；当前不设置 `image_url.detail=low`，不限制图片最长边，也不修改用户上传原图。
+- 融合上传图片匹配需要保留可复查诊断，完整 JSON 直接进入 `audit_logs(action=experiment_image_auto_match).details`，并落盘到 `backend/tmp/ai_image_auto_match/{task_id}/debug_payload.json`；诊断记录 Prompt、候选、图片 URL/编号、模型原始返回和 normalize 结果，但不记录 API Key 或 base64 图片正文。
+- 融合上传图片匹配允许 Admin 配置专用 OpenAI-compatible JSON override，保存于 `ai_config.task_overrides_json.experiment_image_auto_match`。启用后该任务使用 JSON 内的 `api_key/base_url/model/concurrency`，不影响普通图片识别、回答生成和验证码识别。
+- 审核图片匹配进入 AI 识别 / 预处理后必须锁定：`queued/running/done` 或 `preparing_review/recognizing/reviewing/submitting/draft_submitted/completed` 不再接受图片匹配覆盖，也不允许批量 `prepare-review` 重复入队；前端显示为“已进入AI识别”，后端返回 `skipped_already_processing`。
+
+## 2026-07-08
+
+### 学生侧接口安全收紧
+
+- 文件上传接口必须登录后调用；后端不再只信任 `Content-Type`，会读取文件头校验真实图片格式。
+- 当前上传限制为 20MB，允许 `jpg/jpeg/png/webp/gif/bmp`，拒绝 SVG、伪图片和超大图片。
+- 学生不能直接保存一键托管任务的 draft/correction/image slots，避免通过抓包污染后台审核数据；自助提交仍允许学生保存草稿和纠错。
+- `/api/v1/ai/task/{task_id}` 对学生按 `ai_task_runs.user_id` 校验归属；未知 task id 对学生返回 404，防止通过 task id 横向读取 AI 结果。
+- `/uploads` 静态公开挂载已取消。数据库和 submission 中仍保留 `/uploads/...` 作为内部文件引用路径；浏览器预览统一通过 `GET /api/v1/files/view?path=...` 鉴权读取 blob，后台 AI / 学校自动化继续使用本地路径解析，不改变任务数据格式。
+
+### 学校报告截图展示
+
+- 查看学校系统提交情况使用独立 `school_report_screenshot` automation job，不复用详情同步快照，避免为了截图而读取/回填学校 DOM 节点。
+- 前端只拿 public job id 和鉴权后的截图二进制；截图真实路径仅保存在 `automation_jobs.result_payload`，`GET /api/v1/automation-jobs/{job_id}/screenshot` 会校验当前用户可见 job 且截图路径位于该 job artifact 目录内。
+- 学生截图任务始终使用当前登录学生自己的学校身份；admin / reviewer 只能通过 submission 级接口由后端反查目标学生身份。
+- Admin 同学管理页的“查看所有提交截图”使用独立 `school_submission_screenshots` job，先读取学校完成报告列表，只对 `school_draft_submitted` / `school_final_submitted` 实验截图；结果接口不返回真实路径，截图文件通过 admin 专用鉴权 endpoint 读取。
+- 学生 Dashboard 和我的实验页可以触发自己的完整性检查 / 截图任务，但学生接口不接受 `student_id`，后端始终绑定 `actor_user_id=current_user.id`；单实验入口只额外接收 `experiment_id` 并校验实验启用。
+
+### 自动化任务页中的 Playwright 会话管理
+
+- 学校系统浏览器会话继续由后端内存中的 `school_session_manager` 管理，不落库；页面只显示当前后端进程保留的会话。
+- 管理入口限定为 admin，接口放在 `/api/v1/automation-jobs/school-browser-sessions` 下，复用现有自动化任务鉴权边界。
+- 自动化任务页拆成两类操作：活跃自动化任务表负责终止数据库中的 job；Playwright 浏览器会话表负责诊断、关闭单个会话和关闭全部会话。关闭操作写入 `audit_logs`，用于处理 headless 模式下无法手动关闭浏览器窗口导致的资源占用问题。
+- 关闭会话不主动取消数据库中的 automation job；如果任务仍在运行，后续轮询会按现有浏览器关闭/任务失败逻辑处理。
+- 后端重启按钮复用该 admin 管理页，接口只做当前 backend 进程延迟退出，不调用宿主机 Docker 命令；自动恢复依赖 `docker-compose.yml` 中 backend 的 `restart: unless-stopped`。
+
+### 已评分学校状态
+
+- 学校报告列表中“状态”列可能仍显示“正常提交”，但“成绩”列已有数字且“完成报告”按钮不可打开；因此状态识别优先级改为成绩列优先。
+- `score` 有数字时统一映射为 `school_graded`，前端展示 `已评分：{score}`，使用提示态叹号，不当作成功或失败色。
+- `school_graded` 计入完成统计；完整性检查和提交截图不再点击完成报告，直接跳过并说明已评分导致不可打开。
+
+### 数据合理性检查规则
+
+- 实验配置新增顶层 `scoreCheck`，与 `formulas` 分离：`formulas` 负责一键计算和回填，`scoreCheck` 只负责后端读取当前页面已有值并给出可检查项得分。
+- `scoreCheck.items` 只写可计算或教师 HTML 明确给出数值区间/关系的规则；文本、图片、主观分析等规则不写入自动检查，避免伪造评分能力。
+- 数据合理性检查不复用一键计算能力，不触发公式依赖求值，不生成曲线图，不修改表单值。
+- 普通实验配置接口只返回 `scoreCheck` 摘要，防止前端暴露标准值、区间和公式；完整规则仅 admin raw-config 管理接口可见。
+- 功能入口和接口权限暂限定为 `admin` / `reviewer`，学生端不展示按钮，学生直接调用接口返回 `403`。
+- 对只有材料/物性典型量级、但教师 HTML/PPT 未明确参考值的项目，使用独立 `referenceValueCheck`，不与 `scoreCheck` 混写，不计入可检查得分。
+- `referenceValueCheck` 对 admin 返回典型参考值、单位和来源说明；非 admin 只返回偏差等级和原因。前端展示为“按典型参考值检查”，明确标注不计入学校评分。
+- 明确写在教师 HTML / 实验配置题干中的有效数字或小数位要求可以进入数据合理性检查：有明确分值区间的项写入 `scoreCheck.requiredSignificantDigits` / `requiredDecimalPlaces`，作为满分条件；只有格式要求、没有明确分值或参考区间的项写入 `referenceValueCheck` 的格式提示，不计入学校评分。

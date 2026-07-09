@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Upload, message } from 'antd';
 import {
   CloudUploadOutlined,
@@ -16,10 +16,66 @@ const IMAGE_SCALE_STEP = 0.5;
 
 export const resolveImageUrl = (url) => {
   if (!url) return '';
+  if (url.startsWith('/uploads/')) {
+    return '';
+  }
   if (url.startsWith('/')) {
-    return `${apiClient.defaults.baseURL || 'http://localhost:8000'}${url}`;
+    return `${apiClient.defaults.baseURL || window.location.origin}${url}`;
   }
   return url;
+};
+
+const isPrivateUploadUrl = (url) => typeof url === 'string' && url.startsWith('/uploads/');
+
+export const fetchPrivateImageBlob = async (url) => {
+  const response = await apiClient.get('/api/v1/files/view', {
+    params: { path: url },
+    responseType: 'blob',
+  });
+  return response.data;
+};
+
+export const useAuthenticatedImageUrl = (url) => {
+  const [objectUrl, setObjectUrl] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    let createdUrl = '';
+
+    if (!isPrivateUploadUrl(url)) {
+      setObjectUrl(resolveImageUrl(url));
+      return () => {};
+    }
+
+    setObjectUrl('');
+    fetchPrivateImageBlob(url)
+      .then((blob) => {
+        if (!active) return;
+        createdUrl = URL.createObjectURL(blob);
+        setObjectUrl(createdUrl);
+      })
+      .catch(() => {
+        if (active) setObjectUrl('');
+      });
+
+    return () => {
+      active = false;
+      if (createdUrl) URL.revokeObjectURL(createdUrl);
+    };
+  }, [url]);
+
+  return objectUrl;
+};
+
+export function AuthenticatedImage({ src, alt, ...props }) {
+  const resolvedSrc = useAuthenticatedImageUrl(src);
+  return <img src={resolvedSrc} alt={alt} {...props} />;
+}
+
+const resolvePlaceholderImageUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('/assets/') || /^https?:\/\//i.test(url)) return url;
+  return resolveImageUrl(url);
 };
 
 function RecognizeIcon() {
@@ -35,9 +91,14 @@ function RecognizeIcon() {
 }
 
 export const imageUrlToFile = async (image, fileName) => {
-  const response = await fetch(resolveImageUrl(image.url));
-  if (!response.ok) throw new Error('图片读取失败');
-  const blob = await response.blob();
+  let blob;
+  if (isPrivateUploadUrl(image.url)) {
+    blob = await fetchPrivateImageBlob(image.url);
+  } else {
+    const response = await fetch(resolveImageUrl(image.url));
+    if (!response.ok) throw new Error('图片读取失败');
+    blob = await response.blob();
+  }
   return new File([blob], fileName, { type: blob.type || 'image/png' });
 };
 
@@ -80,6 +141,7 @@ export function ExperimentImageUploader({
   emptyTitle = '拖动文件到这里上传签字原始数据图片',
   emptyHint = '支持多张图片，可拖动或用鼠标滚轮缩放来对比信息',
   className = '',
+  placeholderImage = null,
 }) {
   const allImages = images?.flatMap(slot =>
     (imageSlots[slot.id] || []).map(file => ({ ...file, slotId: slot.id, slotLabel: slot.label }))
@@ -93,6 +155,25 @@ export function ExperimentImageUploader({
   const [dragging, setDragging] = useState(false);
   const [dragStart, setDragStart] = useState(null);
   const [isRotating, setIsRotating] = useState(false);
+  const [hoveredSlotId, setHoveredSlotId] = useState(null);
+  const previousImageUidsRef = useRef([]);
+
+  useEffect(() => {
+    const currentUids = allImages.map((image) => image.uid || image.url).filter(Boolean);
+    const previousUids = previousImageUidsRef.current;
+    const addedUid = currentUids.find((uid) => !previousUids.includes(uid));
+    previousImageUidsRef.current = currentUids;
+    if (!addedUid || previousUids.length === 0) return;
+    const addedIndex = allImages.findIndex((image) => (image.uid || image.url) === addedUid);
+    if (addedIndex >= 0) {
+      setActiveIndex(addedIndex);
+    }
+  }, [allImages]);
+
+  useEffect(() => {
+    setScale(1);
+    setOffset({ x: 0, y: 0 });
+  }, [activeImage?.uid]);
 
   const updateScale = (delta) => {
     setScale((current) => {
@@ -130,6 +211,61 @@ export function ExperimentImageUploader({
   };
 
   const getDefaultSlotId = () => images?.[0]?.id || 'IMG_RAW';
+  const getPasteSlotId = () => hoveredSlotId || activeImage?.slotId || getDefaultSlotId();
+
+  const uploadClipboardImages = useCallback(async (event) => {
+    if (!onImageUpload) return;
+    const files = Array.from(event.clipboardData?.items || [])
+      .filter((item) => item.kind === 'file' && item.type?.startsWith('image/'))
+      .map((item, index) => {
+        const file = item.getAsFile();
+        if (!file) return null;
+        const extension = file.type?.split('/')[1] || 'png';
+        return new File([file], file.name || `clipboard-image-${Date.now()}-${index + 1}.${extension}`, {
+          type: file.type || 'image/png',
+        });
+      })
+      .filter(Boolean);
+
+    if (!files.length) return;
+    const slotId = getPasteSlotId();
+    event.preventDefault();
+    event.stopPropagation();
+    message.loading({ content: `正在粘贴上传 ${files.length} 张图片...`, key: 'clipboard-image-upload' });
+    try {
+      for (const file of files) {
+        await onImageUpload(slotId, file);
+      }
+      message.success({ content: `已粘贴上传 ${files.length} 张图片`, key: 'clipboard-image-upload' });
+    } catch (error) {
+      message.error({ content: error.message || '粘贴上传失败', key: 'clipboard-image-upload' });
+    }
+  }, [activeImage?.slotId, hoveredSlotId, images, onImageUpload]);
+
+  useEffect(() => {
+    if (!hoveredSlotId) return undefined;
+    const handleDocumentPaste = (event) => {
+      uploadClipboardImages(event);
+    };
+    document.addEventListener('paste', handleDocumentPaste);
+    return () => {
+      document.removeEventListener('paste', handleDocumentPaste);
+    };
+  }, [hoveredSlotId, uploadClipboardImages]);
+
+  const uploadDroppedFiles = async (event) => {
+    const files = Array.from(event.dataTransfer?.files || []).filter((file) => (
+      file.type?.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp|heic|heif)$/i.test(file.name || '')
+    ));
+    if (!files.length || !onImageUpload) return false;
+
+    event.preventDefault();
+    event.stopPropagation();
+    for (const file of files) {
+      await onImageUpload(getDefaultSlotId(), file);
+    }
+    return true;
+  };
 
   const handleExternalDrop = async (event) => {
     const rawPayload = event.dataTransfer?.getData('application/json') || event.dataTransfer?.getData('text/plain');
@@ -146,6 +282,19 @@ export function ExperimentImageUploader({
     event.preventDefault();
     event.stopPropagation();
     await onExternalImageDrop(getDefaultSlotId(), droppedImage);
+  };
+
+  const handlePreviewDragOver = (event) => {
+    const hasFiles = Array.from(event.dataTransfer?.types || []).includes('Files');
+    if (hasFiles || onExternalImageDrop) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+    }
+  };
+
+  const handlePreviewDrop = async (event) => {
+    if (await uploadDroppedFiles(event)) return;
+    await handleExternalDrop(event);
   };
 
   const handleRotateImage = async () => {
@@ -166,7 +315,11 @@ export function ExperimentImageUploader({
   };
 
   return (
-    <div className={`experiment-image-panel ${className}`.trim()}>
+    <div
+      className={`experiment-image-panel ${className}`.trim()}
+      onMouseEnter={() => setHoveredSlotId(getDefaultSlotId())}
+      onMouseLeave={() => setHoveredSlotId(null)}
+    >
       <div className="experiment-image-head">
         <h3>{title}</h3>
         <div className="image-toolbar">
@@ -188,19 +341,18 @@ export function ExperimentImageUploader({
       {activeImage ? (
         <div
           className="image-preview-stage"
+          onMouseEnter={() => setHoveredSlotId(activeImage.slotId || getDefaultSlotId())}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={stopDragging}
           onMouseLeave={stopDragging}
           onWheel={handleWheel}
-          onDragOver={(event) => {
-            if (onExternalImageDrop) event.preventDefault();
-          }}
-          onDrop={handleExternalDrop}
+          onDragOver={handlePreviewDragOver}
+          onDrop={handlePreviewDrop}
         >
-          <img
+          <AuthenticatedImage
             alt={activeImage.name}
-            src={resolveImageUrl(activeImage.url)}
+            src={activeImage.url}
             style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})` }}
             draggable={false}
           />
@@ -212,8 +364,17 @@ export function ExperimentImageUploader({
           multiple
           showUploadList={false}
           onDrop={handleExternalDrop}
+          onMouseEnter={() => setHoveredSlotId(getDefaultSlotId())}
         >
           <div className="image-upload-empty">
+            {placeholderImage && (
+              <img
+                className="image-upload-placeholder-image"
+                src={resolvePlaceholderImageUrl(placeholderImage)}
+                alt=""
+                aria-hidden="true"
+              />
+            )}
             <CloudUploadOutlined />
             <strong>{emptyTitle}</strong>
             <span>{emptyHint}</span>
@@ -222,30 +383,20 @@ export function ExperimentImageUploader({
       )}
 
       {allImages.length > 0 && (
-        <div className="image-gallery-strip" style={{ display: 'flex', gap: '12px', padding: '12px 16px', overflowX: 'auto', alignItems: 'center', background: '#fafafa', borderTop: '1px solid #f0f0f0', borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px' }}>
+        <div className="image-gallery-strip">
           {allImages.map((img, idx) => (
             <div
               key={img.uid}
-              style={{
-                position: 'relative', flexShrink: 0, cursor: 'pointer',
-                border: activeIndex === idx ? '2px solid #1677ff' : '2px solid transparent',
-                borderRadius: '6px', overflow: 'hidden', width: '64px', height: '64px',
-                background: '#fff', boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-              }}
+              className={`image-gallery-thumb ${activeIndex === idx ? 'is-active' : ''}`}
               onClick={() => {
                 setActiveIndex(idx);
                 setScale(1);
                 setOffset({ x: 0, y: 0 });
               }}
             >
-              <img src={resolveImageUrl(img.url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="thumb" />
+              <AuthenticatedImage src={img.url} alt="thumb" />
               <div
-                style={{
-                  position: 'absolute', top: 0, right: 0, background: 'rgba(0,0,0,0.45)',
-                  color: '#fff', width: '20px', height: '20px', display: 'flex',
-                  alignItems: 'center', justifyContent: 'center', borderBottomLeftRadius: '4px',
-                  fontSize: '12px'
-                }}
+                className="image-gallery-remove"
                 onClick={(e) => {
                   e.stopPropagation();
                   onRemoveImage(img.slotId, img.uid);
@@ -262,11 +413,7 @@ export function ExperimentImageUploader({
             multiple
             showUploadList={false}
           >
-            <div style={{
-              width: '64px', height: '64px', border: '1px dashed #d9d9d9', borderRadius: '6px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-              background: '#fff', color: '#8c8c8c', flexShrink: 0
-            }}>
+            <div className="image-gallery-upload" onMouseEnter={() => setHoveredSlotId(getDefaultSlotId())}>
               <CloudUploadOutlined style={{ fontSize: '20px' }} />
             </div>
           </Upload>
@@ -282,7 +429,7 @@ export function ExperimentImageUploader({
             loading={isRecognizing}
             onClick={onRecognize}
           >
-            一键识别并填表 (Plus/Pro)
+            一键识别并填表
           </Button>
         )}
       </div>

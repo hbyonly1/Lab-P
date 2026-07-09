@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
     SCHOOL_PASSWORD_SECRET_KEY: Optional[str] = None
+    BACKEND_CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080,http://127.0.0.1:8080"
     
     # Initial Super Admin
     ADMIN_USERNAME: str = "admin"
@@ -44,5 +45,14 @@ class Settings(BaseSettings):
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
         return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+
+    @property
+    def cors_origins(self) -> list[str]:
+        raw = (self.BACKEND_CORS_ORIGINS or "").strip()
+        if not raw:
+            return []
+        if raw == "*":
+            return ["*"]
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
 settings = Settings()

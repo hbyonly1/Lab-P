@@ -85,7 +85,7 @@ def load_active_config(session: Session) -> Dict[str, Any]:
     return config.config_json
 
 
-def set_job_progress(job_id: str, message_code: str) -> None:
+def set_job_progress(job_id: str, message_code: str, message_params: Optional[Dict[str, Any]] = None) -> None:
     with Session(engine) as session:
         job = session.get(AutomationJob, job_id)
         if not job or job.status not in ["queued", "running", "retrying"]:
@@ -93,12 +93,26 @@ def set_job_progress(job_id: str, message_code: str) -> None:
         job.status = "running"
         job.public_status = "running"
         job.public_message_code = message_code
+        if message_params is not None:
+            job.public_message_params = message_params
         job.updated_at = get_utc_now()
         session.add(job)
         session.commit()
 
 
-def map_school_status(raw_status: str) -> str:
+def normalize_score(value: Any) -> str:
+    score = str(value or "").strip()
+    if not score:
+        return ""
+    normalized = re.sub(r"\s+", "", score)
+    if re.fullmatch(r"\d+(?:\.\d+)?", normalized):
+        return normalized
+    return ""
+
+
+def map_school_status(raw_status: str, score: Any = None) -> str:
+    if normalize_score(score):
+        return "school_graded"
     normalized = (raw_status or "").strip()
     if normalized == "未提交":
         return "school_not_submitted"
@@ -114,15 +128,17 @@ def summarize_experiments(experiments: List[Dict[str, str]], real_name: Optional
     unsubmitted = sum(1 for item in experiments if item.get("schoolStatus") == "school_not_submitted")
     draft = sum(1 for item in experiments if item.get("schoolStatus") == "school_draft_submitted")
     final = sum(1 for item in experiments if item.get("schoolStatus") == "school_final_submitted")
+    graded = sum(1 for item in experiments if item.get("schoolStatus") == "school_graded")
     unknown = sum(1 for item in experiments if item.get("schoolStatus") == "school_unknown")
     return {
         "source": "school_complete_report_list",
         "realName": real_name,
         "total": total,
-        "completed": draft + final,
+        "completed": draft + final + graded,
         "unsubmitted": unsubmitted,
         "draftSubmitted": draft,
-        "finalSubmitted": final,
+        "finalSubmitted": final + graded,
+        "graded": graded,
         "unknown": unknown,
     }
 
@@ -315,20 +331,22 @@ async def extract_report_list(page: Any, config: Dict[str, Any], timeout_ms: int
     columns = deep_get(config, "selectors.reportList.columns", {}) or {}
     experiment_idx = safe_int(columns.get("experimentName"), 0)
     status_idx = safe_int(columns.get("status"), 6)
+    score_idx = safe_int(columns.get("score"), 7)
     try:
         await wait_for_selector_count(page, row_selector, min_count=1, timeout_ms=timeout_ms)
     except SchoolDomTimeout:
         return []
     raw_items = await page.evaluate(
         """
-        ({ rowSelector, experimentIdx, statusIdx }) => {
+        ({ rowSelector, experimentIdx, statusIdx, scoreIdx }) => {
           return Array.from(document.querySelectorAll(rowSelector)).map((row) => {
             const cells = Array.from(row.querySelectorAll('td')).map((cell) =>
               (cell.innerText || cell.textContent || '').replace(/\\s+/g, ' ').trim()
             );
             return {
               experimentName: cells[experimentIdx] || '',
-              originalStatusText: cells[statusIdx] || ''
+              originalStatusText: cells[statusIdx] || '',
+              score: scoreIdx >= 0 ? (cells[scoreIdx] || '') : ''
             };
           }).filter((item) => item.experimentName || item.originalStatusText);
         }
@@ -337,13 +355,15 @@ async def extract_report_list(page: Any, config: Dict[str, Any], timeout_ms: int
             "rowSelector": row_selector,
             "experimentIdx": experiment_idx,
             "statusIdx": status_idx,
+            "scoreIdx": score_idx,
         },
     )
     return [
         {
             "experimentName": item.get("experimentName", ""),
             "originalStatusText": item.get("originalStatusText", ""),
-            "schoolStatus": map_school_status(item.get("originalStatusText", "")),
+            "score": normalize_score(item.get("score", "")),
+            "schoolStatus": map_school_status(item.get("originalStatusText", ""), item.get("score", "")),
         }
         for item in raw_items
     ]
@@ -366,6 +386,7 @@ async def wait_and_extract_overview(
     columns = deep_get(config, "selectors.reportList.columns", {}) or {}
     experiment_idx = safe_int(columns.get("experimentName"), 0)
     status_idx = safe_int(columns.get("status"), 6)
+    score_idx = safe_int(columns.get("score"), 7)
     deadline = asyncio.get_running_loop().time() + max(timeout_ms, 1) / 1000
     last_snapshot: Optional[Dict[str, Any]] = None
     stable_since: Optional[float] = None
@@ -373,7 +394,7 @@ async def wait_and_extract_overview(
     while True:
         snapshot = await page.evaluate(
             """
-            ({ realNameSelector, rowSelector, experimentIdx, statusIdx }) => {
+            ({ realNameSelector, rowSelector, experimentIdx, statusIdx, scoreIdx }) => {
               const normalize = (value) => String(value || '').replace(/\\s+/g, ' ').trim();
               const realNameNode = document.querySelector(realNameSelector);
               const realName = normalize(realNameNode && (realNameNode.innerText || realNameNode.textContent));
@@ -385,6 +406,7 @@ async def wait_and_extract_overview(
                 return {
                   experimentName: cells[experimentIdx] || '',
                   originalStatusText: cells[statusIdx] || '',
+                  score: scoreIdx >= 0 ? (cells[scoreIdx] || '') : '',
                   rowText: normalize(row.innerText || row.textContent)
                 };
               }).filter((item) => item.experimentName || item.originalStatusText);
@@ -403,6 +425,7 @@ async def wait_and_extract_overview(
                 "rowSelector": row_selector,
                 "experimentIdx": experiment_idx,
                 "statusIdx": status_idx,
+                "scoreIdx": score_idx,
             },
         )
         now = asyncio.get_running_loop().time()
@@ -436,7 +459,8 @@ async def wait_and_extract_overview(
                     {
                         "experimentName": item.get("experimentName", ""),
                         "originalStatusText": item.get("originalStatusText", ""),
-                        "schoolStatus": map_school_status(item.get("originalStatusText", "")),
+                        "score": normalize_score(item.get("score", "")),
+                        "schoolStatus": map_school_status(item.get("originalStatusText", ""), item.get("score", "")),
                     }
                     for item in snapshot.get("experiments", [])
                 ]
@@ -562,6 +586,60 @@ async def save_login_failure_artifacts(
         artifacts[f"login_failed_messages_attempt_{attempt}"] = str(messages_path)
     except Exception:
         pass
+
+
+async def check_login_error_feedback(
+    page: Any,
+    *,
+    out_dir: Path,
+    attempt: int,
+    captcha_max_retries: int,
+    messages: List[str],
+    artifacts: Dict[str, str],
+) -> str:
+    login_messages = await extract_login_messages(page)
+    if not login_messages:
+        return "none"
+
+    for message in login_messages:
+        if message not in messages:
+            messages.append(message)
+
+    if any(is_captcha_error_message(message) for message in login_messages):
+        await save_login_failure_artifacts(
+            page,
+            out_dir=out_dir,
+            attempt=attempt,
+            messages=login_messages,
+            artifacts=artifacts,
+        )
+        if attempt < captcha_max_retries:
+            await close_login_error_modal(page)
+            await page.wait_for_timeout(300)
+            return "captcha_retry"
+        raise SchoolAutomationError(
+            "CAPTCHA_RETRY_EXHAUSTED",
+            "验证码多次校验失败",
+            message="; ".join(login_messages[:3]),
+            current_step="school.overview.recognizingCaptcha",
+        )
+
+    if any(is_credential_error_message(message) for message in login_messages):
+        await save_login_failure_artifacts(
+            page,
+            out_dir=out_dir,
+            attempt=attempt,
+            messages=login_messages,
+            artifacts=artifacts,
+        )
+        raise SchoolAutomationError(
+            "CREDENTIAL_FAILED",
+            "学校系统账号或密码错误",
+            message="; ".join(login_messages[:3]),
+            current_step="school.overview.loggingIn",
+        )
+
+    return "none"
 
 
 async def save_overview_read_failure_artifacts(
@@ -767,10 +845,22 @@ async def perform_school_overview_sync(
         await school_session_manager.close(user.id, reason="overview_relogin_required")
 
     playwright = await async_playwright().start()
-    browser = await playwright.chromium.launch(
-        headless=bool(runtime.get("headless", False)),
-        slow_mo=safe_int(runtime.get("slowMoMs"), 0),
-    )
+    try:
+        browser = await playwright.chromium.launch(
+            headless=bool(runtime.get("headless", False)),
+            slow_mo=safe_int(runtime.get("slowMoMs"), 0),
+        )
+    except Exception as exc:
+        await playwright.stop()
+        message = f"{type(exc).__name__}: {exc}"
+        if "XServer" in message or "headed browser" in message:
+            raise SchoolAutomationError(
+                "BROWSER_HEADLESS_REQUIRED",
+                "Docker 环境无法打开可视浏览器，请切换 Headless",
+                message=message,
+                current_step="school.overview.connecting",
+            ) from exc
+        raise
     context = await browser.new_context(
         viewport={"width": 1440, "height": 1000},
         locale="zh-CN",
@@ -883,6 +973,18 @@ async def perform_school_overview_sync(
             await page.wait_for_timeout(post_login_settle_ms)
             await wait_for_loading_to_disappear(page, post_login_wait_ms)
 
+            login_feedback = await check_login_error_feedback(
+                page,
+                out_dir=out_dir,
+                attempt=attempt,
+                captcha_max_retries=captcha_max_retries,
+                messages=messages,
+                artifacts=artifacts,
+            )
+            if login_feedback == "captcha_retry":
+                saw_school_captcha_error = True
+                continue
+
             set_job_progress(job_id, "school.overview.readingList")
             try:
                 overview_data = await wait_and_extract_overview(
@@ -893,6 +995,17 @@ async def perform_school_overview_sync(
                     poll_ms=overview_poll_ms,
                 )
             except SchoolAutomationError:
+                login_feedback = await check_login_error_feedback(
+                    page,
+                    out_dir=out_dir,
+                    attempt=attempt,
+                    captcha_max_retries=captcha_max_retries,
+                    messages=messages,
+                    artifacts=artifacts,
+                )
+                if login_feedback == "captcha_retry":
+                    saw_school_captcha_error = True
+                    continue
                 await save_overview_read_failure_artifacts(
                     page,
                     out_dir=out_dir,
@@ -905,43 +1018,17 @@ async def perform_school_overview_sync(
 
             real_name = overview_data["real_name"]
             experiments = overview_data["experiments"]
-            login_messages = await extract_login_messages(page)
-            messages.extend(login_messages)
-
-            if any(is_captcha_error_message(message) for message in login_messages):
+            login_feedback = await check_login_error_feedback(
+                page,
+                out_dir=out_dir,
+                attempt=attempt,
+                captcha_max_retries=captcha_max_retries,
+                messages=messages,
+                artifacts=artifacts,
+            )
+            if login_feedback == "captcha_retry":
                 saw_school_captcha_error = True
-                await save_login_failure_artifacts(
-                    page,
-                    out_dir=out_dir,
-                    attempt=attempt,
-                    messages=login_messages,
-                    artifacts=artifacts,
-                )
-                if attempt < captcha_max_retries:
-                    await close_login_error_modal(page)
-                    await page.wait_for_timeout(300)
-                    continue
-                raise SchoolAutomationError(
-                    "CAPTCHA_RETRY_EXHAUSTED",
-                    "验证码多次校验失败",
-                    message="; ".join(login_messages[:3]),
-                    current_step="school.overview.recognizingCaptcha",
-                )
-
-            if any(is_credential_error_message(message) for message in login_messages):
-                await save_login_failure_artifacts(
-                    page,
-                    out_dir=out_dir,
-                    attempt=attempt,
-                    messages=login_messages,
-                    artifacts=artifacts,
-                )
-                raise SchoolAutomationError(
-                    "CREDENTIAL_FAILED",
-                    "学校系统账号或密码错误",
-                    message="; ".join(login_messages[:3]),
-                    current_step="school.overview.loggingIn",
-                )
+                continue
 
             if not real_name or not experiments:
                 await save_overview_read_failure_artifacts(
@@ -1093,6 +1180,7 @@ def mark_overview_failed(
 
 def run_school_overview_sync(job_id: str, user_id: int) -> None:
     config: Optional[Dict[str, Any]] = None
+    close_session_after_finish = False
     try:
         with Session(engine) as session:
             job = session.get(AutomationJob, job_id)
@@ -1100,6 +1188,7 @@ def run_school_overview_sync(job_id: str, user_id: int) -> None:
             if not job or not user or job.status not in ["queued", "running", "retrying"]:
                 return
             config = load_active_config(session)
+            close_session_after_finish = bool((job.request_payload or {}).get("closeSessionAfterFinish"))
 
         async def _run() -> SchoolOverviewResult:
             async with school_session_manager.user_operation(user.id):
@@ -1140,3 +1229,11 @@ def run_school_overview_sync(job_id: str, user_id: int) -> None:
                 config=config,
             )
             session.commit()
+    finally:
+        if close_session_after_finish:
+            try:
+                school_session_manager.run(
+                    school_session_manager.close(user_id, reason="overview_sync_close_session_after_finish")
+                )
+            except Exception:
+                pass

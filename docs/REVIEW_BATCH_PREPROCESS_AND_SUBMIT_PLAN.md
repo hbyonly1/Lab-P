@@ -348,22 +348,26 @@ pending_payment
 
 ### 6.1 创建一键提交任务
 
-`POST /api/v1/submissions/submit`
+`POST /api/v1/checkout/submit`
 
-新增请求字段：
+请求字段：
 
 ```json
 {
-  "experiment_id": "exp_meter_modification",
   "target_student": "26A...",
   "is_hungup": false,
   "plan": "pay_per_use",
   "submission_batch_id": "BATCH-...",
-  "image_paths": ["/uploads/2026-07/a.jpg"]
+  "experiments": [
+    {
+      "experiment_id": "exp_meter_modification",
+      "image_paths": ["/uploads/2026-07/a.jpg"]
+    }
+  ]
 }
 ```
 
-前端批量提交同一批实验时，必须生成或由后端返回同一个 `submission_batch_id`。更稳妥的方式是新增批量提交接口，让后端一次创建 batch 和多条 submission。
+前端批量提交同一批实验时，必须生成或由后端返回同一个 `submission_batch_id`。当前实现已采用统一 checkout 接口，由后端一次创建 batch 和多条 submission；需要支付时只创建一笔订单，并通过 `order_items` 记录明细。
 
 ### 6.2 获取审核任务池
 

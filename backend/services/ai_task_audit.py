@@ -27,6 +27,16 @@ AI_ASSIST_ACTIONS = {
         "completed": "formula_compute_completed",
         "failed": "formula_compute_failed",
     },
+    "score_check": {
+        "started": "score_check_started",
+        "completed": "score_check_completed",
+        "failed": "score_check_failed",
+    },
+    "experiment_image_auto_match": {
+        "started": "experiment_image_auto_match_started",
+        "completed": "experiment_image_auto_match_completed",
+        "failed": "experiment_image_auto_match_failed",
+    },
 }
 
 

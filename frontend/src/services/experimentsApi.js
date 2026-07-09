@@ -35,6 +35,14 @@ export const experimentsApi = {
     });
     return response.data;
   },
+
+  scoreCheckExperimentData: async (experimentId, currentFormValues, submissionId = null) => {
+    const response = await apiClient.post(`/api/v1/experiments/${experimentId}/score-check`, {
+      current_form_values: currentFormValues,
+      submission_id: submissionId
+    });
+    return response.data;
+  },
   
   getExperimentFormulas: async (experimentId) => {
     const response = await apiClient.get(`/api/v1/experiments/${experimentId}/formulas`);

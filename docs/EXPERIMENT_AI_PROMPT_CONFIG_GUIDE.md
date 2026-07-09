@@ -203,6 +203,33 @@ node_matrix=[[G12-0,...,G12-8]]
 - 学生可能写 `7.68×10^-9 A`，但学校表格要按表头单位填写系数。
 - 截止电压 `U0` 的正负号不能被模型按物理习惯改写。
 
+如果一个实验需要从多张不同图片识别不同节点，使用 `ai.recognition.groups`。每组只声明图片槽和节点列表，避免把响应曲线、原始数据表等不同图片混进同一个 Prompt。
+
+```json
+{
+  "ai": {
+    "recognition": {
+      "imageRef": "IMG_RAW_DATA",
+      "groups": [
+        {
+          "id": "raw_table",
+          "imageRef": "IMG_RAW_DATA",
+          "nodeIds": ["A1", "A2"],
+          "extraPrompt": "只识别原始数据表。"
+        },
+        {
+          "id": "response_curve",
+          "imageRef": "IMG_RESPONSE_CURVE",
+          "nodeIds": ["B1"]
+        }
+      ]
+    }
+  }
+}
+```
+
+`imageRef` 保留给旧逻辑和默认识别槽；配置了 `groups` 后，审核预处理和详情页一键识别会按组分别调用 AI 并合并结果。组内 `extraPrompt` 只写该组图片特有的简短规则，不要复用其他组的表格说明。
+
 不要写：
 
 ```text

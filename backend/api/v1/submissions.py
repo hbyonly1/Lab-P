@@ -1,25 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
 from typing import Any, Dict, List, Optional
+from sqlalchemy import func, or_
 
 from core.db import get_session
-from models.core import Submission, User, Order, Experiment, AuditLog, SubmissionDraft
+from models.core import Submission, User, Experiment, AuditLog, SubmissionDraft
 from api.deps import get_current_user, get_current_reviewer_or_admin
 from pydantic import BaseModel
 import uuid
 from worker.ai_tasks import prepare_submission_for_review_task
-from core.pricing import PRICES
 from models.core import get_utc_now
+from services.submission_preprocess import (
+    build_single_slot_default_image_slots,
+)
 
 router = APIRouter()
-
-class SubmitRequest(BaseModel):
-    experiment_id: str
-    target_student: str = None
-    is_hungup: bool = False
-    plan: str = "pay_per_use"
-    image_paths: List[str] = []
-    submission_batch_id: Optional[str] = None
 
 class CorrectionSaveRequest(BaseModel):
     corrected_json: dict
@@ -70,8 +65,12 @@ class SubmissionReviewResponse(BaseModel):
     updated_at: str = None
 
 
-def _new_batch_id() -> str:
-    return f"BATCH-{uuid.uuid4().hex[:10].upper()}"
+class SubmissionReviewListResponse(BaseModel):
+    items: List[SubmissionReviewResponse]
+    total: int
+    page: int
+    pageSize: int
+    summary: Dict[str, int] = {}
 
 
 def _normalize_image_slots(image_slots: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
@@ -99,6 +98,29 @@ def _image_slot_count(image_slots: Dict[str, Any]) -> int:
     return sum(len(items) for items in _normalize_image_slots(image_slots).values())
 
 
+def _single_slot_default_image_slots(submission: Submission) -> Dict[str, List[Dict[str, Any]]]:
+    return build_single_slot_default_image_slots(submission)
+
+
+AI_PREPROCESS_SUBMISSION_STATUSES = {
+    "preparing_review",
+    "recognizing",
+    "reviewing",
+    "submitting",
+    "draft_submitted",
+    "completed",
+}
+
+AI_PREPROCESS_STATUSES = {"queued", "running", "done"}
+
+
+def _submission_has_entered_ai_preprocess(submission: Submission) -> bool:
+    return (
+        submission.status in AI_PREPROCESS_SUBMISSION_STATUSES
+        or submission.preprocess_status in AI_PREPROCESS_STATUSES
+    )
+
+
 def _image_slot_target_values(experiment_id: str, image_slots: Dict[str, Any]) -> Dict[str, str]:
     try:
         from services.experimentConfigStore import get_experiment_config
@@ -122,13 +144,12 @@ def _image_slot_target_values(experiment_id: str, image_slots: Dict[str, Any]) -
     return target_values
 
 
-def _one_click_ready_status(has_paid: bool) -> str:
-    return "pending_image_assignment" if has_paid else "pending_payment"
-
-
 def _assert_submission_editable(submission: Submission, current_user: User) -> None:
-    if current_user.role == "student" and submission.student_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    if current_user.role == "student":
+        if submission.student_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not enough permissions")
+        if submission.is_one_click_handoff:
+            raise HTTPException(status_code=403, detail="一键托管任务不能由学生直接修改。")
 
     if current_user.role == "reviewer" and submission.submitted_by not in [None, current_user.id] and submission.status not in [
         "reviewing",
@@ -154,120 +175,6 @@ def _draft_response(submission_id: str, draft: Optional[SubmissionDraft]) -> Sub
         updated_at=draft.updated_at.isoformat() if draft.updated_at else None,
         updated_by=draft.updated_by,
     )
-
-@router.post("/submit", response_model=Submission)
-def create_submission(
-    req: SubmitRequest,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user)
-) -> Any:
-    has_paid = True
-    order_id = None
-    user_plan = current_user.capabilities.get("plan", "free") if current_user.capabilities else "free"
-    is_pro = user_plan == "pro"
-    image_paths = [path for path in (req.image_paths or []) if path]
-    submission_batch_id = (req.submission_batch_id or "").strip() or _new_batch_id()
-
-    def ensure_uploaded_images() -> None:
-        if not image_paths:
-            raise HTTPException(
-                status_code=400,
-                detail="一键提交至少需要上传一个实验图片。",
-            )
-
-    # Auto-seed the experiment if it doesn't exist to prevent foreign key violation
-    existing_exp = session.get(Experiment, req.experiment_id)
-    if not existing_exp:
-        new_exp = Experiment(id=req.experiment_id, title=req.experiment_id)
-        session.add(new_exp)
-        session.commit()
-    
-    if current_user.role not in ["admin", "reviewer"] and not is_pro:
-        statement = select(Order).where(
-            Order.student_id == current_user.id,
-            Order.experiment_id == req.experiment_id,
-            Order.status == "paid"
-        )
-        existing_order = session.exec(statement).first()
-        if not existing_order:
-            has_paid = False
-            # Plus 用户的特殊校验：如果他们试图进行一键提交，但没有pay_per_use订单，拦截
-            if user_plan in ["plus", "free"]:
-                if not req.is_hungup:
-                    raise HTTPException(
-                        status_code=403, 
-                        detail=f"当前套餐 ({user_plan}) 不支持一键自动化填报，请升级至 Pro 或购买单次提交。"
-                    )
-            
-            # 如果没有支付，且没有声明挂起状态，则强硬拒绝 (对其他未知状态保底)
-            if not req.is_hungup:
-                raise HTTPException(
-                    status_code=403, 
-                    detail="A paid order is required to submit this experiment."
-                )
-            else:
-                # 声明了挂起，自动生成一个挂起订单
-                ensure_uploaded_images()
-                new_order = Order(
-                    id=f"ORD-{str(uuid.uuid4())[:8].upper()}",
-                    student_id=current_user.id,
-                    experiment_id=req.experiment_id,
-                    plan=req.plan,
-                    amount=PRICES.get(req.plan, 8.0),
-                    status="pending_payment"
-                )
-                session.add(new_order)
-                session.commit()
-                session.refresh(new_order)
-                order_id = new_order.id
-        else:
-            ensure_uploaded_images()
-            order_id = existing_order.id
-
-    if current_user.role in ["admin", "reviewer"] or is_pro:
-        ensure_uploaded_images()
-            
-    # Handle Admin proxy submission
-    actual_student_id = current_user.id
-    if current_user.role in ["admin", "reviewer"] and req.target_student:
-        target_student_no = req.target_student.strip()
-        student = session.exec(select(User).where(User.student_no == target_student_no)).first()
-        if not student:
-            # Create the student account directly from the explicit student number.
-            from core.security import get_password_hash
-            student = User(
-                username=target_student_no,
-                student_no=target_student_no,
-                hashed_password=get_password_hash(target_student_no),
-                encrypted_school_password=None,
-                role="student",
-                capabilities={"max_computes": 100, "ai_model": "gpt-4"}
-            )
-            session.add(student)
-            session.commit()
-            session.refresh(student)
-        actual_student_id = student.id
-
-    sub_id = f"SUB-{uuid.uuid4().hex[:8].upper()}"
-    submission = Submission(
-        id=sub_id,
-        student_id=actual_student_id,
-        experiment_id=req.experiment_id,
-        order_id=order_id,
-        submitted_by=current_user.id if actual_student_id != current_user.id else None,
-        status=_one_click_ready_status(has_paid),
-        payment_status="paid" if has_paid else "unpaid",
-        is_one_click_handoff=True,
-        image_paths=image_paths,
-        image_slots={},
-        submission_batch_id=submission_batch_id,
-        preprocess_status="waiting_for_image_assignment" if has_paid else None,
-    )
-    session.add(submission)
-    session.commit()
-    session.refresh(submission)
-    return submission
-
 
 @router.post("/self-managed", response_model=Submission)
 def create_self_managed_submission(
@@ -324,35 +231,6 @@ def create_self_managed_submission(
     session.commit()
     session.refresh(submission)
     return submission
-
-
-@router.post("/{submission_id}/approve")
-def approve_submission(
-    submission_id: str,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_reviewer_or_admin)
-):
-    """
-    Legacy endpoint kept blocked while school automation uses automation_jobs.
-    """
-    raise HTTPException(
-        status_code=410,
-        detail="Legacy Playwright trigger is disabled. Use /api/v1/school-sync/experiments/{experiment_id}/submit.",
-    )
-
-@router.post("/{submission_id}/submit-to-playwright")
-def submit_to_playwright(
-    submission_id: str,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Legacy endpoint kept blocked while school automation uses automation_jobs.
-    """
-    raise HTTPException(
-        status_code=410,
-        detail="Legacy Playwright trigger is disabled. Use /api/v1/school-sync/experiments/{experiment_id}/submit.",
-    )
 
 
 @router.get("/{submission_id}/draft", response_model=SubmissionDraftResponse)
@@ -498,6 +376,9 @@ def save_submission_image_slots(
     if not submission.is_one_click_handoff:
         raise HTTPException(status_code=400, detail="Only one-click handoff submissions use image assignment.")
 
+    if _submission_has_entered_ai_preprocess(submission):
+        return submission
+
     image_slots = _normalize_image_slots(req.image_slots)
     submission.image_slots = image_slots
     submission.preprocess_status = "image_assigned" if image_slots else "waiting_for_image_assignment"
@@ -536,14 +417,29 @@ def prepare_submission_batch_for_review(
         unknown_ids = sorted(set(req.assignments.keys()) - set(by_id.keys()))
         if unknown_ids:
             raise HTTPException(status_code=400, detail=f"Submissions do not belong to batch: {', '.join(unknown_ids)}")
+    target_submission_ids = set(req.assignments.keys()) if req.assignments else None
+    target_submissions = [
+        submission for submission in submissions
+        if target_submission_ids is None or submission.id in target_submission_ids
+    ]
 
     started = []
+    queued_now = []
+    skipped_already_processing = []
+    skipped_missing_images = []
     now = get_utc_now()
-    for submission in submissions:
+    for submission in target_submissions:
+        if _submission_has_entered_ai_preprocess(submission):
+            skipped_already_processing.append(submission.id)
+            continue
+
         assigned_slots = req.assignments.get(submission.id)
         if assigned_slots is not None:
             submission.image_slots = _normalize_image_slots(assigned_slots)
         if not _normalize_image_slots(submission.image_slots):
+            submission.image_slots = _single_slot_default_image_slots(submission)
+        if not _normalize_image_slots(submission.image_slots):
+            skipped_missing_images.append(submission.id)
             continue
         submission.status = "preparing_review"
         submission.preprocess_status = "queued"
@@ -551,8 +447,17 @@ def prepare_submission_batch_for_review(
         submission.updated_at = now
         session.add(submission)
         started.append(submission.id)
+        queued_now.append(submission.id)
 
     if not started:
+        if skipped_already_processing:
+            return {
+                "batch_id": batch_id,
+                "status": "already_processing",
+                "submission_ids": [],
+                "skipped_already_processing": skipped_already_processing,
+                "skipped_missing_images": skipped_missing_images,
+            }
         raise HTTPException(status_code=400, detail="No submissions in this batch have assigned image slots.")
 
     session.add(AuditLog(
@@ -564,7 +469,7 @@ def prepare_submission_batch_for_review(
     ))
     session.commit()
 
-    for submission_id in started:
+    for submission_id in queued_now:
         task_result = prepare_submission_for_review_task.delay(submission_id, current_user.id)
         task_id = getattr(task_result, "id", None) or "unknown"
         session.add(AuditLog(
@@ -580,6 +485,8 @@ def prepare_submission_batch_for_review(
         "batch_id": batch_id,
         "status": "queued",
         "submission_ids": started,
+        "skipped_already_processing": skipped_already_processing,
+        "skipped_missing_images": skipped_missing_images,
     }
 
 @router.get("/my", response_model=List[Submission])
@@ -593,19 +500,21 @@ def get_my_submissions(
     statement = select(Submission).where(Submission.student_id == current_user.id).order_by(Submission.created_at.desc())
     return session.exec(statement).all()
 
-@router.get("/review-pool", response_model=List[SubmissionReviewResponse])
+@router.get("/review-pool", response_model=SubmissionReviewListResponse)
 def get_review_pool(
     session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_reviewer_or_admin)
+    current_user: User = Depends(get_current_reviewer_or_admin),
+    page: int = Query(1, ge=1),
+    pageSize: int = Query(20, ge=1, le=100),
+    query: Optional[str] = None,
+    status: Optional[str] = None,
+    reviewStatus: Optional[str] = None,
 ) -> Any:
     """
     Reviewer/Admin retrieves all tasks waiting for review.
     Absolutely isolated from students.
     """
-    statement = (
-        select(Submission, User)
-        .join(User, Submission.student_id == User.id)
-        .where(Submission.status.in_([
+    allowed_statuses = [
             "pending_image_assignment",
             "preparing_review",
             "pending_recognition",
@@ -615,11 +524,38 @@ def get_review_pool(
             "draft_submitted",
             "completed",
             "error",
-        ]))
+        ]
+    filters = [Submission.status.in_(allowed_statuses)]
+    if status:
+        filters.append(Submission.status == status)
+    if reviewStatus == "completed":
+        filters.append(Submission.status.in_(["draft_submitted", "completed"]))
+    elif reviewStatus == "incomplete":
+        filters.append(~Submission.status.in_(["draft_submitted", "completed"]))
+    keyword = str(query or "").strip()
+    if keyword:
+        pattern = f"%{keyword}%"
+        filters.append(or_(
+            Submission.id.ilike(pattern),
+            Submission.experiment_id.ilike(pattern),
+            Submission.submission_batch_id.ilike(pattern),
+            User.username.ilike(pattern),
+            User.student_no.ilike(pattern),
+            User.real_name.ilike(pattern),
+        ))
+
+    base = select(Submission, User).join(User, Submission.student_id == User.id).where(*filters)
+    total = session.exec(
+        select(func.count()).select_from(Submission).join(User, Submission.student_id == User.id).where(*filters)
+    ).one()
+    statement = (
+        base
         .order_by(Submission.created_at.desc())
+        .offset((page - 1) * pageSize)
+        .limit(pageSize)
     )
     results = session.exec(statement).all()
-    
+
     out = []
     for sub, user in results:
         out.append(SubmissionReviewResponse(
@@ -639,9 +575,15 @@ def get_review_pool(
             preprocess_error=sub.preprocess_error,
             updated_at=sub.updated_at.isoformat() if sub.updated_at else None
         ))
-    return out
+    summary_rows = session.exec(
+        select(Submission.status, func.count())
+        .where(Submission.status.in_(allowed_statuses))
+        .group_by(Submission.status)
+    ).all()
+    summary = {str(status_key): int(count or 0) for status_key, count in summary_rows}
+    return SubmissionReviewListResponse(items=out, total=total, page=page, pageSize=pageSize, summary=summary)
 
-@router.get("/{submission_id}", response_model=Submission)
+@router.get("/{submission_id}")
 def get_submission(
     submission_id: str,
     session: Session = Depends(get_session),
@@ -656,5 +598,15 @@ def get_submission(
         
     if current_user.role not in ["admin", "reviewer"] and submission.student_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
-        
-    return submission
+
+    student = session.get(User, submission.student_id)
+    payload = submission.model_dump()
+    payload.update({
+        "student_no": student.student_no if student else None,
+        "studentNo": student.student_no if student else None,
+        "student_username": student.student_no or student.username if student else None,
+        "studentUsername": student.student_no or student.username if student else None,
+        "student_name": student.real_name if student else None,
+        "studentName": student.real_name if student else None,
+    })
+    return payload

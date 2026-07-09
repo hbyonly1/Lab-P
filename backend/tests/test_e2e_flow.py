@@ -1,11 +1,12 @@
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
-from sqlalchemy import delete, or_
+from sqlalchemy import delete, or_, update
 import sys
 import os
 import json
 import asyncio
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from main import app
@@ -14,7 +15,7 @@ from api.v1 import submissions as submissions_api
 from api.v1.automation_config import CONFIG_SCHEMA_VERSION, default_automation_config
 from core.config import settings
 from core.db import get_session
-from models.core import Experiment, User, Order, Submission, SubmissionDraft, SubmissionVersion, AuditLog, AiTaskRun, AutomationEngineConfig, AutomationJob, SchoolSyncSnapshot, get_utc_now
+from models.core import Experiment, User, Order, OrderItem, Submission, SubmissionDraft, SubmissionVersion, AuditLog, AiTaskRun, AutomationEngineConfig, AutomationJob, SchoolSyncSnapshot, UploadedFile, Feedback, AiConfig, get_utc_now
 from core.security import get_password_hash
 from core.school_password import decrypt_school_password, encrypt_school_password
 from services.automation_job_service import (
@@ -22,8 +23,9 @@ from services.automation_job_service import (
     create_or_reuse_automation_job,
     make_idempotency_key,
 )
-from services.school_overview_sync import SchoolAutomationError, extract_captcha_candidate, extract_report_list, mark_overview_failed, school_login_password_for_user
+from services.school_overview_sync import SchoolAutomationError, check_login_error_feedback, extract_captcha_candidate, extract_report_list, mark_overview_failed, school_login_password_for_user
 import services.school_report_sync as school_report_sync_service
+import services.submission_preprocess as submission_preprocess_service
 from services.school_report_sync import SchoolReportOpenResult
 from services.school_dom import wait_for_locator_value
 from services.school_session_manager import SchoolSessionManager, school_session_manager
@@ -32,6 +34,244 @@ client = TestClient(app)
 
 STUDENT_NO = "26A2511111111"
 FREE_STUDENT_NO = "26A2522222222"
+E2E_TEST_STUDENT_NOS = {
+    STUDENT_NO,
+    FREE_STUDENT_NO,
+    "26A2512345678",
+    "26A2577777777",
+    "26A2599999999",
+    "26A2410410114",
+}
+E2E_TEST_USERNAMES = {
+    *E2E_TEST_STUDENT_NOS,
+    "student_e2e_flow",
+    "student_free_flow",
+    "admin_e2e_flow",
+}
+E2E_TEST_EXPERIMENT_IDS = {
+    "exp_e2e_flow_unique",
+    "exp_empty_image_guard",
+    "exp_price_a",
+    "exp_price_b",
+    "exp_pro_batch_a",
+    "exp_pro_batch_b",
+    "exp_e2e_visible_config",
+    "exp_e2e_hidden_config",
+}
+TINY_PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+    b"\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00"
+    b"\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00"
+    b"\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
+
+def delete_user_audit_logs(session: Session, user_id: int) -> None:
+    session.exec(delete(AiTaskRun).where(AiTaskRun.user_id == user_id))
+    session.exec(delete(AuditLog).where(AuditLog.user_id == user_id))
+
+
+def delete_student_flow_data(session: Session, student_id: int) -> None:
+    submission_ids = [
+        item.id for item in session.exec(select(Submission).where(Submission.student_id == student_id)).all()
+    ]
+    order_ids = [item.id for item in session.exec(select(Order).where(Order.student_id == student_id)).all()]
+
+    delete_user_audit_logs(session, student_id)
+    session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id == student_id))
+    session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student_id))
+    if submission_ids:
+        automation_job_ids = [
+            item.id for item in session.exec(
+                select(AutomationJob).where(AutomationJob.submission_id.in_(submission_ids))
+            ).all()
+        ]
+        if automation_job_ids:
+            session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.automation_job_id.in_(automation_job_ids)))
+            session.exec(delete(AutomationJob).where(AutomationJob.id.in_(automation_job_ids)))
+        session.exec(delete(AiTaskRun).where(AiTaskRun.submission_id.in_(submission_ids)))
+        session.exec(delete(AiTaskRun).where(AiTaskRun.target_id.in_(submission_ids)))
+        session.exec(delete(OrderItem).where(OrderItem.submission_id.in_(submission_ids)))
+        session.exec(delete(SubmissionDraft).where(SubmissionDraft.submission_id.in_(submission_ids)))
+        session.exec(delete(SubmissionVersion).where(SubmissionVersion.submission_id.in_(submission_ids)))
+        session.exec(delete(AuditLog).where(AuditLog.target_id.in_(submission_ids)))
+        session.exec(delete(Submission).where(Submission.student_id == student_id))
+    if order_ids:
+        session.exec(delete(OrderItem).where(OrderItem.order_id.in_(order_ids)))
+        session.exec(delete(AuditLog).where(AuditLog.target_id.in_(order_ids)))
+        session.exec(delete(Order).where(Order.student_id == student_id))
+
+
+def cleanup_e2e_artifacts(session: Session) -> None:
+    test_users = session.exec(
+        select(User).where(
+            or_(
+                User.username.in_(list(E2E_TEST_USERNAMES)),
+                User.student_no.in_(list(E2E_TEST_STUDENT_NOS)),
+            )
+        )
+    ).all()
+    test_user_ids = [user.id for user in test_users]
+    test_experiment_ids = list(E2E_TEST_EXPERIMENT_IDS)
+
+    submission_filters = [Submission.experiment_id.in_(test_experiment_ids)]
+    order_filters = [Order.experiment_id.in_(test_experiment_ids)]
+    if test_user_ids:
+        submission_filters.append(Submission.student_id.in_(test_user_ids))
+        submission_filters.append(Submission.submitted_by.in_(test_user_ids))
+        order_filters.append(Order.student_id.in_(test_user_ids))
+
+    submissions = session.exec(select(Submission).where(or_(*submission_filters))).all()
+    submission_ids = [submission.id for submission in submissions]
+    submission_order_ids = [submission.order_id for submission in submissions if submission.order_id]
+
+    order_filters.append(Order.id.in_(submission_order_ids or ["__none__"]))
+    orders = session.exec(select(Order).where(or_(*order_filters))).all()
+    order_ids = [order.id for order in orders]
+
+    job_filters = [AutomationJob.experiment_id.in_(test_experiment_ids)]
+    if test_user_ids:
+        job_filters.append(AutomationJob.actor_user_id.in_(test_user_ids))
+    if submission_ids:
+        job_filters.append(AutomationJob.submission_id.in_(submission_ids))
+    jobs = session.exec(select(AutomationJob).where(or_(*job_filters))).all()
+    job_ids = [job.id for job in jobs]
+
+    snapshot_filters = [SchoolSyncSnapshot.experiment_id.in_(test_experiment_ids)]
+    if test_user_ids:
+        snapshot_filters.append(SchoolSyncSnapshot.user_id.in_(test_user_ids))
+    if submission_ids:
+        snapshot_filters.append(SchoolSyncSnapshot.submission_id.in_(submission_ids))
+    if job_ids:
+        snapshot_filters.append(SchoolSyncSnapshot.automation_job_id.in_(job_ids))
+    session.exec(delete(SchoolSyncSnapshot).where(or_(*snapshot_filters)))
+
+    ai_filters = [
+        AiTaskRun.experiment_id.in_(test_experiment_ids),
+        AiTaskRun.target_id.in_(test_experiment_ids),
+    ]
+    if test_user_ids:
+        ai_filters.append(AiTaskRun.user_id.in_(test_user_ids))
+    if submission_ids:
+        ai_filters.append(AiTaskRun.submission_id.in_(submission_ids))
+        ai_filters.append(AiTaskRun.target_id.in_(submission_ids))
+    session.exec(delete(AiTaskRun).where(or_(*ai_filters)))
+
+    audit_target_ids = set(test_experiment_ids) | set(submission_ids) | set(order_ids) | set(job_ids)
+    audit_filters = []
+    if test_user_ids:
+        audit_filters.append(AuditLog.user_id.in_(test_user_ids))
+    if audit_target_ids:
+        audit_filters.append(AuditLog.target_id.in_(list(audit_target_ids)))
+    if audit_filters:
+        session.exec(delete(AuditLog).where(or_(*audit_filters)))
+
+    if test_user_ids:
+        session.exec(delete(UploadedFile).where(UploadedFile.user_id.in_(test_user_ids)))
+
+    order_item_filters = [OrderItem.experiment_id.in_(test_experiment_ids)]
+    if order_ids:
+        order_item_filters.append(OrderItem.order_id.in_(order_ids))
+    if submission_ids:
+        order_item_filters.append(OrderItem.submission_id.in_(submission_ids))
+    session.exec(delete(OrderItem).where(or_(*order_item_filters)))
+
+    if job_ids:
+        session.exec(delete(AutomationJob).where(AutomationJob.id.in_(job_ids)))
+
+    if submission_ids:
+        session.exec(delete(SubmissionDraft).where(SubmissionDraft.submission_id.in_(submission_ids)))
+        session.exec(delete(SubmissionVersion).where(SubmissionVersion.submission_id.in_(submission_ids)))
+        session.exec(delete(Submission).where(Submission.id.in_(submission_ids)))
+
+    if order_ids:
+        session.exec(delete(Order).where(Order.id.in_(order_ids)))
+
+    if test_user_ids:
+        session.exec(
+            update(AutomationEngineConfig)
+            .where(AutomationEngineConfig.created_by.in_(test_user_ids))
+            .values(created_by=None)
+        )
+        session.exec(
+            update(AutomationEngineConfig)
+            .where(AutomationEngineConfig.updated_by.in_(test_user_ids))
+            .values(updated_by=None)
+        )
+        session.exec(
+            update(AiConfig)
+            .where(AiConfig.updated_by.in_(test_user_ids))
+            .values(updated_by=None)
+        )
+        session.exec(
+            update(SubmissionDraft)
+            .where(SubmissionDraft.updated_by.in_(test_user_ids))
+            .values(updated_by=None)
+        )
+        session.exec(
+            update(SubmissionVersion)
+            .where(SubmissionVersion.created_by.in_(test_user_ids))
+            .values(created_by=None)
+        )
+        session.exec(delete(Feedback).where(Feedback.user_id.in_(test_user_ids)))
+        session.exec(delete(User).where(User.id.in_(test_user_ids)))
+
+    session.exec(delete(Experiment).where(Experiment.id.in_(test_experiment_ids)))
+    session.flush()
+
+
+AUTOMATION_CONFIG_SNAPSHOT_FIELDS = [
+    "id",
+    "name",
+    "config_json",
+    "schema_version",
+    "is_active",
+    "created_by",
+    "updated_by",
+    "created_at",
+    "updated_at",
+]
+
+
+def _snapshot_automation_configs():
+    with next(get_session()) as session:
+        configs = session.exec(select(AutomationEngineConfig).order_by(AutomationEngineConfig.id)).all()
+        return [
+            {
+                field: (
+                    json.loads(json.dumps(getattr(config, field) or {}))
+                    if field == "config_json"
+                    else getattr(config, field)
+                )
+                for field in AUTOMATION_CONFIG_SNAPSHOT_FIELDS
+            }
+            for config in configs
+        ]
+
+
+def _restore_automation_configs(snapshot):
+    with next(get_session()) as session:
+        existing_user_ids = set(session.exec(select(User.id)).all())
+        session.exec(delete(AutomationEngineConfig))
+        session.flush()
+        for item in snapshot:
+            restored = dict(item)
+            if restored.get("created_by") not in existing_user_ids:
+                restored["created_by"] = None
+            if restored.get("updated_by") not in existing_user_ids:
+                restored["updated_by"] = None
+            session.add(AutomationEngineConfig(**restored))
+        session.commit()
+
+
+@pytest.fixture
+def preserve_automation_config():
+    snapshot = _snapshot_automation_configs()
+    try:
+        yield
+    finally:
+        _restore_automation_configs(snapshot)
+
 
 AI_CONFIG_TEST_FIELDS = [
     "provider",
@@ -43,7 +283,6 @@ AI_CONFIG_TEST_FIELDS = [
     "auto_recognize",
     "image_recognition_model",
     "image_recognition_retry_enabled",
-    "image_recognition_retry_model",
     "image_recognition_timeout_seconds",
     "image_recognition_temperature",
     "image_recognition_max_images_per_task",
@@ -54,6 +293,7 @@ AI_CONFIG_TEST_FIELDS = [
     "captcha_timeout_seconds",
     "captcha_temperature",
     "captcha_prompt",
+    "task_overrides_json",
     "updated_by",
 ]
 
@@ -396,6 +636,387 @@ def test_experiment_configs_have_automation_mappings_for_configured_nodes():
                 assert mapping.get("targetType") in [None, "text"], f"{filename} {source_id} unexpected targetType"
 
 
+def test_computed_asset_image_slots_are_marked_auto_generated():
+    config_dir = Path(__file__).resolve().parents[1] / "configs"
+    for path in config_dir.glob("*.json"):
+        config = json.loads(path.read_text(encoding="utf-8"))
+        computed_assets = config.get("computedAssets") or {}
+        generated_slot_ids = {
+            str(asset.get("imageSlotId"))
+            for asset in computed_assets.values()
+            if isinstance(asset, dict) and asset.get("imageSlotId")
+        }
+        if not generated_slot_ids:
+            continue
+        images = (config.get("inputs") or {}).get("images") or []
+        image_by_id = {str(image.get("id")): image for image in images if image.get("id")}
+        for slot_id in generated_slot_ids:
+            assert slot_id in image_by_id, f"{path.name} computed asset imageSlotId missing image slot: {slot_id}"
+            assert image_by_id[slot_id].get("autoGenerated") is True, (
+                f"{path.name} computed asset image slot must set autoGenerated=true: {slot_id}"
+            )
+
+
+def test_image_assignment_candidates_exclude_computed_asset_slots():
+    from core.image_assignment_prompts import build_image_assignment_candidates
+
+    with next(get_session()) as session:
+        experiment = session.get(Experiment, "exp_liquid_crystal_0625")
+        candidates, candidate_map = build_image_assignment_candidates([experiment])
+
+    slot_ids = {
+        slot["slot_id"]
+        for slot in candidate_map["slots"].values()
+    }
+    assert candidates
+    assert "IMG_LC_SIGNED_RAW" in slot_ids
+    assert "IMG_LC_FALL_CURVE" in slot_ids
+    assert "IMG_LC_RISE_CURVE" in slot_ids
+    assert "IMG_LC_AVG_CURVE" not in slot_ids
+
+    slots = candidate_map["slots"]
+    signed_raw = next(item for item in slots.values() if item["slot_id"] == "IMG_LC_SIGNED_RAW")
+    assert signed_raw["kind"] == "ai_recognition"
+
+
+def test_image_assignment_prompt_puts_tables_under_recognition_slots_only():
+    from core.image_assignment_prompts import build_image_assignment_candidates, build_image_assignment_prompt
+
+    with next(get_session()) as session:
+        experiment = session.get(Experiment, "exp_liquid_crystal_0625")
+        candidates, _candidate_map = build_image_assignment_candidates([experiment])
+
+    prompt = build_image_assignment_prompt(candidates, image_count=4)
+    assert "页面区域" not in prompt
+    assert "AI识别用图片" not in prompt
+    assert "单独上传图片" not in prompt
+    assert "IMG_LC_AVG_CURVE" not in prompt
+    assert "签字原始数据上传" not in prompt
+    assert '"id": "E01",' not in prompt
+    assert "- E01-S01" in prompt
+    assert "液晶光开关数据表" in prompt
+    assert "- E01-S02" in prompt
+    assert "透光率下降相应曲线照片" in prompt
+
+
+def test_image_assignment_candidates_include_only_oscilloscope_first_slot():
+    from core.image_assignment_prompts import build_image_assignment_candidates, build_image_assignment_prompt
+
+    with next(get_session()) as session:
+        experiments = [
+            session.get(Experiment, "exp_liquid_crystal_0625"),
+            session.get(Experiment, "exp_oscilloscope"),
+        ]
+        candidates, candidate_map = build_image_assignment_candidates(experiments)
+
+    prompt = build_image_assignment_prompt(candidates, image_count=3)
+    assert "示波器的使用" in prompt
+    assert "正弦波" in prompt
+    assert "T(ms)" in prompt
+    assert "拍周期(ms)" in prompt
+    assert "f1= Hz" in prompt
+    assert "f2= Hz" in prompt
+    assert "李萨如" not in prompt
+    oscilloscope_slots = [
+        item for item in candidate_map["slots"].values()
+        if item.get("experiment_id") == "exp_oscilloscope"
+    ]
+    assert len(oscilloscope_slots) == 1
+    assert oscilloscope_slots[0]["slot_id"] == "IMG_RAW_DATA"
+
+
+def test_auto_match_images_does_not_force_low_detail(monkeypatch):
+    from types import SimpleNamespace
+    from services import ai_service
+
+    captured = {}
+
+    class FakeProvider:
+        async def chat_completion(self, **kwargs):
+            captured["messages"] = kwargs["messages"]
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(
+                            content=json.dumps({"slotCandidateId": "E01-S01"})
+                        )
+                    )
+                ]
+            )
+
+    monkeypatch.setattr(ai_service, "get_ai_provider", lambda _session: FakeProvider())
+    candidates = [
+        {
+            "candidateId": "E01",
+            "name": "示波器的使用",
+            "slots": [{"candidateId": "E01-S01", "label": "图片槽"}],
+        }
+    ]
+    with next(get_session()) as session:
+        result = asyncio.run(ai_service.auto_match_experiment_images(
+            [{"index": 1, "url": "assets/configs_images/exp_oscilloscope_img_005.png"}],
+            candidates,
+            session,
+        ))
+
+    assert result["matches"][0]["imageIndex"] == 1
+    image_items = [
+        item
+        for item in captured["messages"][0]["content"]
+        if item.get("type") == "image_url"
+    ]
+    assert image_items
+    assert all("detail" not in item["image_url"] for item in image_items)
+    prompt = captured["messages"][0]["content"][0]["text"]
+    assert "imageIndex" not in prompt
+
+
+def test_auto_match_images_accepts_single_slot_id_response(monkeypatch):
+    from types import SimpleNamespace
+    from services import ai_service
+
+    class FakeProvider:
+        async def chat_completion(self, **kwargs):
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(
+                            content=json.dumps({"slotCandidateId": "E01-S01"})
+                        )
+                    )
+                ]
+            )
+
+    monkeypatch.setattr(ai_service, "get_ai_provider", lambda _session: FakeProvider())
+    candidates = [
+        {
+            "candidateId": "E01",
+            "name": "测试实验",
+            "slots": [{"candidateId": "E01-S01", "label": "图片槽"}],
+        }
+    ]
+    with next(get_session()) as session:
+        result = asyncio.run(ai_service.auto_match_experiment_images(
+            [{"index": 1, "url": "assets/configs_images/exp_oscilloscope_img_005.png"}],
+            candidates,
+            session,
+        ))
+
+    assert result["matches"] == [
+        {
+            "imageIndex": 1,
+            "slotCandidateId": "E01-S01",
+        }
+    ]
+    assert result["unmatched"] == []
+
+
+def test_auto_match_images_empty_slot_id_marks_unmatched(monkeypatch):
+    from types import SimpleNamespace
+    from services import ai_service
+
+    class FakeProvider:
+        async def chat_completion(self, **kwargs):
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(
+                            content=json.dumps({"slotCandidateId": ""})
+                        )
+                    )
+                ]
+            )
+
+    monkeypatch.setattr(ai_service, "get_ai_provider", lambda _session: FakeProvider())
+    candidates = [
+        {
+            "candidateId": "E01",
+            "name": "测试实验",
+            "slots": [{"candidateId": "E01-S01", "label": "图片槽"}],
+        }
+    ]
+    with next(get_session()) as session:
+        result = asyncio.run(ai_service.auto_match_experiment_images(
+            [{"index": 8, "url": "assets/configs_images/exp_oscilloscope_img_005.png"}],
+            candidates,
+            session,
+        ))
+
+    assert result["matches"] == []
+    assert result["unmatched"] == [{"imageIndex": 8}]
+
+
+def test_auto_match_worker_matches_one_image_per_request(monkeypatch):
+    from types import SimpleNamespace
+    from worker import ai_tasks
+
+    calls = []
+
+    async def fake_auto_match(batch, _candidates, _session, include_debug=False):
+        calls.append([item["index"] for item in batch])
+        result = {
+            "matches": [
+                {
+                    "imageIndex": item["index"],
+                    "slotCandidateId": "E01-S01",
+                }
+                for item in batch
+            ],
+            "unmatched": [],
+        }
+        if include_debug:
+            result["_debug"] = {
+                "request": {"prompt": "测试 prompt", "images": batch},
+                "raw_response": json.dumps(result, ensure_ascii=False),
+                "parsed_response": {"matches": result["matches"], "unmatched": []},
+                "normalized_result": {"matches": result["matches"], "unmatched": []},
+            }
+        return result
+
+    class FakeProvider:
+        def get_profile(self, *_args, **_kwargs):
+            return SimpleNamespace(
+                task="experiment_image_auto_match",
+                model="fake-vl",
+                base_url="https://example.invalid/v1",
+                temperature=0,
+                timeout_seconds=120,
+                max_images_per_task=1,
+                concurrency=3,
+            )
+
+    monkeypatch.setattr(ai_tasks.ai_service, "auto_match_experiment_images", fake_auto_match)
+    monkeypatch.setattr(ai_tasks, "get_ai_provider", lambda _session: FakeProvider())
+    image_items = [
+        {"index": index, "url": f"/uploads/test-{index}.jpg"}
+        for index in range(1, 13)
+    ]
+    candidates = [
+        {
+            "candidateId": "E01",
+            "name": "测试实验",
+            "slots": [{"candidateId": "E01-S01", "label": "图片槽"}],
+        }
+    ]
+    candidate_map = {"experiments": {}, "slots": {}}
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        student_id = student.id
+
+    result = ai_tasks.auto_match_experiment_images_task.apply(
+        args=(image_items, candidates, candidate_map, student_id),
+        task_id="TASK-IMAGE-AUTO-MATCH-BATCH",
+    ).get()
+
+    assert sorted(calls) == [[index] for index in range(1, 13)]
+    assert len(result["matches"]) == 12
+    assert result["unmatched"] == []
+    artifact_path = Path(__file__).resolve().parents[1] / "tmp" / "ai_image_auto_match" / "TASK-IMAGE-AUTO-MATCH-BATCH" / "debug_payload.json"
+    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert artifact["model"] == "fake-vl"
+    assert artifact["base_url"] == "https://example.invalid/v1"
+    assert artifact["batch_size"] == 1
+    assert artifact["concurrency"] == 3
+    assert artifact["request_count"] == 12
+    assert artifact["batches"][0]["images"][0]["index"] == 1
+    assert artifact["batches"][0]["ai_payload"]["request"]["prompt"] == "测试 prompt"
+    assert artifact["batches"][0]["ai_payload"]["raw_response"]
+    assert artifact["batches"][0]["ai_payload"]["parsed_response"]["matches"]
+    assert artifact["final_result"]["matches"]
+
+    with next(get_session()) as session:
+        log = session.exec(
+            select(AuditLog)
+            .where(AuditLog.target_id == "experiment_image_auto_match")
+            .where(AuditLog.action == "experiment_image_auto_match")
+            .where(AuditLog.status == "success")
+            .order_by(AuditLog.id.desc())
+        ).first()
+        log_details = json.loads(log.details)
+    assert log_details["workspace_artifact_path"].endswith("debug_payload.json")
+    assert log_details["batches"][0]["ai_payload"]["request"]["prompt"] == "测试 prompt"
+    assert log_details["batches"][0]["ai_payload"]["raw_response"]
+    assert log_details["final_result"]["matches"]
+
+
+def test_falling_ball_viscosity_curve_is_configured_as_computed_asset():
+    config_path = Path(__file__).resolve().parents[1] / "configs" / "exp_falling_ball_viscosity.json"
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    asset = (config.get("computedAssets") or {}).get("L3Area")
+    assert asset is not None
+    assert asset.get("generator") == "canvas_plot"
+    assert asset.get("imageSlotId") == "IMG_L3_CURVE"
+    assert asset.get("plot", {}).get("title") == "粘滞系数η与温度T的关系曲线"
+    assert asset.get("plot", {}).get("xAxis", {}).get("values") == [30, 33, 36, 39, 40, 42, 44, 46]
+    assert asset.get("plot", {}).get("xAxis", {}).get("ticks") == [30, 32, 34, 36, 38, 40, 42, 44, 46]
+    assert asset.get("plot", {}).get("yAxis", {}).get("tickDecimals") == 2
+    assert asset.get("plot", {}).get("yAxis", {}).get("nodes") == [
+        "L20-0",
+        "L21-0",
+        "L22-0",
+        "L23-0",
+        "L24-0",
+        "L25-0",
+        "L26-0",
+        "L27-0",
+    ]
+    scatter_layer = [layer for layer in asset.get("plot", {}).get("layers", []) if layer.get("type") == "scatter"][0]
+    assert scatter_layer.get("showInLegend") is False
+    assert scatter_layer.get("valueLabels", {}).get("decimals") == 3
+
+
+def test_compute_endpoint_resolves_formula_dependencies_in_one_request(admin_token):
+    values = {
+        "K10-0": 40,
+        "K10-1": 60,
+        "K10-2": 80,
+        "K10-3": 100,
+        "K10-4": 120,
+        "K10-5": 140,
+        "K10-6": 160,
+        "K30-0": 60,
+        "K30-1": 58,
+        "K30-2": 62,
+        "K30-3": 61,
+        "K30-4": 59,
+        "K30-5": 60,
+        "K32-0": 30,
+        "K32-1": 29,
+        "K32-2": 31,
+        "K32-3": 30.5,
+        "K32-4": 29.5,
+        "K32-5": 30,
+        "K34-0": 101.325,
+        "K34-1": 101.325,
+        "K34-2": 101.325,
+        "K34-3": 101.325,
+        "K34-4": 101.325,
+        "K34-5": 101.325,
+        "K35-0": "999",
+        "K37-0": "1.500",
+        "K37-1": "1.500",
+        "K37-2": "1.500",
+        "K37-3": "1.500",
+        "K37-4": "1.500",
+        "K37-5": "1.500",
+    }
+
+    res = client.post(
+        "/api/v1/experiments/exp_air_heat_capacity_ratio/compute",
+        json={"current_form_values": values},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert res.status_code == 200, res.text
+    computed = res.json()["computed_values"]
+    assert computed["K2"] == "20.00"
+    assert computed["K35-0"] == "999"
+    assert "K36-0" not in computed
+    assert computed["K37-0"] == "1.500"
+    assert computed["K4"] == "1.500"
+    assert computed["K5"] == "0.00"
+
+
 def test_local_upload_path_resolution_prefers_existing_upload(tmp_path, monkeypatch):
     upload_dir = tmp_path / "uploads" / "2026-07"
     upload_dir.mkdir(parents=True)
@@ -477,34 +1098,11 @@ def test_extract_report_list_uses_paper_name_column_by_default():
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_data():
     """Ensure test data exists in the DB"""
+    automation_config_snapshot = _snapshot_automation_configs()
     with next(get_session()) as session:
+        cleanup_e2e_artifacts(session)
         if not session.get(Experiment, "exp_e2e_flow_unique"):
             session.add(Experiment(id="exp_e2e_flow_unique", title="Test Exp E2E"))
-
-        existing_test_users = session.exec(
-            select(User).where(
-                or_(
-                    User.username.in_([STUDENT_NO, FREE_STUDENT_NO, "student_e2e_flow", "student_free_flow"]),
-                    User.student_no.in_([STUDENT_NO, FREE_STUDENT_NO]),
-                )
-            )
-        ).all()
-        existing_test_user_ids = [user.id for user in existing_test_users]
-        if existing_test_user_ids:
-            session.exec(delete(AiTaskRun).where(AiTaskRun.user_id.in_(existing_test_user_ids)))
-            session.exec(delete(AuditLog).where(AuditLog.user_id.in_(existing_test_user_ids)))
-            session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id.in_(existing_test_user_ids)))
-            session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id.in_(existing_test_user_ids)))
-            existing_submission_ids = [
-                item.id for item in session.exec(select(Submission).where(Submission.student_id.in_(existing_test_user_ids))).all()
-            ]
-            if existing_submission_ids:
-                session.exec(delete(SubmissionDraft).where(SubmissionDraft.submission_id.in_(existing_submission_ids)))
-                session.exec(delete(SubmissionVersion).where(SubmissionVersion.submission_id.in_(existing_submission_ids)))
-            session.exec(delete(Submission).where(Submission.student_id.in_(existing_test_user_ids)))
-            session.exec(delete(Order).where(Order.student_id.in_(existing_test_user_ids)))
-            session.exec(delete(User).where(User.id.in_(existing_test_user_ids)))
-            session.flush()
 
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
         if not student:
@@ -536,6 +1134,11 @@ def setup_test_data():
             session.add(admin)
             
         session.commit()
+    yield
+    with next(get_session()) as session:
+        cleanup_e2e_artifacts(session)
+        session.commit()
+    _restore_automation_configs(automation_config_snapshot)
 
 @pytest.fixture
 def student_token():
@@ -580,6 +1183,8 @@ def test_student_login_creates_user_with_encrypted_school_password():
     with next(get_session()) as session:
         existing = session.exec(select(User).where(User.student_no == student_no)).first()
         if existing:
+            delete_student_flow_data(session, existing.id)
+            delete_user_audit_logs(session, existing.id)
             session.delete(existing)
             session.commit()
 
@@ -603,6 +1208,8 @@ def test_login_preview_marks_first_student_login_for_confirmation():
     with next(get_session()) as session:
         existing = session.exec(select(User).where(User.student_no == student_no)).first()
         if existing:
+            delete_student_flow_data(session, existing.id)
+            delete_user_audit_logs(session, existing.id)
             session.delete(existing)
             session.commit()
 
@@ -628,6 +1235,120 @@ def test_login_preview_marks_first_student_login_for_confirmation():
     assert admin_data["requires_school_credential_confirmation"] is False
 
 
+def test_admin_can_upsert_student_and_read_student_management(admin_token, monkeypatch):
+    student_no = "26A2577777777"
+    plain_password = "admin-added-school-password"
+    with next(get_session()) as session:
+        existing = session.exec(select(User).where(User.student_no == student_no)).first()
+        if existing:
+            delete_student_flow_data(session, existing.id)
+            delete_user_audit_logs(session, existing.id)
+            session.delete(existing)
+            session.commit()
+
+    res = client.post(
+        "/api/v1/admin/students",
+        json={"studentNo": student_no, "password": plain_password},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["studentNo"] == student_no
+    assert body["summary"]["totalExperimentCount"] >= 0
+    assert isinstance(body["experiments"], list)
+
+    with next(get_session()) as session:
+        user = session.exec(select(User).where(User.student_no == student_no)).first()
+        assert user is not None
+        assert decrypt_school_password(user.encrypted_school_password) == plain_password
+
+    res = client.get("/api/v1/admin/students", headers={"Authorization": f"Bearer {admin_token}"})
+    assert res.status_code == 200, res.text
+    assert any(item["studentNo"] == student_no for item in res.json()["items"])
+
+    res = client.post(
+        f"/api/v1/admin/students/{body['id']}/experiments/exp_meter_modification/edit-submission",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 200, res.text
+    submission = res.json()
+    assert submission["student_id"] == body["id"]
+    assert submission["experiment_id"] == "exp_meter_modification"
+    assert submission["status"] == "incomplete"
+    assert submission["is_one_click_handoff"] is False
+
+    def fake_completion_check(job_id: str, user_id: int) -> None:
+        with next(get_session()) as session:
+            job = session.get(AutomationJob, job_id)
+            student = session.get(User, user_id)
+            job.status = "succeeded"
+            job.public_status = "succeeded"
+            job.public_message_code = "school.completion.success"
+            job.result_payload = {
+                "completionCheck": {
+                    "studentId": user_id,
+                    "studentNo": student.student_no,
+                    "realName": student.real_name,
+                    "summary": {
+                        "experimentCount": 2,
+                        "checkedExperimentCount": 1,
+                        "completeExperimentCount": 0,
+                        "incompleteExperimentCount": 1,
+                        "skippedExperimentCount": 1,
+                        "missingCount": 1,
+                    },
+                    "experiments": [
+                        {
+                            "experimentId": "exp_meter_modification",
+                            "experimentName": "电表的改装",
+                            "schoolStatus": "school_draft_submitted",
+                            "originalStatusText": "已临时提交",
+                            "checkStatus": "checked",
+                            "complete": False,
+                            "missing": [{"key": "node-1", "label": "节点1"}],
+                        },
+                        {
+                            "experimentId": "exp_skipped",
+                            "experimentName": "未提交实验",
+                            "schoolStatus": "school_not_submitted",
+                            "originalStatusText": "未提交",
+                            "checkStatus": "skipped",
+                            "complete": False,
+                            "missing": [],
+                            "reason": "学校状态未临时提交或正式提交，跳过检查",
+                        },
+                    ],
+                }
+            }
+            job.finished_at = get_utc_now()
+            job.updated_at = get_utc_now()
+            session.add(job)
+            session.commit()
+
+    monkeypatch.setattr("api.v1.admin_students.run_school_completion_check", fake_completion_check)
+
+    res = client.post(
+        f"/api/v1/admin/students/{body['id']}/completion-check",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 200, res.text
+    job = res.json()
+    assert job["action"] == "school_completion_check"
+
+    res = client.get(
+        f"/api/v1/admin/students/{body['id']}/completion-check/{job['jobId']}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 200, res.text
+    completion = res.json()
+    assert completion["studentId"] == body["id"]
+    assert completion["summary"]["checkedExperimentCount"] == 1
+    assert completion["summary"]["skippedExperimentCount"] == 1
+    assert completion["summary"]["missingCount"] == 1
+    assert any(not item["complete"] for item in completion["experiments"])
+    assert any(item["checkStatus"] == "skipped" for item in completion["experiments"])
+
+
 def test_review_pool_does_not_mock_missing_real_name(admin_token):
     submission_id = "SUB-NO-REAL-NAME"
     with next(get_session()) as session:
@@ -651,7 +1372,7 @@ def test_review_pool_does_not_mock_missing_real_name(admin_token):
 
     res = client.get("/api/v1/submissions/review-pool", headers={"Authorization": f"Bearer {admin_token}"})
     assert res.status_code == 200, res.text
-    item = next((sub for sub in res.json() if sub["id"] == submission_id), None)
+    item = next((sub for sub in res.json()["items"] if sub["id"] == submission_id), None)
     assert item is not None
     assert item["student_no"] == FREE_STUDENT_NO
     assert item["real_name"] is None
@@ -660,10 +1381,10 @@ def test_review_pool_does_not_mock_missing_real_name(admin_token):
 def test_student_payment_flow(student_token, admin_token):
     # 0. Mock uploading an image
     # We will simulate the frontend sending a mock image
-    image_content = b"fake_image_bytes"
+    image_content = TINY_PNG_BYTES
     res = client.post(
         "/api/v1/files/upload",
-        files={"file": ("test_image.jpg", image_content, "image/jpeg")},
+        files={"file": ("test_image.png", image_content, "image/png")},
         headers={"Authorization": f"Bearer {student_token}"}
     )
     assert res.status_code == 200, res.text
@@ -671,22 +1392,31 @@ def test_student_payment_flow(student_token, admin_token):
     image_url = upload_data["url"]
     assert image_url.startswith("/uploads/")
 
-    # 1. Student creates a submission with is_hungup=True and passes image_paths
+    # 1. Student creates one checkout order with one submission.
     res = client.post(
-        "/api/v1/submissions/submit",
-        json={"experiment_id": "exp_e2e_flow_unique", "is_hungup": True, "image_paths": [image_url]},
+        "/api/v1/checkout/submit",
+        json={
+            "plan": "pay_per_use",
+            "is_hungup": True,
+            "experiments": [{"experiment_id": "exp_e2e_flow_unique", "image_paths": [image_url]}],
+            "client_request_id": f"REQ-E2E-PAY-{os.urandom(4).hex()}",
+        },
         headers={"Authorization": f"Bearer {student_token}"}
     )
     assert res.status_code == 200, res.text
-    submission = res.json()
+    checkout = res.json()
+    submission = checkout["submissions"][0]
+    order = checkout["order"]
     assert submission["status"] in ["pending_payment", "pending_image_assignment"]
-    
-    order_id = submission["order_id"]
+    assert order["plan"] == "pay_per_use"
+    assert len(order["items"]) == 1
+
+    order_id = order["id"]
     
     # 2. Admin retrieves orders and sees the pending order
     res = client.get("/api/v1/orders/", headers={"Authorization": f"Bearer {admin_token}"})
     assert res.status_code == 200
-    orders = res.json()
+    orders = res.json()["items"]
     order_found = next((o for o in orders if o["id"] == order_id), None)
     assert order_found is not None
     assert order_found["status"] == "pending_payment"
@@ -702,7 +1432,7 @@ def test_student_payment_flow(student_token, admin_token):
     # 4. Reviewer (Admin) retrieves review pool and sees the task pending recognition WITH images.
     res = client.get("/api/v1/submissions/review-pool", headers={"Authorization": f"Bearer {admin_token}"})
     assert res.status_code == 200
-    review_pool = res.json()
+    review_pool = res.json()["items"]
     sub_found = next((s for s in review_pool if s["id"] == submission["id"]), None)
     assert sub_found is not None
     assert sub_found["status"] == "pending_image_assignment"
@@ -722,6 +1452,51 @@ def test_student_payment_flow(student_token, admin_token):
         assert "submission_created" in actions
         assert "status_changed" in actions
 
+
+def test_file_upload_requires_auth_and_real_image(student_token):
+    res = client.post(
+        "/api/v1/files/upload",
+        files={"file": ("raw.png", TINY_PNG_BYTES, "image/png")},
+    )
+    assert res.status_code == 401, res.text
+
+    res = client.post(
+        "/api/v1/files/upload",
+        files={"file": ("fake.jpg", b"fake_image_bytes", "image/jpeg")},
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert res.status_code == 415, res.text
+    assert "不支持的图片格式" in res.json()["detail"]
+
+
+def test_uploaded_file_private_view_requires_owner(student_token, free_student_token):
+    res = client.post(
+        "/api/v1/files/upload",
+        files={"file": ("raw.png", TINY_PNG_BYTES, "image/png")},
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert res.status_code == 200, res.text
+    image_url = res.json()["url"]
+
+    direct = client.get(image_url)
+    assert direct.status_code == 404, direct.text
+
+    own_view = client.get(
+        "/api/v1/files/view",
+        params={"path": image_url},
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert own_view.status_code == 200, own_view.text
+    assert own_view.content == TINY_PNG_BYTES
+
+    other_view = client.get(
+        "/api/v1/files/view",
+        params={"path": image_url},
+        headers={"Authorization": f"Bearer {free_student_token}"},
+    )
+    assert other_view.status_code == 403, other_view.text
+
+
 def test_one_click_submission_requires_uploaded_images(student_token):
     experiment_id = "exp_empty_image_guard"
     with next(get_session()) as session:
@@ -729,12 +1504,16 @@ def test_one_click_submission_requires_uploaded_images(student_token):
             session.add(Experiment(id=experiment_id, title="Empty Image Guard"))
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
         session.exec(delete(Submission).where(Submission.student_id == student.id).where(Submission.experiment_id == experiment_id))
-        session.exec(delete(Order).where(Order.student_id == student.id).where(Order.experiment_id == experiment_id))
+        before_order_count = len(session.exec(select(Order).where(Order.student_id == student.id)).all())
         session.commit()
 
     res = client.post(
-        "/api/v1/submissions/submit",
-        json={"experiment_id": experiment_id, "is_hungup": True, "image_paths": []},
+        "/api/v1/checkout/submit",
+        json={
+            "plan": "pay_per_use",
+            "is_hungup": True,
+            "experiments": [{"experiment_id": experiment_id, "image_paths": []}],
+        },
         headers={"Authorization": f"Bearer {student_token}"}
     )
     assert res.status_code == 400, res.text
@@ -742,10 +1521,306 @@ def test_one_click_submission_requires_uploaded_images(student_token):
 
     with next(get_session()) as session:
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
-        order = session.exec(select(Order).where(Order.student_id == student.id).where(Order.experiment_id == experiment_id)).first()
+        after_order_count = len(session.exec(select(Order).where(Order.student_id == student.id)).all())
         submission = session.exec(select(Submission).where(Submission.student_id == student.id).where(Submission.experiment_id == experiment_id)).first()
-        assert order is None
+        assert after_order_count == before_order_count
         assert submission is None
+
+
+def test_student_cannot_modify_one_click_handoff_submission(student_token):
+    submission_id = "SUB-STUDENT-HANDOFF-LOCK"
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        experiment = session.get(Experiment, "exp_e2e_flow_unique")
+        if not experiment:
+            session.add(Experiment(id="exp_e2e_flow_unique", title="E2E Experiment"))
+        existing = session.get(Submission, submission_id)
+        if existing:
+            session.delete(existing)
+            session.commit()
+        session.add(Submission(
+            id=submission_id,
+            student_id=student.id,
+            experiment_id="exp_e2e_flow_unique",
+            status="pending_image_assignment",
+            payment_status="paid",
+            is_one_click_handoff=True,
+            image_paths=["/uploads/security-handoff.png"],
+            image_slots={},
+        ))
+        session.commit()
+
+    res = client.patch(
+        f"/api/v1/submissions/{submission_id}/draft",
+        json={"draft_json": {"values": {"A": "1"}}, "image_paths": [], "image_slots": {}, "local_revision": 1},
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert res.status_code == 403, res.text
+
+    res = client.patch(
+        f"/api/v1/submissions/{submission_id}/correction",
+        json={"corrected_json": {"values": {"A": "1"}}, "image_paths": [], "image_slots": {}, "save_mode": "draft"},
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert res.status_code == 403, res.text
+
+
+def test_single_slot_pending_payment_auto_prepares_after_payment_verify(student_token, admin_token, monkeypatch):
+    queued_submission_ids = []
+
+    def fake_prepare_delay(submission_id, user_id):
+        queued_submission_ids.append((submission_id, user_id))
+
+    monkeypatch.setattr(submission_preprocess_service.prepare_submission_for_review_task, "delay", fake_prepare_delay, raising=False)
+
+    experiment_id = "exp_meter_modification"
+    image_url = "/uploads/e2e-single-slot-after-payment.jpg"
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        delete_student_flow_data(session, student.id)
+        session.commit()
+
+    res = client.post(
+        "/api/v1/checkout/submit",
+        json={
+            "plan": "pay_per_use",
+            "is_hungup": True,
+            "experiments": [{"experiment_id": experiment_id, "image_paths": [image_url]}],
+            "client_request_id": f"REQ-E2E-SINGLE-{os.urandom(4).hex()}",
+        },
+        headers={"Authorization": f"Bearer {student_token}"}
+    )
+    assert res.status_code == 200, res.text
+    checkout = res.json()
+    submission = checkout["submissions"][0]
+    assert submission["status"] == "pending_payment"
+    assert submission["image_slots"] == {}
+    assert queued_submission_ids == []
+
+    res = client.post(
+        f"/api/v1/orders/{checkout['order']['id']}/verify",
+        json={"action": "verify"},
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert res.status_code == 200, res.text
+
+    res = client.get(f"/api/v1/submissions/{submission['id']}", headers={"Authorization": f"Bearer {admin_token}"})
+    assert res.status_code == 200, res.text
+    updated = res.json()
+    assert updated["payment_status"] == "paid"
+    assert updated["status"] == "preparing_review"
+    assert updated["preprocess_status"] == "queued"
+    assert updated["image_slots"]["IMG_RAW_DATA"][0]["url"] == image_url
+    assert [item[0] for item in queued_submission_ids] == [submission["id"]]
+
+
+def test_one_click_batch_pay_per_use_uses_unified_experiment_price(student_token, admin_token):
+    batch_id = f"BATCH-E2E-PRICE-{os.urandom(4).hex().upper()}"
+    with next(get_session()) as session:
+        for experiment_id, amount in [("exp_price_a", 11.0), ("exp_price_b", 17.0)]:
+            experiment = session.get(Experiment, experiment_id)
+            if not experiment:
+                experiment = Experiment(id=experiment_id, title=experiment_id)
+            experiment.config_json = {"pricing": {"oneClick": amount}}
+            session.add(experiment)
+        session.commit()
+
+    res = client.post(
+        "/api/v1/checkout/submit",
+        json={
+            "plan": "pay_per_use",
+            "is_hungup": True,
+            "submission_batch_id": batch_id,
+            "client_request_id": f"REQ-E2E-PRICE-{os.urandom(4).hex()}",
+            "experiments": [
+                {"experiment_id": "exp_price_a", "image_paths": ["/uploads/price-a.jpg"]},
+                {"experiment_id": "exp_price_b", "image_paths": ["/uploads/price-b.jpg"]},
+            ],
+        },
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert res.status_code == 200, res.text
+    checkout = res.json()
+    order = checkout["order"]
+    submissions = checkout["submissions"]
+    assert order["plan"] == "pay_per_use"
+    assert order["order_type"] == "one_click_batch"
+    assert order["amount"] == 10.0
+    assert order["submission_batch_id"] == batch_id
+    assert len(submissions) == 2
+    assert [item["total_amount"] for item in order["items"]] == [5.0, 5.0]
+    assert {submission["order_id"] for submission in submissions} == {order["id"]}
+
+    res = client.post(
+        f"/api/v1/orders/{order['id']}/verify",
+        json={"action": "verify"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 200, res.text
+
+    with next(get_session()) as session:
+        saved = session.exec(select(Submission).where(Submission.submission_batch_id == batch_id)).all()
+        assert len(saved) == 2
+        assert {submission.payment_status for submission in saved} == {"paid"}
+
+
+def test_one_click_batch_pro_creates_single_upgrade_order_and_releases_batch(free_student_token, admin_token):
+    batch_id = f"BATCH-E2E-PRO-{os.urandom(4).hex().upper()}"
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == FREE_STUDENT_NO)).first()
+        student.capabilities = {}
+        session.add(student)
+        for experiment_id in ["exp_pro_batch_a", "exp_pro_batch_b"]:
+            if not session.get(Experiment, experiment_id):
+                session.add(Experiment(id=experiment_id, title=experiment_id, config_json={}))
+        session.commit()
+
+    res = client.post(
+        "/api/v1/checkout/submit",
+        json={
+            "plan": "pro",
+            "is_hungup": True,
+            "submission_batch_id": batch_id,
+            "client_request_id": f"REQ-E2E-PRO-BATCH-{os.urandom(4).hex()}",
+            "experiments": [
+                {"experiment_id": "exp_pro_batch_a", "image_paths": ["/uploads/pro-a.jpg"]},
+                {"experiment_id": "exp_pro_batch_b", "image_paths": ["/uploads/pro-b.jpg"]},
+            ],
+        },
+        headers={"Authorization": f"Bearer {free_student_token}"},
+    )
+    assert res.status_code == 200, res.text
+    checkout = res.json()
+    order = checkout["order"]
+    submissions = checkout["submissions"]
+    assert order["plan"] == "pro"
+    assert order["order_type"] == "plan_upgrade"
+    assert order["amount"] == 35.0
+    assert order["submission_batch_id"] == batch_id
+    assert len([item for item in order["items"] if item["item_type"] == "plan_upgrade"]) == 1
+    assert len([item for item in order["items"] if item["item_type"] == "batch_submission"]) == 2
+    assert len(submissions) == 2
+    assert {submission["status"] for submission in submissions} == {"pending_payment"}
+
+    res = client.post(
+        f"/api/v1/orders/{order['id']}/verify",
+        json={"action": "verify"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 200, res.text
+
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == FREE_STUDENT_NO)).first()
+        assert student.capabilities["plan"] == "pro"
+        saved = session.exec(select(Submission).where(Submission.submission_batch_id == batch_id)).all()
+        assert len(saved) == 2
+        assert {submission.payment_status for submission in saved} == {"paid"}
+
+
+def test_auto_generated_image_slots_do_not_block_single_slot_auto_prepare(admin_token, monkeypatch):
+    queued_submission_ids = []
+
+    def fake_prepare_delay(submission_id, user_id):
+        queued_submission_ids.append((submission_id, user_id))
+
+    monkeypatch.setattr(submissions_api.prepare_submission_for_review_task, "delay", fake_prepare_delay, raising=False)
+
+    batch_id = f"BATCH-E2E-AUTOGEN-{os.urandom(4).hex().upper()}"
+    image_url = "/uploads/e2e-falling-ball-raw.jpg"
+    res = client.post(
+        "/api/v1/checkout/submit",
+        json={
+            "plan": "pay_per_use",
+            "target_student": FREE_STUDENT_NO,
+            "is_hungup": False,
+            "submission_batch_id": batch_id,
+            "experiments": [{"experiment_id": "exp_falling_ball_viscosity", "image_paths": [image_url]}],
+        },
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()["submissions"][0]
+    assert body["status"] == "preparing_review"
+    assert body["preprocess_status"] == "queued"
+    assert body["image_slots"]["IMG_RAW_DATA"][0]["url"] == image_url
+    assert "IMG_L3_CURVE" not in body["image_slots"]
+    assert [item[0] for item in queued_submission_ids] == [body["id"]]
+
+
+def test_checkout_with_complete_image_slots_queues_multi_slot_preprocess(admin_token, monkeypatch):
+    queued_submission_ids = []
+
+    def fake_prepare_delay(submission_id, user_id):
+        queued_submission_ids.append((submission_id, user_id))
+
+    monkeypatch.setattr(submission_preprocess_service.prepare_submission_for_review_task, "delay", fake_prepare_delay, raising=False)
+
+    batch_id = f"BATCH-E2E-FUSED-{os.urandom(4).hex().upper()}"
+    image_slots = {
+        "IMG_LC_SIGNED_RAW": [{"url": "/uploads/fused-lc-raw.jpg", "name": "raw.jpg", "sourceIndex": 1}],
+        "IMG_LC_FALL_CURVE": [{"url": "/uploads/fused-lc-fall.jpg", "name": "fall.jpg", "sourceIndex": 2}],
+        "IMG_LC_RISE_CURVE": [{"url": "/uploads/fused-lc-rise.jpg", "name": "rise.jpg", "sourceIndex": 3}],
+    }
+    res = client.post(
+        "/api/v1/checkout/submit",
+        json={
+            "plan": "pay_per_use",
+            "target_student": FREE_STUDENT_NO,
+            "is_hungup": False,
+            "submission_batch_id": batch_id,
+            "experiments": [{
+                "experiment_id": "exp_liquid_crystal_0625",
+                "image_paths": [item["url"] for files in image_slots.values() for item in files],
+                "image_slots": image_slots,
+            }],
+        },
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()["submissions"][0]
+    assert body["status"] == "preparing_review"
+    assert body["preprocess_status"] == "queued"
+    assert body["image_slots"]["IMG_LC_SIGNED_RAW"][0]["sourceIndex"] == 1
+    assert "IMG_LC_AVG_CURVE" not in body["image_slots"]
+    assert [item[0] for item in queued_submission_ids] == [body["id"]]
+
+
+def test_checkout_unconfirmed_image_assignment_stays_pending(admin_token, monkeypatch):
+    queued_submission_ids = []
+
+    def fake_prepare_delay(submission_id, user_id):
+        queued_submission_ids.append((submission_id, user_id))
+
+    monkeypatch.setattr(submission_preprocess_service.prepare_submission_for_review_task, "delay", fake_prepare_delay, raising=False)
+
+    batch_id = f"BATCH-E2E-FUSED-UNCONFIRMED-{os.urandom(4).hex().upper()}"
+    image_slots = {
+        "IMG_LC_SIGNED_RAW": [{"url": "/uploads/fused-lc-raw.jpg", "name": "raw.jpg", "sourceIndex": 1}],
+        "IMG_LC_FALL_CURVE": [{"url": "/uploads/fused-lc-fall.jpg", "name": "fall.jpg", "sourceIndex": 2}],
+        "IMG_LC_RISE_CURVE": [{"url": "/uploads/fused-lc-rise.jpg", "name": "rise.jpg", "sourceIndex": 3}],
+    }
+    res = client.post(
+        "/api/v1/checkout/submit",
+        json={
+            "plan": "pay_per_use",
+            "target_student": FREE_STUDENT_NO,
+            "is_hungup": False,
+            "submission_batch_id": batch_id,
+            "experiments": [{
+                "experiment_id": "exp_liquid_crystal_0625",
+                "image_paths": [item["url"] for files in image_slots.values() for item in files],
+                "image_slots": image_slots,
+                "image_assignment_confirmed": False,
+            }],
+        },
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()["submissions"][0]
+    assert body["status"] == "pending_image_assignment"
+    assert body["preprocess_status"] == "waiting_for_image_assignment"
+    assert body["image_slots"]["IMG_LC_SIGNED_RAW"][0]["sourceIndex"] == 1
+    assert queued_submission_ids == []
 
 
 def test_batch_image_assignment_and_prepare_review(admin_token, monkeypatch):
@@ -757,48 +1832,58 @@ def test_batch_image_assignment_and_prepare_review(admin_token, monkeypatch):
     monkeypatch.setattr(submissions_api.prepare_submission_for_review_task, "delay", fake_prepare_delay, raising=False)
 
     batch_id = f"BATCH-E2E-PREPARE-{os.urandom(4).hex().upper()}"
-    payloads = [
-        {
-            "experiment_id": "exp_meter_modification",
-            "target_student": FREE_STUDENT_NO,
-            "is_hungup": False,
-            "image_paths": ["/uploads/e2e-batch-1.jpg"],
-            "submission_batch_id": batch_id,
-        },
-        {
-            "experiment_id": "exp_sound_velocity",
-            "target_student": FREE_STUDENT_NO,
-            "is_hungup": False,
-            "image_paths": ["/uploads/e2e-batch-2.jpg"],
-            "submission_batch_id": batch_id,
-        },
+    experiments = [
+        {"experiment_id": "exp_meter_modification", "image_paths": ["/uploads/e2e-batch-1.jpg"]},
+        {"experiment_id": "exp_sound_velocity", "image_paths": ["/uploads/e2e-batch-2.jpg"]},
     ]
-
-    created = []
-    for payload in payloads:
-        res = client.post(
-            "/api/v1/submissions/submit",
-            json=payload,
-            headers={"Authorization": f"Bearer {admin_token}"}
-        )
-        assert res.status_code == 200, res.text
-        created.append(res.json())
-
-    res = client.get("/api/v1/submissions/review-pool", headers={"Authorization": f"Bearer {admin_token}"})
-    assert res.status_code == 200
-    pool_items = [item for item in res.json() if item["submission_batch_id"] == batch_id]
-    assert len(pool_items) >= 2
-    assert {item["id"] for item in pool_items}.issuperset({item["id"] for item in created})
-
-    first_submission_id = created[0]["id"]
-    res = client.patch(
-        f"/api/v1/submissions/{first_submission_id}/image-slots",
-        json={"image_slots": {"IMG_RAW_DATA": [{"url": "/uploads/e2e-batch-1.jpg", "name": "raw.jpg"}]}},
+    res = client.post(
+        "/api/v1/checkout/submit",
+        json={
+            "plan": "pay_per_use",
+            "target_student": FREE_STUDENT_NO,
+            "is_hungup": False,
+            "submission_batch_id": batch_id,
+            "experiments": experiments,
+        },
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert res.status_code == 200, res.text
-    assert res.json()["image_slots"]["IMG_RAW_DATA"][0]["url"] == "/uploads/e2e-batch-1.jpg"
-    assert res.json()["preprocess_status"] == "image_assigned"
+    created = res.json()["submissions"]
+
+    assert all(item["status"] == "preparing_review" for item in created)
+    assert all(item["preprocess_status"] == "queued" for item in created)
+    assert all(item["image_slots"]["IMG_RAW_DATA"][0]["url"] == payload["image_paths"][0] for item, payload in zip(created, experiments))
+    assert [item[0] for item in queued_submission_ids] == [item["id"] for item in created]
+    queued_submission_ids.clear()
+
+    first_submission_id = created[0]["id"]
+    second_submission_id = created[1]["id"]
+    with next(get_session()) as session:
+        first_submission = session.get(Submission, first_submission_id)
+        second_submission = session.get(Submission, second_submission_id)
+        first_submission.status = "pending_image_assignment"
+        first_submission.preprocess_status = "waiting_for_image_assignment"
+        first_submission.image_slots = {}
+        second_submission.status = "preparing_review"
+        second_submission.preprocess_status = "running"
+        session.add(first_submission)
+        session.add(second_submission)
+        session.commit()
+
+    res = client.get("/api/v1/submissions/review-pool", headers={"Authorization": f"Bearer {admin_token}"})
+    assert res.status_code == 200
+    pool_items = [item for item in res.json()["items"] if item["submission_batch_id"] == batch_id]
+    assert len(pool_items) >= 2
+    assert {item["id"] for item in pool_items}.issuperset({item["id"] for item in created})
+
+    res = client.patch(
+        f"/api/v1/submissions/{second_submission_id}/image-slots",
+        json={"image_slots": {"IMG_RAW_DATA": [{"url": "/uploads/should-not-overwrite-running.jpg", "name": "raw.jpg"}]}},
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["image_slots"]["IMG_RAW_DATA"][0]["url"] == experiments[1]["image_paths"][0]
+    assert res.json()["preprocess_status"] == "running"
 
     assignments = {
         item["id"]: {"IMG_RAW_DATA": [{"url": f"/uploads/{item['id']}.jpg"}]}
@@ -812,30 +1897,93 @@ def test_batch_image_assignment_and_prepare_review(admin_token, monkeypatch):
     assert res.status_code == 200, res.text
     body = res.json()
     assert body["batch_id"] == batch_id
-    assert set(body["submission_ids"]) == {item["id"] for item in created}
-    assert [item[0] for item in queued_submission_ids] == body["submission_ids"]
+    assert body["submission_ids"] == [first_submission_id]
+    assert body["skipped_already_processing"] == [second_submission_id]
+    assert [item[0] for item in queued_submission_ids] == [first_submission_id]
 
     with next(get_session()) as session:
         submissions = session.exec(select(Submission).where(Submission.submission_batch_id == batch_id)).all()
-        statuses = {submission.id: (submission.status, submission.preprocess_status) for submission in submissions}
-        for submission_id in body["submission_ids"]:
-            assert statuses[submission_id] == ("preparing_review", "queued")
+        by_id = {submission.id: submission for submission in submissions}
+        assert (by_id[first_submission_id].status, by_id[first_submission_id].preprocess_status) == ("preparing_review", "queued")
+        assert by_id[first_submission_id].image_slots["IMG_RAW_DATA"][0]["url"] == f"/uploads/{first_submission_id}.jpg"
+        assert (by_id[second_submission_id].status, by_id[second_submission_id].preprocess_status) == ("preparing_review", "running")
+        assert by_id[second_submission_id].image_slots["IMG_RAW_DATA"][0]["url"] == experiments[1]["image_paths"][0]
 
 
-def test_save_correction_syncs_image_slots_to_target_node(admin_token):
+def test_prepare_review_with_partial_assignments_only_processes_selected_submission(admin_token, monkeypatch):
+    queued_submission_ids = []
+
+    def fake_prepare_delay(submission_id, user_id):
+        queued_submission_ids.append((submission_id, user_id))
+
+    monkeypatch.setattr(submissions_api.prepare_submission_for_review_task, "delay", fake_prepare_delay, raising=False)
+
+    batch_id = f"BATCH-E2E-PREPARE-PARTIAL-{os.urandom(4).hex().upper()}"
     res = client.post(
-        "/api/v1/submissions/submit",
+        "/api/v1/checkout/submit",
         json={
-            "experiment_id": "exp_meter_modification",
+            "plan": "pay_per_use",
             "target_student": FREE_STUDENT_NO,
             "is_hungup": False,
-            "image_paths": ["/uploads/e2e-correction-image.jpg"],
-            "submission_batch_id": f"BATCH-E2E-CORRECTION-{os.urandom(4).hex().upper()}",
+            "submission_batch_id": batch_id,
+            "experiments": [
+                {
+                    "experiment_id": "exp_meter_modification",
+                    "image_paths": ["/uploads/e2e-partial-1.jpg"],
+                    "image_assignment_confirmed": False,
+                },
+                {
+                    "experiment_id": "exp_sound_velocity",
+                    "image_paths": ["/uploads/e2e-partial-2.jpg"],
+                    "image_assignment_confirmed": False,
+                },
+            ],
         },
         headers={"Authorization": f"Bearer {admin_token}"}
     )
     assert res.status_code == 200, res.text
-    submission_id = res.json()["id"]
+    created = res.json()["submissions"]
+    first_submission_id = created[0]["id"]
+    second_submission_id = created[1]["id"]
+    assert all(item["status"] == "pending_image_assignment" for item in created)
+
+    res = client.post(
+        f"/api/v1/submissions/batches/{batch_id}/prepare-review",
+        json={"assignments": {
+            first_submission_id: {"IMG_RAW_DATA": [{"url": "/uploads/e2e-partial-assigned.jpg"}]},
+        }},
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["submission_ids"] == [first_submission_id]
+    assert body["skipped_missing_images"] == []
+    assert [item[0] for item in queued_submission_ids] == [first_submission_id]
+
+    with next(get_session()) as session:
+        first_submission = session.get(Submission, first_submission_id)
+        second_submission = session.get(Submission, second_submission_id)
+        assert (first_submission.status, first_submission.preprocess_status) == ("preparing_review", "queued")
+        assert first_submission.image_slots["IMG_RAW_DATA"][0]["url"] == "/uploads/e2e-partial-assigned.jpg"
+        assert (second_submission.status, second_submission.preprocess_status) == ("pending_image_assignment", "waiting_for_image_assignment")
+        assert second_submission.image_slots == {}
+
+
+def test_save_correction_syncs_image_slots_to_target_node(admin_token):
+    batch_id = f"BATCH-E2E-CORRECTION-{os.urandom(4).hex().upper()}"
+    res = client.post(
+        "/api/v1/checkout/submit",
+        json={
+            "plan": "pay_per_use",
+            "target_student": FREE_STUDENT_NO,
+            "is_hungup": False,
+            "submission_batch_id": batch_id,
+            "experiments": [{"experiment_id": "exp_meter_modification", "image_paths": ["/uploads/e2e-correction-image.jpg"]}],
+        },
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert res.status_code == 200, res.text
+    submission_id = res.json()["submissions"][0]["id"]
 
     res = client.patch(
         f"/api/v1/submissions/{submission_id}/correction",
@@ -866,13 +2014,7 @@ def test_save_correction_syncs_image_slots_to_target_node(admin_token):
 def test_submission_draft_autosave_does_not_create_submit_history(student_token):
     with next(get_session()) as session:
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
-        submission_ids = [
-            item.id for item in session.exec(select(Submission).where(Submission.student_id == student.id)).all()
-        ]
-        if submission_ids:
-            session.exec(delete(SubmissionDraft).where(SubmissionDraft.submission_id.in_(submission_ids)))
-            session.exec(delete(SubmissionVersion).where(SubmissionVersion.submission_id.in_(submission_ids)))
-        session.exec(delete(Submission).where(Submission.student_id == student.id))
+        delete_student_flow_data(session, student.id)
         session.commit()
 
     res = client.post(
@@ -928,25 +2070,86 @@ def test_submission_draft_autosave_does_not_create_submit_history(student_token)
 def test_upgrade_plus_flow(free_student_token):
     # 1. Free student upgrades to Plus
     res = client.post(
-        "/api/v1/orders/",
-        json={"experiment_id": "UPGRADE_PLAN", "plan": "plus"},
+        "/api/v1/checkout/submit",
+        json={"plan": "plus", "is_hungup": True, "experiments": [], "client_request_id": f"REQ-E2E-PLUS-{os.urandom(4).hex()}"},
         headers={"Authorization": f"Bearer {free_student_token}"}
     )
     assert res.status_code == 200, res.text
-    order = res.json()
+    order = res.json()["order"]
     assert order["plan"] == "plus"
+    assert order["order_type"] == "plan_upgrade"
+    assert order["amount"] == 16.0
     assert order["status"] == "pending_payment"
     assert order["experiment_id"] is None # Upgrades set experiment_id to None
     
     # 2. Student decides to buy Pro Plan
     res = client.post(
-        "/api/v1/orders/",
-        json={"experiment_id": "exp_e2e_flow_unique", "plan": "pro"},
+        "/api/v1/checkout/submit",
+        json={"plan": "pro", "is_hungup": True, "experiments": [], "client_request_id": f"REQ-E2E-PRO-{os.urandom(4).hex()}"},
         headers={"Authorization": f"Bearer {free_student_token}"}
     )
     assert res.status_code == 200
+    assert res.json()["order"]["amount"] == 35.0
 
-def test_admin_automation_config(admin_token, student_token):
+
+def test_student_plan_capability_matrix(free_student_token, monkeypatch):
+    from api.v1 import ai as ai_api
+
+    class FakeTask:
+        id = "TASK-PLAN-CAPABILITY"
+
+    monkeypatch.setenv("AI_API_KEY", "test-key")
+    monkeypatch.setattr(ai_api.recognize_images_task, "delay", lambda *args, **kwargs: FakeTask())
+    monkeypatch.setattr(ai_api.fixed_fill_task, "delay", lambda *args, **kwargs: FakeTask())
+
+    def set_student_plan(plan: str):
+        with next(get_session()) as session:
+            student = session.exec(select(User).where(User.student_no == FREE_STUDENT_NO)).first()
+            student.capabilities = {"plan": plan}
+            session.add(student)
+            session.commit()
+
+    def post_compute():
+        return client.post(
+            "/api/v1/experiments/exp_e2e_flow_unique/compute",
+            json={"current_form_values": {}, "submission_id": None},
+            headers={"Authorization": f"Bearer {free_student_token}"},
+        )
+
+    def post_recognize():
+        return client.post(
+            "/api/v1/ai/recognize-direct",
+            json={
+                "experiment_id": "exp_e2e_flow_unique",
+                "image_paths": ["/uploads/capability-test.jpg"],
+                "submission_id": None,
+            },
+            headers={"Authorization": f"Bearer {free_student_token}"},
+        )
+
+    def post_fixed_fill():
+        return client.post(
+            "/api/v1/ai/fixed-fill/exp_e2e_flow_unique",
+            json={"submission_id": None},
+            headers={"Authorization": f"Bearer {free_student_token}"},
+        )
+
+    set_student_plan("free")
+    assert post_compute().status_code == 403
+    assert post_recognize().status_code == 403
+    assert post_fixed_fill().status_code == 403
+
+    set_student_plan("plus")
+    assert post_compute().status_code == 200
+    assert post_recognize().status_code == 200
+    assert post_fixed_fill().status_code == 403
+
+    set_student_plan("pro")
+    assert post_compute().status_code == 200
+    assert post_recognize().status_code == 200
+    assert post_fixed_fill().status_code == 200
+
+def test_admin_automation_config(admin_token, student_token, preserve_automation_config):
     # Students must not see automation selectors or Playwright runtime config.
     res = client.get("/api/v1/admin/automation-config", headers={"Authorization": f"Bearer {student_token}"})
     assert res.status_code == 403
@@ -970,37 +2173,23 @@ def test_admin_automation_config(admin_token, student_token):
         "is_active": True,
         "config_json": config_json,
     }
-    try:
-        res = client.patch(
-            "/api/v1/admin/automation-config",
-            json=payload,
-            headers={"Authorization": f"Bearer {admin_token}"},
-        )
-        assert res.status_code == 200, res.text
-        saved_config = res.json()["config_json"]
-        assert saved_config["runtime"]["slowMoMs"] == 123
-        assert saved_config["schoolSystem"]["baseUrl"] == "http://10.25.77.60:8001"
-        assert saved_config["schoolSystem"]["loginUrl"] == "http://10.25.77.60:8001/Login"
-    finally:
-        client.patch(
-            "/api/v1/admin/automation-config",
-            json={
-                "name": "default",
-                "schema_version": CONFIG_SCHEMA_VERSION,
-                "is_active": True,
-                "config_json": default_automation_config(),
-            },
-            headers={"Authorization": f"Bearer {admin_token}"},
-        )
+    res = client.patch(
+        "/api/v1/admin/automation-config",
+        json=payload,
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 200, res.text
+    saved_config = res.json()["config_json"]
+    assert saved_config["runtime"]["slowMoMs"] == 123
+    assert saved_config["schoolSystem"]["baseUrl"] == "http://10.25.77.60:8001"
+    assert saved_config["schoolSystem"]["loginUrl"] == "http://10.25.77.60:8001/Login"
 
 
-def test_school_sync_cooldown_reads_sync_policy_only():
+def test_school_sync_cooldown_reads_sync_policy_only(preserve_automation_config):
     with next(get_session()) as session:
         config = session.exec(
             select(AutomationEngineConfig).where(AutomationEngineConfig.name == "default")
         ).first()
-        original_config_json = dict(config.config_json or {}) if config else None
-        original_schema_version = config.schema_version if config else None
 
         if not config:
             config = AutomationEngineConfig(
@@ -1022,16 +2211,7 @@ def test_school_sync_cooldown_reads_sync_policy_only():
         session.add(config)
         session.commit()
 
-        try:
-            assert school_sync._sync_cooldown_seconds(session) == 7
-        finally:
-            if original_config_json is None:
-                session.delete(config)
-            else:
-                config.config_json = original_config_json
-                config.schema_version = original_schema_version
-                session.add(config)
-            session.commit()
+        assert school_sync._sync_cooldown_seconds(session) == 7
 
 
 def test_captcha_candidate_requires_exact_expected_length():
@@ -1039,6 +2219,66 @@ def test_captcha_candidate_requires_exact_expected_length():
     assert extract_captcha_candidate("验证码为：GAA4", 4) == "GAA4"
     assert extract_captcha_candidate("GAA", 4) is None
     assert extract_captcha_candidate("GAA45", 4) is None
+
+
+class FakeLoginErrorLocator:
+    def __init__(self, page):
+        self.page = page
+        self.first = self
+
+    async def count(self):
+        return 1
+
+    async def is_visible(self):
+        return True
+
+    async def click(self):
+        self.page.modal_closed = True
+
+
+class FakeCaptchaErrorPage:
+    url = "http://school.local/Login"
+
+    def __init__(self):
+        self.modal_closed = False
+
+    async def evaluate(self, script):
+        return ["验证码错误，请重新输入"]
+
+    def locator(self, selector):
+        return FakeLoginErrorLocator(self)
+
+    async def wait_for_timeout(self, timeout_ms):
+        return None
+
+    async def screenshot(self, path, full_page=True):
+        with open(path, "wb") as f:
+            f.write(b"fake")
+
+    async def content(self):
+        return "<html><body><div class='bootbox-body'>验证码错误，请重新输入</div></body></html>"
+
+
+def test_login_error_feedback_detects_captcha_before_overview_wait(tmp_path):
+    page = FakeCaptchaErrorPage()
+    messages = []
+    artifacts = {}
+
+    result = asyncio.run(
+        check_login_error_feedback(
+            page,
+            out_dir=tmp_path,
+            attempt=1,
+            captcha_max_retries=2,
+            messages=messages,
+            artifacts=artifacts,
+        )
+    )
+
+    assert result == "captcha_retry"
+    assert page.modal_closed is True
+    assert messages == ["验证码错误，请重新输入"]
+    assert "login_failed_messages_attempt_1" in artifacts
 
 
 def test_school_session_manager_registers_and_diagnoses_user_session():
@@ -1114,7 +2354,6 @@ def test_admin_ai_config_uses_database_profiles_without_key_leak(admin_token, st
         "auto_recognize": False,
         "image_recognition_model": "zai-org/GLM-4.5V",
         "image_recognition_retry_enabled": True,
-        "image_recognition_retry_model": "Qwen/Qwen2.5-VL-72B-Instruct",
         "image_recognition_timeout_seconds": 60,
         "image_recognition_temperature": 0,
         "image_recognition_max_images_per_task": 8,
@@ -1150,13 +2389,124 @@ def test_admin_ai_config_uses_database_profiles_without_key_leak(admin_token, st
     assert data["base_url"] == payload["base_url"]
     assert data["image_recognition_model"] == "zai-org/GLM-4.5V"
     assert data["image_recognition_retry_enabled"] is True
-    assert data["image_recognition_retry_model"] == "Qwen/Qwen2.5-VL-72B-Instruct"
     assert data["answer_generation_model"] == "deepseek-ai/DeepSeek-V4-Flash"
     assert data["captcha_model"] == "zai-org/GLM-4.5V"
     assert "api_key" not in data
 
 
-def test_repeated_image_recognition_uses_retry_model(admin_token, monkeypatch, preserve_ai_config):
+def test_admin_ai_task_overrides_store_image_auto_match_secret(admin_token, student_token, preserve_ai_config):
+    payload = {
+        "task_overrides_json": {
+            "experiment_image_auto_match": {
+                "enabled": True,
+                "provider": "openai_compatible",
+                "base_url": "http://localhost:59663/v1",
+                "chat_completions_url": "http://localhost:59663/v1/chat/completions",
+                "api_key": "json-secret-key",
+                "model": "gpt-5.5",
+                "temperature": 0,
+                "timeout_seconds": 120,
+                "batch_size": 1,
+                "concurrency": 3,
+                "max_retries": 2,
+                "retry_delay_seconds": 30,
+            }
+        }
+    }
+
+    res = client.put(
+        "/api/v1/ai/admin/task-overrides",
+        json=payload,
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert res.status_code == 403
+
+    res = client.put(
+        "/api/v1/ai/admin/task-overrides",
+        json=payload,
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    task_config = data["task_overrides_json"]["experiment_image_auto_match"]
+    assert task_config["api_key"] == "json-secret-key"
+    assert task_config["model"] == "gpt-5.5"
+
+    res = client.get("/api/v1/ai/admin/config", headers={"Authorization": f"Bearer {admin_token}"})
+    assert res.status_code == 200, res.text
+    task_config = res.json()["task_overrides_json"]["experiment_image_auto_match"]
+    assert task_config["api_key"] == "json-secret-key"
+
+
+def test_image_auto_match_provider_uses_task_override_json(preserve_ai_config):
+    from services.ai_provider import AI_TASK_EXPERIMENT_IMAGE_AUTO_MATCH, ensure_ai_config, get_ai_provider
+
+    with next(get_session()) as session:
+        config = ensure_ai_config(session)
+        config.task_overrides_json = {
+            "experiment_image_auto_match": {
+                "enabled": True,
+                "provider": "openai_compatible",
+                "base_url": "http://localhost:59663/v1",
+                "chat_completions_url": "http://localhost:59663/v1/chat/completions",
+                "api_key": "json-secret-key",
+                "model": "gpt-5.5",
+                "temperature": 0,
+                "timeout_seconds": 120,
+                "batch_size": 1,
+                "concurrency": 3,
+            }
+        }
+        session.add(config)
+        session.commit()
+
+        profile = get_ai_provider(session).get_profile(AI_TASK_EXPERIMENT_IMAGE_AUTO_MATCH)
+
+    assert profile.api_key == "json-secret-key"
+    assert profile.base_url == "http://localhost:59663/v1"
+    assert profile.model == "gpt-5.5"
+    assert profile.timeout_seconds == 120
+    assert profile.max_images_per_task == 1
+    assert profile.concurrency == 3
+
+
+def test_repeated_image_recognition_uses_retry_task_override(preserve_ai_config):
+    from services.ai_provider import AI_TASK_IMAGE_RECOGNITION, ensure_ai_config, get_ai_provider
+
+    with next(get_session()) as session:
+        config = ensure_ai_config(session)
+        config.image_recognition_model = "primary-vl"
+        config.image_recognition_retry_enabled = True
+        config.task_overrides_json = {
+            "image_recognition_retry": {
+                "enabled": True,
+                "provider": "openai_compatible",
+                "base_url": "http://localhost:59663/v1",
+                "chat_completions_url": "http://localhost:59663/v1/chat/completions",
+                "api_key": "retry-json-secret-key",
+                "model": "retry-vl",
+                "temperature": 0,
+                "timeout_seconds": 120,
+                "batch_size": 5,
+                "concurrency": 3,
+            }
+        }
+        session.add(config)
+        session.commit()
+
+        first_profile = get_ai_provider(session).get_profile(AI_TASK_IMAGE_RECOGNITION, recognition_attempt=1)
+        retry_profile = get_ai_provider(session).get_profile(AI_TASK_IMAGE_RECOGNITION, recognition_attempt=2)
+
+    assert first_profile.model == "primary-vl"
+    assert retry_profile.api_key == "retry-json-secret-key"
+    assert retry_profile.base_url == "http://localhost:59663/v1"
+    assert retry_profile.model == "retry-vl"
+    assert retry_profile.timeout_seconds == 120
+    assert retry_profile.max_images_per_task == 5
+    assert retry_profile.concurrency == 3
+
+
+def test_repeated_image_recognition_response_reports_retry_task_override(admin_token, monkeypatch, preserve_ai_config):
     from api.v1 import ai as ai_api
     from services.ai_provider import ensure_ai_config
 
@@ -1180,7 +2530,20 @@ def test_repeated_image_recognition_uses_retry_model(admin_token, monkeypatch, p
         config = ensure_ai_config(session)
         config.image_recognition_model = "primary-vl"
         config.image_recognition_retry_enabled = True
-        config.image_recognition_retry_model = "retry-vl"
+        config.task_overrides_json = {
+            "image_recognition_retry": {
+                "enabled": True,
+                "provider": "openai_compatible",
+                "base_url": "http://localhost:59663/v1",
+                "chat_completions_url": "http://localhost:59663/v1/chat/completions",
+                "api_key": "retry-json-secret-key",
+                "model": "retry-vl",
+                "temperature": 0,
+                "timeout_seconds": 120,
+                "batch_size": 5,
+                "concurrency": 3,
+            }
+        }
         session.add(config)
         submission = Submission(
             id="SUB-AI-RETRY-MODEL",
@@ -1299,7 +2662,14 @@ def test_ai_assist_worker_completion_logs_canonical_action(monkeypatch):
     from worker import ai_tasks
     from services.ai_task_audit import start_ai_task_run
 
-    async def fake_recognize_images(_experiment_id, _image_paths, _session, recognition_attempt=1):
+    async def fake_recognize_images(
+        _experiment_id,
+        _image_paths,
+        _session,
+        recognition_attempt=1,
+        recognition_node_ids=None,
+        recognition_extra_prompt=None,
+    ):
         return {"A1": "42"}
 
     monkeypatch.setattr(ai_tasks.ai_service, "recognize_images", fake_recognize_images)
@@ -1360,6 +2730,36 @@ def test_ai_task_status_treats_started_as_pending(admin_token, monkeypatch):
     res = client.get("/api/v1/ai/task/TASK-STARTED", headers={"Authorization": f"Bearer {admin_token}"})
     assert res.status_code == 200, res.text
     assert res.json() == {"status": "pending", "state": "STARTED"}
+
+
+def test_student_cannot_poll_other_users_ai_task(student_token, free_student_token, monkeypatch):
+    from api.v1 import ai as ai_api
+
+    class PendingTask:
+        state = "PENDING"
+        result = None
+        info = None
+
+    monkeypatch.setattr(ai_api.celery_app, "AsyncResult", lambda _task_id: PendingTask())
+
+    with next(get_session()) as session:
+        owner = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        session.merge(AiTaskRun(
+            task_id="TASK-STUDENT-OWNER-ONLY",
+            task_kind="image_recognition",
+            status="pending",
+            user_id=owner.id,
+            target_id="exp_e2e_flow_unique",
+            experiment_id="exp_e2e_flow_unique",
+        ))
+        session.commit()
+
+    res = client.get("/api/v1/ai/task/TASK-STUDENT-OWNER-ONLY", headers={"Authorization": f"Bearer {free_student_token}"})
+    assert res.status_code == 403, res.text
+
+    res = client.get("/api/v1/ai/task/TASK-STUDENT-OWNER-ONLY", headers={"Authorization": f"Bearer {student_token}"})
+    assert res.status_code == 200, res.text
+    assert res.json()["status"] == "pending"
 
 
 def test_ai_task_failure_signal_reconciles_pre_run_failure_audit():
@@ -1694,7 +3094,7 @@ def test_polling_marks_school_job_failed_when_browser_closed(student_token):
 def test_polling_marks_school_opening_failed_when_bootbox_visible(student_token):
     with next(get_session()) as session:
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
-        session.exec(delete(AuditLog).where(AuditLog.user_id == student.id))
+        delete_user_audit_logs(session, student.id)
         session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
         job = AutomationJob(
             id="JOB-BOOTBOX-POLL",
@@ -1739,9 +3139,10 @@ def test_polling_marks_school_opening_failed_when_bootbox_visible(student_token)
         assert job.error_code == "SCHOOL_BOOTBOX_ERROR"
         assert job.result_payload["currentStep"] == "school.detail.opening"
         assert job.result_payload["bootbox"]["bodyText"] == "error"
+        assert job.result_payload["sessionReset"]["closed"] is True
         assert log is not None
 
-    school_session_manager.mark_invalid(student_id, reason="test_cleanup")
+    assert school_session_manager.get(student_id) is None
 
 
 def fake_successful_overview_sync(job_id, user_id):
@@ -1809,7 +3210,7 @@ def test_school_overview_sync_creates_public_job(student_token, monkeypatch):
 
     with next(get_session()) as session:
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
-        session.exec(delete(AuditLog).where(AuditLog.user_id == student.id))
+        delete_user_audit_logs(session, student.id)
         session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id == student.id))
         session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
         session.commit()
@@ -1951,10 +3352,101 @@ def test_school_overview_latest_merges_list_confirmed_submit_snapshot(student_to
     assert latest["summary"]["draftSubmitted"] == 1
 
 
+def test_admin_student_list_summary_merges_confirmed_school_submit_snapshots(admin_token):
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id == student.id))
+        now = get_utc_now()
+        session.add(
+            SchoolSyncSnapshot(
+                user_id=student.id,
+                snapshot_json={
+                    "source": "school_complete_report_list",
+                    "experiments": [
+                        {
+                            "experimentId": "exp_e2e_flow_unique",
+                            "experimentName": "Test Exp E2E",
+                            "originalStatusText": "未提交",
+                            "schoolStatus": "school_not_submitted",
+                        },
+                        {
+                            "experimentId": "exp_meter_modification",
+                            "experimentName": "电表的改装",
+                            "originalStatusText": "未提交",
+                            "schoolStatus": "school_not_submitted",
+                        },
+                    ],
+                },
+                summary_json={
+                    "source": "school_complete_report_list",
+                    "total": 2,
+                    "completed": 0,
+                    "unsubmitted": 2,
+                    "draftSubmitted": 0,
+                    "finalSubmitted": 0,
+                    "unknown": 0,
+                },
+                synced_at=now,
+            )
+        )
+        for experiment_id, experiment_name, mode, school_status, original_text in [
+            ("exp_e2e_flow_unique", "Test Exp E2E", "final", "school_final_submitted", "正常提交"),
+            ("exp_meter_modification", "电表的改装", "draft", "school_draft_submitted", "临时提交"),
+        ]:
+            submission_id = f"SUB-CONFIRMED-{experiment_id}"
+            session.add(
+                Submission(
+                    id=submission_id,
+                    student_id=student.id,
+                    experiment_id=experiment_id,
+                    status="completed" if mode == "final" else "draft_submitted",
+                    payment_status="not_required",
+                    corrected_json={"experiment_name": experiment_name, "values": {}},
+                )
+            )
+            session.flush()
+            session.add(
+                SchoolSyncSnapshot(
+                    user_id=student.id,
+                    submission_id=submission_id,
+                    experiment_id=experiment_id,
+                    snapshot_json={
+                        "source": "school_submit_confirmed",
+                        "status": {
+                            "experimentName": experiment_name,
+                            "originalStatusText": original_text,
+                            "schoolStatus": school_status,
+                        },
+                    },
+                    summary_json={
+                        "source": "school_submit_confirmed",
+                        "mode": mode,
+                        "submitAccepted": True,
+                        "statusConfirmation": "list_confirmed",
+                        "experimentName": experiment_name,
+                        "originalStatusText": original_text,
+                        "schoolStatus": school_status,
+                    },
+                    synced_at=now,
+                )
+            )
+        session.commit()
+
+    res = client.get(
+        "/api/v1/admin/students",
+        params={"query": STUDENT_NO},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 200, res.text
+    item = next(row for row in res.json()["items"] if row["studentNo"] == STUDENT_NO)
+    assert item["summary"]["finalSubmittedCount"] == 1
+    assert item["summary"]["draftSubmittedCount"] == 1
+
+
 def test_school_overview_sync_blocks_parallel_jobs(student_token):
     with next(get_session()) as session:
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
-        session.exec(delete(AuditLog).where(AuditLog.user_id == student.id))
+        delete_user_audit_logs(session, student.id)
         session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id == student.id))
         session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
         active_job, created = create_or_reuse_automation_job(
@@ -1990,6 +3482,176 @@ def test_school_overview_sync_blocks_parallel_jobs(student_token):
     assert "sensitivePayload" not in detail["job"]
 
 
+def test_admin_can_start_final_submit_drafts_job(admin_token, student_token, monkeypatch):
+    executed = []
+
+    def fake_final_submit_drafts(job_id, user_id):
+        executed.append((job_id, user_id))
+        with next(get_session()) as session:
+            job = session.get(AutomationJob, job_id)
+            job.status = "succeeded"
+            job.public_status = "succeeded"
+            job.public_message_code = "school.finalSubmitDrafts.success"
+            job.public_message_params = {"count": 1}
+            session.add(job)
+            session.commit()
+
+    monkeypatch.setattr("api.v1.admin_students.run_admin_final_submit_drafts", fake_final_submit_drafts)
+
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
+        student_id = student.id
+        session.commit()
+
+    forbidden = client.post(
+        f"/api/v1/admin/students/{student_id}/final-submit-drafts",
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert forbidden.status_code == 403, forbidden.text
+
+    res = client.post(
+        f"/api/v1/admin/students/{student_id}/final-submit-drafts",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["action"] == "admin_final_submit_drafts"
+    assert executed and executed[0][1] == student_id
+
+
+def test_student_completion_and_submission_screenshot_jobs_are_self_scoped(student_token, admin_token, monkeypatch):
+    def fake_completion_check(job_id, user_id, experiment_ids=None):
+        with next(get_session()) as session:
+            user = session.get(User, user_id)
+            job = session.get(AutomationJob, job_id)
+            job.status = "succeeded"
+            job.public_status = "succeeded"
+            job.public_message_code = "school.completion.success"
+            job.result_payload = {
+                "completionCheck": {
+                    "studentId": user_id,
+                    "studentNo": user.student_no,
+                    "realName": user.real_name,
+                    "summary": {
+                        "experimentCount": 1,
+                        "checkedExperimentCount": 1,
+                        "completeExperimentCount": 1,
+                        "incompleteExperimentCount": 0,
+                        "skippedExperimentCount": 0,
+                        "errorExperimentCount": 0,
+                        "missingCount": 0,
+                    },
+                    "experiments": [
+                        {
+                            "experimentId": (experiment_ids or ["exp_e2e_flow_unique"])[0],
+                            "experimentName": "Test Exp E2E",
+                            "schoolStatus": "school_draft_submitted",
+                            "originalStatusText": "临时提交",
+                            "checkStatus": "checked",
+                            "complete": True,
+                            "missing": [],
+                        }
+                    ],
+                }
+            }
+            job.finished_at = get_utc_now()
+            job.updated_at = get_utc_now()
+            session.add(job)
+            session.commit()
+
+    def fake_submission_screenshots(job_id, user_id, experiment_ids=None):
+        with next(get_session()) as session:
+            user = session.get(User, user_id)
+            job = session.get(AutomationJob, job_id)
+            job.status = "succeeded"
+            job.public_status = "succeeded"
+            job.public_message_code = "school.submissionScreenshots.success"
+            job.result_payload = {
+                "submissionScreenshots": {
+                    "studentId": user_id,
+                    "studentNo": user.student_no,
+                    "realName": user.real_name,
+                    "summary": {
+                        "experimentCount": 1,
+                        "capturedExperimentCount": 0,
+                        "skippedExperimentCount": 1,
+                        "errorExperimentCount": 0,
+                    },
+                    "experiments": [
+                        {
+                            "experimentId": "exp_e2e_flow_unique",
+                            "experimentName": "Test Exp E2E",
+                            "schoolStatus": "school_not_submitted",
+                            "originalStatusText": "未提交",
+                            "captureStatus": "skipped",
+                            "screenshotAvailable": False,
+                            "reason": "学校状态未临时提交或正式提交，跳过截图",
+                        }
+                    ],
+                }
+            }
+            job.finished_at = get_utc_now()
+            job.updated_at = get_utc_now()
+            session.add(job)
+            session.commit()
+
+    monkeypatch.setattr(school_sync, "run_school_completion_check", fake_completion_check)
+    monkeypatch.setattr(school_sync, "run_school_submission_screenshots", fake_submission_screenshots)
+
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
+        session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
+        session.commit()
+
+    res = client.post(
+        "/api/v1/school-sync/experiments/exp_e2e_flow_unique/completion-check",
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert res.status_code == 200, res.text
+    completion_job = res.json()
+    assert completion_job["action"] == "school_completion_check"
+    assert completion_job["experimentId"] == "exp_e2e_flow_unique"
+
+    res = client.get(
+        f"/api/v1/school-sync/completion-check/{completion_job['jobId']}",
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert res.status_code == 200, res.text
+    completion = res.json()
+    assert completion["studentNo"] == STUDENT_NO
+    assert completion["experiments"][0]["experimentId"] == "exp_e2e_flow_unique"
+
+    res = client.post(
+        "/api/v1/school-sync/submission-screenshots",
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert res.status_code == 200, res.text
+    screenshot_job = res.json()
+    assert screenshot_job["action"] == "school_submission_screenshots"
+
+    res = client.get(
+        f"/api/v1/school-sync/submission-screenshots/{screenshot_job['jobId']}",
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
+    assert res.status_code == 200, res.text
+    screenshots = res.json()
+    assert screenshots["studentNo"] == STUDENT_NO
+    assert screenshots["summary"]["skippedExperimentCount"] == 1
+
+    admin_completion = client.post(
+        "/api/v1/school-sync/completion-check",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert admin_completion.status_code == 403
+
+    admin_screenshots = client.post(
+        "/api/v1/school-sync/submission-screenshots",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert admin_screenshots.status_code == 403
+
+
 def test_school_overview_failure_audit_contains_diagnostic_payload(student_token):
     config_json = default_automation_config()
     config_json["schoolSystem"]["baseUrl"] = "http://10.25.77.60:8001"
@@ -1997,7 +3659,7 @@ def test_school_overview_failure_audit_contains_diagnostic_payload(student_token
 
     with next(get_session()) as session:
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
-        session.exec(delete(AuditLog).where(AuditLog.user_id == student.id))
+        delete_user_audit_logs(session, student.id)
         session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id == student.id))
         session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
         job = AutomationJob(
@@ -2060,7 +3722,7 @@ def test_school_detail_sync_does_not_create_stub_snapshot(student_token, monkeyp
 
     with next(get_session()) as session:
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
-        session.exec(delete(AuditLog).where(AuditLog.user_id == student.id))
+        delete_user_audit_logs(session, student.id)
         session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id == student.id))
         session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
         session.commit()
@@ -2178,16 +3840,10 @@ def test_school_detail_latest_returns_mapped_form_values(student_token):
 def test_self_managed_submission_does_not_require_payment(student_token):
     with next(get_session()) as session:
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
-        session.exec(delete(AuditLog).where(AuditLog.user_id == student.id))
+        delete_user_audit_logs(session, student.id)
         session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id == student.id))
         session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
-        submission_ids = [
-            item.id for item in session.exec(select(Submission).where(Submission.student_id == student.id)).all()
-        ]
-        if submission_ids:
-            session.exec(delete(SubmissionVersion).where(SubmissionVersion.submission_id.in_(submission_ids)))
-        session.exec(delete(Submission).where(Submission.student_id == student.id))
-        session.exec(delete(Order).where(Order.student_id == student.id))
+        delete_student_flow_data(session, student.id)
         session.commit()
 
     res = client.post(
@@ -2244,15 +3900,10 @@ def test_school_submit_job_keeps_submission_unconfirmed_until_real_school_status
 
     with next(get_session()) as session:
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
-        session.exec(delete(AuditLog).where(AuditLog.user_id == student.id))
+        delete_user_audit_logs(session, student.id)
         session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id == student.id))
         session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
-        submission_ids = [
-            item.id for item in session.exec(select(Submission).where(Submission.student_id == student.id)).all()
-        ]
-        if submission_ids:
-            session.exec(delete(SubmissionVersion).where(SubmissionVersion.submission_id.in_(submission_ids)))
-        session.exec(delete(Submission).where(Submission.student_id == student.id))
+        delete_student_flow_data(session, student.id)
         session.commit()
 
     res = client.post(
@@ -2313,15 +3964,10 @@ def test_school_submit_job_keeps_submission_unconfirmed_until_real_school_status
 def test_school_submit_success_can_be_confirmed_by_feedback_only(student_token, monkeypatch):
     with next(get_session()) as session:
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
-        session.exec(delete(AuditLog).where(AuditLog.user_id == student.id))
+        delete_user_audit_logs(session, student.id)
         session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id == student.id))
         session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
-        submission_ids = [
-            item.id for item in session.exec(select(Submission).where(Submission.student_id == student.id)).all()
-        ]
-        if submission_ids:
-            session.exec(delete(SubmissionVersion).where(SubmissionVersion.submission_id.in_(submission_ids)))
-        session.exec(delete(Submission).where(Submission.student_id == student.id))
+        delete_student_flow_data(session, student.id)
         submission = Submission(
             id="SUB-FEEDBACK-ONLY",
             student_id=student.id,
@@ -2387,15 +4033,10 @@ def test_school_submit_success_can_be_confirmed_by_feedback_only(student_token, 
 def test_school_final_submit_success_updates_submission_completed(student_token, monkeypatch):
     with next(get_session()) as session:
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
-        session.exec(delete(AuditLog).where(AuditLog.user_id == student.id))
+        delete_user_audit_logs(session, student.id)
         session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id == student.id))
         session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
-        submission_ids = [
-            item.id for item in session.exec(select(Submission).where(Submission.student_id == student.id)).all()
-        ]
-        if submission_ids:
-            session.exec(delete(SubmissionVersion).where(SubmissionVersion.submission_id.in_(submission_ids)))
-        session.exec(delete(Submission).where(Submission.student_id == student.id))
+        delete_student_flow_data(session, student.id)
         submission = Submission(
             id="SUB-FINAL-SUCCESS",
             student_id=student.id,
@@ -2462,7 +4103,7 @@ def test_school_final_submit_success_updates_submission_completed(student_token,
 def test_school_submit_failure_audit_keeps_structured_diagnostics(student_token):
     with next(get_session()) as session:
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
-        session.exec(delete(AuditLog).where(AuditLog.user_id == student.id))
+        delete_user_audit_logs(session, student.id)
         session.exec(delete(SchoolSyncSnapshot).where(SchoolSyncSnapshot.user_id == student.id))
         session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
         submission = Submission(
@@ -2534,7 +4175,7 @@ def test_school_submit_failure_audit_keeps_structured_diagnostics(student_token)
 def test_school_detail_failure_audit_uses_detail_job_target(student_token):
     with next(get_session()) as session:
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
-        session.exec(delete(AuditLog).where(AuditLog.user_id == student.id))
+        delete_user_audit_logs(session, student.id)
         session.exec(delete(AutomationJob).where(AutomationJob.actor_user_id == student.id))
         job = AutomationJob(
             id="JOB-DETAIL-BOOTBOX-FAIL",
@@ -2582,7 +4223,7 @@ def test_school_detail_failure_audit_uses_detail_job_target(student_token):
 def test_student_audit_logs_hide_internal_actions(student_token):
     with next(get_session()) as session:
         student = session.exec(select(User).where(User.student_no == STUDENT_NO)).first()
-        session.exec(delete(AuditLog).where(AuditLog.user_id == student.id))
+        delete_user_audit_logs(session, student.id)
         session.add(AuditLog(
             user_id=student.id,
             action="save_submission_correction",
@@ -2606,22 +4247,32 @@ def test_student_audit_logs_hide_internal_actions(student_token):
     assert "save_submission_correction" not in actions
 
 def test_free_to_pro_flow(free_student_token, admin_token):
+    with next(get_session()) as session:
+        student = session.exec(select(User).where(User.student_no == FREE_STUDENT_NO)).first()
+        student.capabilities = {}
+        session.add(student)
+        session.commit()
+
     # 1. Free student tries to submit WITHOUT hungup, should be 403 Forbidden!
     res = client.post(
-        "/api/v1/submissions/submit",
-        json={"experiment_id": "exp_e2e_flow_unique", "is_hungup": False},
+        "/api/v1/checkout/submit",
+        json={
+            "plan": "pay_per_use",
+            "is_hungup": False,
+            "experiments": [{"experiment_id": "exp_e2e_flow_unique", "image_paths": ["/uploads/free-blocked.jpg"]}],
+        },
         headers={"Authorization": f"Bearer {free_student_token}"}
     )
     assert res.status_code == 403, "Student should be blocked from submitting without paying!"
     
     # 2. Student decides to buy Pro Plan
     res = client.post(
-        "/api/v1/orders/",
-        json={"experiment_id": "exp_e2e_flow_unique", "plan": "pro"},
+        "/api/v1/checkout/submit",
+        json={"plan": "pro", "is_hungup": True, "experiments": [], "client_request_id": f"REQ-E2E-FREE-PRO-{os.urandom(4).hex()}"},
         headers={"Authorization": f"Bearer {free_student_token}"}
     )
     assert res.status_code == 200
-    pro_order_id = res.json()["id"]
+    pro_order_id = res.json()["order"]["id"]
     
     # 3. Admin verifies the Pro Plan order, upgrading the student
     res = client.post(
@@ -2633,7 +4284,7 @@ def test_free_to_pro_flow(free_student_token, admin_token):
 
     upload_res = client.post(
         "/api/v1/files/upload",
-        files={"file": ("pro_submit.jpg", b"fake_image_bytes", "image/jpeg")},
+        files={"file": ("pro_submit.png", TINY_PNG_BYTES, "image/png")},
         headers={"Authorization": f"Bearer {free_student_token}"}
     )
     assert upload_res.status_code == 200
@@ -2641,17 +4292,21 @@ def test_free_to_pro_flow(free_student_token, admin_token):
 
     # 4. Student submits again, this time they are Pro, should bypass payment!
     res = client.post(
-        "/api/v1/submissions/submit",
-        json={"experiment_id": "exp_e2e_flow_unique", "is_hungup": False, "image_paths": [image_url]},
+        "/api/v1/checkout/submit",
+        json={
+            "plan": "pay_per_use",
+            "is_hungup": False,
+            "experiments": [{"experiment_id": "exp_e2e_flow_unique", "image_paths": [image_url]}],
+        },
         headers={"Authorization": f"Bearer {free_student_token}"}
     )
     assert res.status_code == 200, "Pro user should be allowed to submit without hungup!"
-    submission = res.json()
+    submission = res.json()["submissions"][0]
     
     # 5. Verify it's immediately in the review pool
     res = client.get("/api/v1/submissions/review-pool", headers={"Authorization": f"Bearer {admin_token}"})
     assert res.status_code == 200
-    review_pool = res.json()
+    review_pool = res.json()["items"]
     sub_found = next((s for s in review_pool if s["id"] == submission["id"]), None)
     assert sub_found is not None
     assert sub_found["status"] == "pending_image_assignment"

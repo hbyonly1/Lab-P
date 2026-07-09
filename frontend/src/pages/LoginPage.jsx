@@ -72,6 +72,7 @@ export default function LoginPage() {
           <div className="login-panel-head">
             <span>SIGN IN</span>
             <strong>实验报告平台登录</strong>
+            <p>请输入 26A + 你的学号 的账户密码，这将会作为登录凭据</p>
           </div>
 
           <Form layout="vertical" requiredMark={false} onFinish={handleSubmit}>

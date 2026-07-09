@@ -730,19 +730,76 @@
     }
   },
   "formulas": {
-    "S13-0": "format_fixed((v('S12-0') - v('S10-0')) / 5, 3)",
-    "S13-1": "format_fixed((v('S12-1') - v('S10-1')) / 5, 3)",
-    "S13-2": "format_fixed((v('S12-2') - v('S10-2')) / 5, 3)",
-    "S13-3": "format_fixed((v('S12-3') - v('S10-3')) / 5, 3)",
-    "S13-4": "format_fixed((v('S12-4') - v('S10-4')) / 5, 3)",
-    "S3": "format_fixed((((v('S12-0') - v('S10-0')) / 5) + ((v('S12-1') - v('S10-1')) / 5) + ((v('S12-2') - v('S10-2')) / 5) + ((v('S12-3') - v('S10-3')) / 5) + ((v('S12-4') - v('S10-4')) / 5)) / 5, 2)",
-    "S4": "format_sig(v('S2') * ((((v('S12-0') - v('S10-0')) / 5) + ((v('S12-1') - v('S10-1')) / 5) + ((v('S12-2') - v('S10-2')) / 5) + ((v('S12-3') - v('S10-3')) / 5) + ((v('S12-4') - v('S10-4')) / 5)) / 5), 4)",
-    "S53-0": "format_fixed((v('S52-0') - v('S50-0')) / 2, 3)",
-    "S53-1": "format_fixed((v('S52-1') - v('S50-1')) / 2, 3)",
-    "S53-2": "format_fixed((v('S52-2') - v('S50-2')) / 2, 3)",
-    "S53-3": "format_fixed((v('S52-3') - v('S50-3')) / 2, 3)",
-    "S7": "format_fixed((((v('S52-0') - v('S50-0')) / 2) + ((v('S52-1') - v('S50-1')) / 2) + ((v('S52-2') - v('S50-2')) / 2) + ((v('S52-3') - v('S50-3')) / 2)) / 4, 2)",
-    "S8": "format_sig(v('S6') * ((((v('S52-0') - v('S50-0')) / 2) + ((v('S52-1') - v('S50-1')) / 2) + ((v('S52-2') - v('S50-2')) / 2) + ((v('S52-3') - v('S50-3')) / 2)) / 4), 4)"
+    "S13-0": "format_fixed(abs(v('S12-0') - v('S10-0')) / 5, 3)",
+    "S13-1": "format_fixed(abs(v('S12-1') - v('S10-1')) / 5, 3)",
+    "S13-2": "format_fixed(abs(v('S12-2') - v('S10-2')) / 5, 3)",
+    "S13-3": "format_fixed(abs(v('S12-3') - v('S10-3')) / 5, 3)",
+    "S13-4": "format_fixed(abs(v('S12-4') - v('S10-4')) / 5, 3)",
+    "S3": "format_fixed(((abs(v('S12-0') - v('S10-0')) / 5) + (abs(v('S12-1') - v('S10-1')) / 5) + (abs(v('S12-2') - v('S10-2')) / 5) + (abs(v('S12-3') - v('S10-3')) / 5) + (abs(v('S12-4') - v('S10-4')) / 5)) / 5, 2)",
+    "S4": "format_sig(v('S2') * (((abs(v('S12-0') - v('S10-0')) / 5) + (abs(v('S12-1') - v('S10-1')) / 5) + (abs(v('S12-2') - v('S10-2')) / 5) + (abs(v('S12-3') - v('S10-3')) / 5) + (abs(v('S12-4') - v('S10-4')) / 5)) / 5), 4)",
+    "S53-0": "format_fixed(abs(v('S52-0') - v('S50-0')) / 2, 3)",
+    "S53-1": "format_fixed(abs(v('S52-1') - v('S50-1')) / 2, 3)",
+    "S53-2": "format_fixed(abs(v('S52-2') - v('S50-2')) / 2, 3)",
+    "S53-3": "format_fixed(abs(v('S52-3') - v('S50-3')) / 2, 3)",
+    "S7": "format_fixed(((abs(v('S52-0') - v('S50-0')) / 2) + (abs(v('S52-1') - v('S50-1')) / 2) + (abs(v('S52-2') - v('S50-2')) / 2) + (abs(v('S52-3') - v('S50-3')) / 2)) / 4, 2)",
+    "S8": "format_sig(v('S6') * (((abs(v('S52-0') - v('S50-0')) / 2) + (abs(v('S52-1') - v('S50-1')) / 2) + (abs(v('S52-2') - v('S50-2')) / 2) + (abs(v('S52-3') - v('S50-3')) / 2)) / 4), 4)"
+  },
+  "scoreCheck": {
+    "enabled": true,
+    "source": "assets/complete_saves_teacher/08_声速的测量.html",
+    "totalScore": 10,
+    "computableScore": 1.4,
+    "items": [
+      {
+        "id": "sound_phase_frequency",
+        "title": "相位法谐振频率 f",
+        "nodeId": "S2",
+        "type": "numeric_range",
+        "maxScore": 0.2,
+        "metricLabel": "f",
+        "requiredSignificantDigits": 5,
+        "ranges": [
+          { "min": 36, "minInclusive": false, "max": 38, "maxInclusive": false, "score": 0.1, "label": "36 kHz＜f＜38 kHz" }
+        ]
+      },
+      {
+        "id": "sound_phase_velocity",
+        "title": "相位法声速 v1",
+        "nodeId": "S4",
+        "type": "numeric_range",
+        "maxScore": 0.5,
+        "metricLabel": "v1",
+        "requiredSignificantDigits": [3, 4],
+        "ranges": [
+          { "min": 320, "max": 360, "score": 0.3, "label": "320≤v1≤360" }
+        ]
+      },
+      {
+        "id": "sound_resonance_frequency",
+        "title": "驻波法谐振频率 f",
+        "nodeId": "S6",
+        "type": "numeric_range",
+        "maxScore": 0.2,
+        "metricLabel": "f",
+        "requiredSignificantDigits": 5,
+        "ranges": [
+          { "min": 35, "minInclusive": false, "max": 38, "maxInclusive": false, "score": 0.1, "label": "35 kHz＜f＜38 kHz" }
+        ]
+      },
+      {
+        "id": "sound_resonance_velocity",
+        "title": "驻波法声速 v2",
+        "nodeId": "S8",
+        "type": "numeric_range",
+        "maxScore": 0.5,
+        "metricLabel": "v2",
+        "requiredSignificantDigits": [3, 4],
+        "ranges": [
+          { "min": 320, "max": 360, "score": 0.3, "label": "320≤v2≤360" }
+        ]
+      }
+    ],
+    "notes": ["仅基于当前页面已有值做检查；不触发一键计算，不自动判定与系统计算值一致。"]
   },
   "automation": {
     "mappings": [

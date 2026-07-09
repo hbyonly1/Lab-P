@@ -6,7 +6,7 @@ from concurrent.futures import Future
 from dataclasses import dataclass, field
 from datetime import datetime
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Awaitable, Dict, Optional, Tuple, TypeVar
+from typing import Any, AsyncIterator, Awaitable, Dict, List, Optional, Tuple, TypeVar
 
 from models.core import get_utc_now
 
@@ -106,6 +106,11 @@ class SchoolSessionManager:
         for session in sessions:
             await self._close_session_resources(session, reason=reason)
 
+    async def close_all(self, *, reason: str) -> int:
+        count = len(self._sessions)
+        await self._close_all_sessions(reason=reason)
+        return count
+
     def shutdown(self, *, reason: str = "application_shutdown") -> None:
         loop = self._loop
         if not loop or not loop.is_running():
@@ -157,6 +162,9 @@ class SchoolSessionManager:
         if session:
             session.last_used_at = get_utc_now()
         return session
+
+    def list_sessions(self) -> List[SchoolBrowserSession]:
+        return list(self._sessions.values())
 
     def mark_invalid(self, user_id: int, *, reason: str) -> None:
         session = self._sessions.get(user_id)

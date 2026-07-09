@@ -1,18 +1,36 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session
+from sqlmodel import Session, select
 from typing import Any, List, Optional
 from pydantic import BaseModel
 from core.db import get_session
-from models.core import AuditLog, AiConfig, User, AiPromptTemplate, Submission, get_utc_now
+from models.core import AuditLog, AiConfig, AiTaskRun, Experiment, User, AiPromptTemplate, Submission, get_utc_now
 from api.deps import get_current_user, get_current_reviewer_or_admin, get_current_admin
-from worker.ai_tasks import recognize_images_task, generate_answer_task, fixed_fill_task, recognize_submission_task
+from worker.ai_tasks import (
+    recognize_images_task,
+    generate_answer_task,
+    fixed_fill_task,
+    recognize_submission_task,
+    auto_match_experiment_images_task,
+)
 from worker.celery_app import celery_app
 from core.config import settings
 from datetime import datetime
-import json
-from services.ai_provider import AI_TASK_ANSWER_GENERATION, AI_TASK_IMAGE_RECOGNITION, AiProviderConfigError, ensure_ai_config, get_ai_provider
+from services.ai_provider import (
+    AI_TASK_ANSWER_GENERATION,
+    AI_TASK_EXPERIMENT_IMAGE_AUTO_MATCH,
+    AI_TASK_IMAGE_RECOGNITION,
+    AI_TASK_IMAGE_RECOGNITION_RETRY,
+    AI_TASK_CAPTCHA,
+    AiProviderConfigError,
+    DEFAULT_CAPTCHA_OVERRIDE,
+    DEFAULT_EXPERIMENT_IMAGE_AUTO_MATCH_OVERRIDE,
+    DEFAULT_IMAGE_RECOGNITION_RETRY_OVERRIDE,
+    ensure_ai_config,
+    get_ai_provider,
+)
 from services.ai_task_audit import audit_target_id, next_image_recognition_attempt, poll_timeout_seconds, start_ai_task_run
 from core.ai_prompts import DEFAULT_GENERATION_SYSTEM, DEFAULT_RECOGNITION_SYSTEM
+from core.plan_capabilities import can_use_fixed_fill, can_use_image_recognition, user_plan
 
 router = APIRouter()
 
@@ -20,6 +38,7 @@ class RecognizeDirectRequest(BaseModel):
     experiment_id: str
     image_paths: List[str]
     submission_id: Optional[str] = None
+    image_ref: Optional[str] = None
 
 class GenerateAnswerRequest(BaseModel):
     experiment_id: str
@@ -32,6 +51,17 @@ class FixedFillRequest(BaseModel):
     submission_id: Optional[str] = None
 
 
+class ImageAssignmentImage(BaseModel):
+    index: int
+    url: str
+    name: Optional[str] = None
+
+
+class ImageAssignmentRequest(BaseModel):
+    images: List[ImageAssignmentImage]
+    experiment_ids: List[str] = []
+
+
 class AiConfigUpdate(BaseModel):
     provider: str = "openai_compatible"
     base_url: str
@@ -42,7 +72,6 @@ class AiConfigUpdate(BaseModel):
     auto_recognize: bool = False
     image_recognition_model: str
     image_recognition_retry_enabled: bool = False
-    image_recognition_retry_model: Optional[str] = None
     image_recognition_timeout_seconds: int = 60
     image_recognition_temperature: float = 0
     image_recognition_max_images_per_task: int = 8
@@ -53,6 +82,11 @@ class AiConfigUpdate(BaseModel):
     captcha_timeout_seconds: int = 30
     captcha_temperature: float = 0
     captcha_prompt: str
+    task_overrides_json: Optional[dict] = None
+
+
+class AiTaskOverridesUpdate(BaseModel):
+    task_overrides_json: dict
 
 
 class AiPromptUpdate(BaseModel):
@@ -65,6 +99,12 @@ class AiPromptUpdate(BaseModel):
 class PreviewPromptResponse(BaseModel):
     recognition_prompt: str
     generation_prompt: str
+
+
+class ImageAssignmentPreviewResponse(BaseModel):
+    prompt: str
+    candidates: List[dict]
+    candidate_map: dict
 
 
 class AiPromptTemplateResponse(BaseModel):
@@ -83,16 +123,68 @@ class AiConnectionTestResponse(BaseModel):
     base_url: Optional[str] = None
 
 
+def _default_task_overrides_json() -> dict:
+    return {
+        AI_TASK_EXPERIMENT_IMAGE_AUTO_MATCH: dict(DEFAULT_EXPERIMENT_IMAGE_AUTO_MATCH_OVERRIDE),
+        AI_TASK_IMAGE_RECOGNITION_RETRY: dict(DEFAULT_IMAGE_RECOGNITION_RETRY_OVERRIDE),
+        AI_TASK_CAPTCHA: dict(DEFAULT_CAPTCHA_OVERRIDE),
+    }
+
+
+def _merged_task_overrides_json(config: AiConfig) -> dict:
+    current = config.task_overrides_json if isinstance(config.task_overrides_json, dict) else {}
+    merged = _default_task_overrides_json()
+    for key, value in current.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = {**merged[key], **value}
+        else:
+            merged[key] = value
+    return merged
+
+
+def _validate_task_overrides_json(payload: dict) -> dict:
+    if not isinstance(payload, dict) or isinstance(payload, list):
+        raise HTTPException(status_code=422, detail="task_overrides_json must be a JSON object.")
+
+    def validate_override(task_key: str, label: str):
+        config = payload.get(task_key)
+        if config is None:
+            return
+        if not isinstance(config, dict):
+            raise HTTPException(status_code=422, detail=f"{task_key} must be a JSON object.")
+        if config.get("enabled") is not True:
+            return
+        required_fields = ["base_url", "api_key", "model"]
+        missing = [field for field in required_fields if not str(config.get(field) or "").strip()]
+        if missing:
+            raise HTTPException(
+                status_code=422,
+                detail=f"{label} AI 配置无效，缺少字段：{', '.join(missing)}",
+            )
+        provider = str(config.get("provider") or "openai_compatible").strip()
+        if provider != "openai_compatible":
+            raise HTTPException(status_code=422, detail=f"{label}专用配置仅支持 openai_compatible。")
+        try:
+            concurrency = int(config.get("concurrency") or 3)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=422, detail=f"{label} concurrency 必须是正整数。")
+        if concurrency < 1 or concurrency > 10:
+            raise HTTPException(status_code=422, detail=f"{label} concurrency 必须在 1 到 10 之间。")
+
+    validate_override(AI_TASK_EXPERIMENT_IMAGE_AUTO_MATCH, "融合图片匹配")
+    validate_override(AI_TASK_IMAGE_RECOGNITION_RETRY, "重复识别备用模型")
+    validate_override(AI_TASK_CAPTCHA, "验证码识别")
+    return payload
+
+
 @router.post("/recognize-direct")
 def recognize_direct(
     req: RecognizeDirectRequest,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role == "student":
-        plan = current_user.capabilities.get("plan", "free")
-        if plan == "free":
-            raise HTTPException(status_code=403, detail="此功能需要 Plus 或 Pro 套餐")
+    if current_user.role == "student" and not can_use_image_recognition(current_user):
+        raise HTTPException(status_code=403, detail="此功能需要 Plus 或 Pro 套餐")
 
     if req.submission_id:
         submission = session.get(Submission, req.submission_id)
@@ -107,13 +199,27 @@ def recognize_direct(
         AI_TASK_IMAGE_RECOGNITION,
         recognition_attempt=recognition_attempt,
     )
-    task = recognize_images_task.delay(
+    recognition_node_ids = None
+    recognition_extra_prompt = None
+    if req.image_ref:
+        from services.experimentConfigStore import get_experiment_config, find_ai_recognition_group
+        exp_config = get_experiment_config(req.experiment_id)
+        group = find_ai_recognition_group(exp_config or {}, req.image_ref)
+        if not group:
+            raise HTTPException(status_code=400, detail=f"Unknown recognition image_ref: {req.image_ref}")
+        recognition_node_ids = group.get("nodeIds") or []
+        recognition_extra_prompt = group.get("extraPrompt", "")
+
+    task_args = [
         req.experiment_id,
         req.image_paths,
         current_user.id,
         req.submission_id,
         recognition_attempt,
-    )
+    ]
+    if recognition_node_ids is not None or recognition_extra_prompt is not None:
+        task_args.extend([recognition_node_ids, recognition_extra_prompt])
+    task = recognize_images_task.delay(*task_args)
     start_ai_task_run(
         session,
         task_id=task.id,
@@ -127,6 +233,8 @@ def recognize_direct(
             "submission_id": req.submission_id,
             "image_count": len(req.image_paths or []),
             "recognition_attempt": recognition_attempt,
+            "image_ref": req.image_ref,
+            "recognition_node_ids": recognition_node_ids,
             "model": profile.model,
             "model_timeout_seconds": profile.timeout_seconds,
         },
@@ -148,7 +256,7 @@ def generate_answer_direct(
     current_user: User = Depends(get_current_user)
 ):
     if current_user.role == "student":
-        plan = current_user.capabilities.get("plan", "free")
+        plan = user_plan(current_user)
         if plan == "free":
             raise HTTPException(status_code=403, detail="此功能需要 Plus 或 Pro 套餐")
 
@@ -199,10 +307,8 @@ def get_fixed_fill_direct(
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
 ):
-    if current_user.role == "student":
-        plan = current_user.capabilities.get("plan", "free")
-        if plan in ["free", "plus"]:
-            raise HTTPException(status_code=403, detail="此功能需要 Pro 套餐")
+    if current_user.role == "student" and not can_use_fixed_fill(current_user):
+        raise HTTPException(status_code=403, detail="此功能需要 Pro 套餐")
 
     submission_id = req.submission_id if req else None
     if submission_id:
@@ -238,8 +344,16 @@ def get_fixed_fill_direct(
 @router.get("/task/{task_id}")
 def get_task_status(
     task_id: str,
+    session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ):
+    task_run = session.get(AiTaskRun, task_id)
+    if not task_run:
+        if current_user.role not in ["admin", "reviewer"]:
+            raise HTTPException(status_code=404, detail="Task not found")
+    elif current_user.role == "student" and task_run.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
     task_result = celery_app.AsyncResult(task_id)
     
     if task_result.state == 'SUCCESS':
@@ -251,6 +365,13 @@ def get_task_status(
         if current_user.role not in ["admin", "reviewer"]:
             error_msg = "处理失败，请稍后重试"
         return {"status": "error", "message": error_msg}
+    if task_result.state == 'PROGRESS':
+        meta = task_result.info if isinstance(task_result.info, dict) else {}
+        return {
+            "status": "progress",
+            "state": task_result.state,
+            **meta,
+        }
     return {"status": "pending", "state": task_result.state}
 
 @router.post("/recognize/{submission_id}")
@@ -288,6 +409,80 @@ def get_submission_status(
         
     return {"status": submission.status, "recognition_json": submission.recognition_json}
 
+
+def _image_assignment_experiments(
+    session: Session,
+    current_user: User,
+    experiment_ids: Optional[List[str]] = None,
+) -> List[Experiment]:
+    from api.v1.experiments import experiment_visible_to_user
+
+    statement = select(Experiment).where(Experiment.id != "UPGRADE_PLAN")
+    target_ids = [
+        str(item).strip()
+        for item in (experiment_ids or [])
+        if str(item or "").strip()
+    ]
+    if target_ids:
+        statement = statement.where(Experiment.id.in_(target_ids))
+    experiments = session.exec(statement).all()
+    return [
+        experiment
+        for experiment in experiments
+        if experiment.config_json and experiment_visible_to_user(experiment, current_user)
+    ]
+
+
+@router.post("/experiment-image-auto-match-task")
+def auto_match_experiment_images_task_endpoint(
+    req: ImageAssignmentRequest,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    from core.image_assignment_prompts import build_image_assignment_candidates
+
+    images = [item.model_dump() for item in req.images]
+    if not images:
+        raise HTTPException(status_code=400, detail="请先上传需要匹配的图片。")
+    experiments = _image_assignment_experiments(session, current_user, req.experiment_ids)
+    candidates, candidate_map = build_image_assignment_candidates(experiments)
+    if not candidates:
+        raise HTTPException(status_code=400, detail="当前没有可匹配的实验图片槽。")
+
+    profile = get_ai_provider(session).get_profile(
+        AI_TASK_EXPERIMENT_IMAGE_AUTO_MATCH,
+        recognition_attempt=1,
+    )
+    task = auto_match_experiment_images_task.delay(
+        images,
+        candidates,
+        candidate_map,
+        current_user.id,
+    )
+    start_ai_task_run(
+        session,
+        task_id=task.id,
+        user_id=current_user.id,
+        task_kind="experiment_image_auto_match",
+        target_id="experiment_image_auto_match",
+        details={
+            "image_count": len(images),
+            "experiment_ids": req.experiment_ids,
+            "candidate_experiment_count": len(candidates),
+            "candidate_slot_count": sum(len(item.get("slots") or []) for item in candidates),
+            "model": profile.model,
+            "model_timeout_seconds": profile.timeout_seconds,
+        },
+    )
+    session.commit()
+    return {
+        "task_id": task.id,
+        "poll_timeout_seconds": poll_timeout_seconds(profile.timeout_seconds),
+        "poll_interval_ms": 2000,
+        "audit_target_id": "experiment_image_auto_match",
+        "model": profile.model,
+    }
+
 # --- Admin Configuration ---
 
 @router.get("/admin/config")
@@ -310,7 +505,6 @@ def get_ai_config(
         "auto_recognize": config.auto_recognize,
         "image_recognition_model": config.image_recognition_model,
         "image_recognition_retry_enabled": config.image_recognition_retry_enabled,
-        "image_recognition_retry_model": config.image_recognition_retry_model,
         "image_recognition_timeout_seconds": config.image_recognition_timeout_seconds,
         "image_recognition_temperature": config.image_recognition_temperature,
         "image_recognition_max_images_per_task": config.image_recognition_max_images_per_task,
@@ -321,6 +515,7 @@ def get_ai_config(
         "captcha_timeout_seconds": config.captcha_timeout_seconds,
         "captcha_temperature": config.captcha_temperature,
         "captcha_prompt": config.captcha_prompt,
+        "task_overrides_json": _merged_task_overrides_json(config),
     }
 
 
@@ -335,8 +530,7 @@ def update_ai_config(
 
     config = session.get(AiConfig, 1) or AiConfig(id=1)
     payload = req.model_dump()
-    retry_model = str(payload.get("image_recognition_retry_model") or "").strip()
-    payload["image_recognition_retry_model"] = retry_model or None
+    payload.pop("task_overrides_json", None)
     for field, value in payload.items():
         setattr(config, field, value)
     config.updated_at = get_utc_now()
@@ -354,6 +548,32 @@ def update_ai_config(
     )
     session.commit()
     return get_ai_config(session=session, current_user=current_user)
+
+
+@router.put("/admin/task-overrides")
+def update_ai_task_overrides(
+    req: AiTaskOverridesUpdate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_admin),
+):
+    config = ensure_ai_config(session)
+    payload = _validate_task_overrides_json(req.task_overrides_json)
+    config.task_overrides_json = payload
+    config.updated_at = get_utc_now()
+    config.updated_by = current_user.id
+    session.add(config)
+    session.add(AuditLog(
+        user_id=current_user.id,
+        action="ai_task_overrides_updated",
+        status="success",
+        target_id=str(config.id),
+        details="Updated admin-only AI task override JSON.",
+    ))
+    session.commit()
+    session.refresh(config)
+    return {
+        "task_overrides_json": _merged_task_overrides_json(config),
+    }
 
 
 @router.post("/admin/test-connection", response_model=AiConnectionTestResponse)
@@ -544,4 +764,21 @@ def preview_prompt_template(
     return PreviewPromptResponse(
         recognition_prompt=recognition_prompt,
         generation_prompt=generation_prompt
+    )
+
+
+@router.get("/admin/experiment-image-auto-match/preview", response_model=ImageAssignmentPreviewResponse)
+def preview_experiment_image_auto_match_prompt(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_admin),
+):
+    from core.image_assignment_prompts import build_image_assignment_candidates, build_image_assignment_prompt
+
+    experiments = _image_assignment_experiments(session, current_user)
+    candidates, candidate_map = build_image_assignment_candidates(experiments)
+    prompt = build_image_assignment_prompt(candidates, image_count=3)
+    return ImageAssignmentPreviewResponse(
+        prompt=prompt,
+        candidates=candidates,
+        candidate_map=candidate_map,
     )

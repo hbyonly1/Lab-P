@@ -69,10 +69,42 @@ def can_retry_job(job: AutomationJob) -> bool:
     return job.error_code not in BLOCKING_RETRY_ERRORS
 
 
+def _field_write_diagnostic_summary(result_payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    field_report = (result_payload or {}).get("fieldWriteReport")
+    if not isinstance(field_report, dict):
+        return None
+    failed_items = []
+    for bucket in ["failedFields", "unsupportedFields", "missingFields"]:
+        for item in field_report.get(bucket) or []:
+            if not isinstance(item, dict):
+                continue
+            failed_items.append(
+                {
+                    "nodeId": item.get("nodeId"),
+                    "selector": item.get("selector") or item.get("targetLocator"),
+                    "targetType": item.get("targetType"),
+                    "reason": item.get("reason"),
+                    "stage": item.get("stage"),
+                    "error": item.get("error") or item.get("message"),
+                }
+            )
+    if not failed_items:
+        return None
+    return {
+        "type": "field_write_report",
+        "failedCount": len(failed_items),
+        "failedFields": failed_items[:12],
+    }
+
+
 def public_job_data(job: AutomationJob) -> Dict[str, Any]:
     params = public_message_params(job.public_message_params)
     if job.status == "failed" and "reason" not in params:
         params["reason"] = job.error_code or "UNKNOWN_ERROR"
+    if job.status == "failed":
+        diagnostic_summary = _field_write_diagnostic_summary(job.result_payload or {})
+        if diagnostic_summary:
+            params["diagnosticSummary"] = diagnostic_summary
 
     return {
         "jobId": job.id,
@@ -130,6 +162,14 @@ def create_or_reuse_automation_job(
         existing_fingerprint = (existing.request_payload or {}).get("_payload_fingerprint")
         if existing_fingerprint and existing_fingerprint != payload_fingerprint:
             raise AutomationJobConflict("IDEMPOTENCY_CONFLICT", existing)
+        if public_message_params:
+            existing.public_message_params = {
+                **(existing.public_message_params or {}),
+                **public_message_params,
+            }
+            existing.updated_at = get_utc_now()
+            session.add(existing)
+            session.flush()
         return existing, False
 
     if enforce_single_user_active_job:

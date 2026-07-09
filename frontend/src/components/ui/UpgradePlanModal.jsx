@@ -1,24 +1,32 @@
 import React, { useState } from 'react';
 import { Modal, Button, Tag, Space, message } from 'antd';
 import { CheckOutlined, CloseOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import { createOrder } from '../../services/ordersApi.js';
-import { PLAN_PRICES } from '../../constants/pricing.js';
+import { quoteCheckout, submitCheckout } from '../../services/checkoutApi.js';
 
 export function UpgradePlanModal({ open, onClose, plans = [], currentPlan }) {
   const [showQR, setShowQR] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState('');
+  const [selectedPlanKey, setSelectedPlanKey] = useState('');
+  const [quotes, setQuotes] = useState({});
 
   // 每次打开弹窗重置状态
   React.useEffect(() => {
     if (open) {
       setShowQR(false);
       const defaultPlanObj = plans.find(p => p.key === currentPlan);
-      setSelectedPlan(defaultPlanObj ? defaultPlanObj.name : '');
+      setSelectedPlanKey(defaultPlanObj ? defaultPlanObj.key : '');
+      Promise.all([
+        quoteCheckout({ plan: 'plus', experiments: [] }),
+        quoteCheckout({ plan: 'pro', experiments: [] }),
+      ]).then(([plus, pro]) => {
+        setQuotes({ plus, pro });
+      }).catch(() => {
+        setQuotes({});
+      });
     }
   }, [open, currentPlan, plans]);
 
-  const handleUpgradeClick = (planName) => {
-    setSelectedPlan(planName);
+  const handleUpgradeClick = (planKey) => {
+    setSelectedPlanKey(planKey);
     setShowQR(true);
   };
 
@@ -31,18 +39,22 @@ export function UpgradePlanModal({ open, onClose, plans = [], currentPlan }) {
   };
 
   const renderQRState = () => {
-    const selectedPlanObj = plans.find(p => p.name === selectedPlan);
-    const price = selectedPlanObj ? PLAN_PRICES[selectedPlanObj.key] : 0;
+    const selectedPlanObj = plans.find(p => p.key === selectedPlanKey);
+    const selectedQuote = quotes[selectedPlanKey];
+    const price = Number(selectedQuote?.total_amount || 0).toFixed(2);
 
     return (
       <div style={{ textAlign: 'center', padding: '40px 20px', maxWidth: '500px', margin: '0 auto', background: '#fff', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-        <h3 style={{ fontSize: '24px', fontWeight: 600, marginBottom: '8px' }}>扫码升级至 {selectedPlan}</h3>
+        <h3 style={{ fontSize: '24px', fontWeight: 600, marginBottom: '8px' }}>扫码升级至 {selectedPlanObj?.name || selectedPlanKey}</h3>
         <div style={{ fontSize: '20px', color: '#1677ff', fontWeight: 500, marginBottom: '24px' }}>
           您需支付 ¥{price} 元
         </div>
-        <div style={{ width: '200px', height: '200px', background: '#f0f2f5', margin: '0 auto 24px auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #d9d9d9', borderRadius: '8px' }}>
-          {/* 这里先用占位，之后可以替换为实际图片 src="/assets/wechat-pay.png" */}
-          <span style={{ color: '#8c8c8c' }}>微信收款码占位图</span>
+        <div style={{ width: '220px', height: '220px', background: '#fff', margin: '0 auto 24px auto', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #d9d9d9', borderRadius: '8px', padding: '10px' }}>
+          <img
+            src="/assets/payment/pay.jpg"
+            alt="收款码"
+            style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+          />
         </div>
         <p style={{ fontSize: '16px', color: '#1a1a1a', fontWeight: 500, marginBottom: '12px' }}>
           请备注您的学号
@@ -56,9 +68,11 @@ export function UpgradePlanModal({ open, onClose, plans = [], currentPlan }) {
           </Button>
           <Button type="primary" onClick={async () => {
             try {
-              await createOrder({ 
-                experiment_id: "UPGRADE_PLAN", 
-                plan: selectedPlan.toLowerCase() 
+              await submitCheckout({
+                plan: selectedPlanKey,
+                experiments: [],
+                isHungup: true,
+                clientRequestId: `PLAN-${selectedPlanKey}-${Date.now()}`,
               });
               onClose();
               Modal.info({ 
@@ -94,7 +108,7 @@ export function UpgradePlanModal({ open, onClose, plans = [], currentPlan }) {
           const isCurrent = plan.key === currentPlan;
           const isPro = plan.key === 'pro';
           const meta = planMeta[plan.key] || { level: 0 };
-          const planPrice = PLAN_PRICES[plan.key] || 0;
+          const planPrice = quotes[plan.key]?.total_amount;
           const isLowerLevel = meta.level < currentLevel;
 
           let btnText = `升级至 ${plan.name}`;
@@ -124,7 +138,11 @@ export function UpgradePlanModal({ open, onClose, plans = [], currentPlan }) {
                 )}
               </h3>
               <div className="price">
-                <span className="price-prefix">￥</span>{planPrice}<span>{plan.key === 'pay_per_use' ? '/次' : '/人'}</span>
+                {plan.key === 'pay_per_use' ? (
+                  <>按实验计价<span>/次</span></>
+                ) : (
+                  <><span className="price-prefix">￥</span>{Number(planPrice || 0).toFixed(2)}<span>/人</span></>
+                )}
               </div>
               <div className="desc">
                 {plan.description}
@@ -135,7 +153,7 @@ export function UpgradePlanModal({ open, onClose, plans = [], currentPlan }) {
                 type={isPrimary ? "primary" : "default"}
                 style={isDisabled ? {} : (!isPrimary ? { border: '1px solid #d9d9d9', color: '#333' } : {})}
                 disabled={isDisabled}
-                onClick={() => !isDisabled && handleUpgradeClick(plan.name)}
+                onClick={() => !isDisabled && handleUpgradeClick(plan.key)}
               >
                 {btnText}
               </Button>
@@ -175,7 +193,7 @@ export function UpgradePlanModal({ open, onClose, plans = [], currentPlan }) {
       footer={
         !showQR && (
           <div style={{ textAlign: 'center', marginTop: '16px', color: '#8c8c8c' }}>
-            不想购买套餐？您可以在带有皇冠标识的一键提交操作时选择低至 ¥8/次的单次付费。
+            不想购买套餐？您可以在带有皇冠标识的一键提交操作时选择按实验计价的单次付费。
           </div>
         )
       }

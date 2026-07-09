@@ -78,19 +78,19 @@
       },
       {
         "id": "S23-0",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "S23-1",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "S24-0",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "S24-1",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "S2220-0",
@@ -118,83 +118,99 @@
       },
       {
         "id": "S2223-0",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "S2223-1",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "S2224-0",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "S2224-1",
-        "type": "ai_recognize"
+        "type": "computed"
       },
       {
         "id": "S4",
-        "type": "computed"
+        "type": "ai_recognize",
+        "recognitionHint": "三线摆悬盘转动惯量 J0，单位 Kg×m²，只返回数值。"
       },
       {
         "id": "S5",
-        "type": "computed"
+        "type": "ai_recognize",
+        "recognitionHint": "三线摆悬盘加圆环转动惯量 J1，单位 Kg×m²，只返回数值。"
       },
       {
         "id": "S6",
-        "type": "computed"
+        "type": "ai_recognize",
+        "recognitionHint": "三线摆圆环转动惯量 J圆环，单位 Kg×m²，只返回数值。"
       },
       {
         "id": "S7",
-        "type": "computed"
+        "type": "ai_recognize",
+        "recognitionHint": "扭摆钢丝切变模量 G，单位按 ×10¹⁰ Pa，只返回数值。"
       },
       {
         "id": "OP1_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "B"
       },
       {
         "id": "OP2_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "D"
       },
       {
         "id": "OP3_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "B"
       },
       {
         "id": "OP4_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "A"
       },
       {
         "id": "OP5_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "B"
       },
       {
         "id": "OP6_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "B"
       },
       {
         "id": "OP7_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "C"
       },
       {
         "id": "OP8_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "B"
       },
       {
         "id": "OP9_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "C"
       },
       {
         "id": "OP11_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "ABCD"
       },
       {
         "id": "OP22_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "ABCD"
       },
       {
         "id": "OP33_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "ABC"
       }
     ]
   },
@@ -994,7 +1010,45 @@
       "imageRef": "IMG_RAW_DATA"
     }
   },
-  "formulas": {},
+  "formulas": {
+    "S23-0": "format_fixed(mean(v('S20-0','S21-0','S22-0')), 2)",
+    "S23-1": "format_fixed(mean(v('S20-1','S21-1','S22-1')), 2)",
+    "S24-0": "format_fixed(mean(v('S20-0','S21-0','S22-0')) / 30, 3)",
+    "S24-1": "format_fixed(mean(v('S20-1','S21-1','S22-1')) / 30, 3)",
+    "S2223-0": "format_fixed(mean(v('S2220-0','S2221-0','S2222-0')), 2)",
+    "S2223-1": "format_fixed(mean(v('S2220-1','S2221-1','S2222-1')), 2)",
+    "S2224-0": "format_fixed(mean(v('S2220-0','S2221-0','S2222-0')) / 30, 3)",
+    "S2224-1": "format_fixed(mean(v('S2220-1','S2221-1','S2222-1')) / 30, 3)"
+  },
+  "referenceValueCheck": {
+    "enabled": true,
+    "label": "按典型参考值检查",
+    "items": [
+      {
+        "id": "three_line_ring_inertia_sigfig",
+        "title": "圆环转动惯量 J圆环有效数字",
+        "nodeId": "S6",
+        "type": "numeric_precision",
+        "requiredSignificantDigits": 4
+      },
+      {
+        "id": "torsion_wire_shear_modulus_typical",
+        "title": "钢丝切变模量 G",
+        "nodeId": "S7",
+        "type": "relative_error_percent",
+        "referenceValue": 7.93,
+        "referenceUnit": "10¹⁰ Pa",
+        "referenceSource": "钢材典型切变模量约 7.93×10¹⁰ Pa，非学校评分标准。",
+        "requiredSignificantDigits": 3,
+        "ranges": [
+          { "min": 0, "max": 10, "level": "good", "label": "与钢材典型切变模量接近" },
+          { "min": 10, "max": 25, "level": "warning", "label": "相对钢材典型切变模量偏差较大" },
+          { "min": 25, "level": "danger", "label": "相对钢材典型切变模量明显异常" }
+        ]
+      }
+    ],
+    "notes": ["按材料典型值和题干明确格式要求做合理性提示，不计入学校评分。三线摆转动惯量依赖具体仪器与样品，未配置典型值。"]
+  },
   "automation": {
     "mappings": [
       {

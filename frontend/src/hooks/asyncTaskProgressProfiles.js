@@ -13,6 +13,13 @@ export const ASYNC_TASK_PROGRESS_PROFILES = {
     { afterSeconds: 60, percent: 78, message: '模型仍在处理，识别完成后会自动回填，可继续编辑其他内容...' },
     { afterSeconds: 120, percent: 88, message: '本次识别耗时较长，后台任务仍在运行，请保持页面打开或稍后查看日志。' },
   ],
+  imageAutoMatch: [
+    { afterSeconds: 0, percent: 18, message: '图片预匹配任务已提交...' },
+    { afterSeconds: 6, percent: 34, message: '正在读取上传图片并对照候选实验...' },
+    { afterSeconds: 18, percent: 52, message: '正在判断图片对应的实验和图片槽...' },
+    { afterSeconds: 40, percent: 72, message: '模型仍在匹配图片，完成后会自动切回确认界面...' },
+    { afterSeconds: 90, percent: 86, message: '本次匹配耗时较长，后台任务仍在运行，请保持页面打开。' },
+  ],
   answerGeneration: [
     { afterSeconds: 0, percent: 18, message: '生成回答任务已提交...' },
     { afterSeconds: 8, percent: 38, message: '正在结合当前实验数据生成回答...' },

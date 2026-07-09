@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from api.v1 import auth, orders, submissions, files, audit, ai, experiments, feedback, automation_config, automation_jobs, school_sync
+from api.v1 import auth, orders, submissions, files, audit, ai, experiments, feedback, automation_config, automation_jobs, school_sync, checkout, admin_students
 from core.config import settings
 import os
 from contextlib import asynccontextmanager
@@ -55,16 +54,16 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Set all CORS enabled origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # For dev only, restrict in production
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
+app.include_router(checkout.router, prefix=f"{settings.API_V1_STR}/checkout", tags=["checkout"])
 app.include_router(orders.router, prefix=f"{settings.API_V1_STR}/orders", tags=["orders"])
 app.include_router(submissions.router, prefix=f"{settings.API_V1_STR}/submissions", tags=["submissions"])
 app.include_router(files.router, prefix=f"{settings.API_V1_STR}/files", tags=["files"])
@@ -73,11 +72,11 @@ app.include_router(ai.router, prefix=f"{settings.API_V1_STR}/ai", tags=["ai"])
 app.include_router(experiments.router, prefix=f"{settings.API_V1_STR}/experiments", tags=["experiments"])
 app.include_router(feedback.router, prefix=f"{settings.API_V1_STR}/feedback", tags=["feedback"])
 app.include_router(automation_config.router, prefix=f"{settings.API_V1_STR}/admin/automation-config", tags=["automation-config"])
+app.include_router(admin_students.router, prefix=f"{settings.API_V1_STR}/admin/students", tags=["admin-students"])
 app.include_router(automation_jobs.router, prefix=f"{settings.API_V1_STR}/automation-jobs", tags=["automation-jobs"])
 app.include_router(school_sync.router, prefix=f"{settings.API_V1_STR}/school-sync", tags=["school-sync"])
 
 os.makedirs("uploads", exist_ok=True)
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 @app.get("/")
 def root():

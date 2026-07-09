@@ -70,10 +70,11 @@ def default_automation_config() -> Dict[str, Any]:
                 "reportTableRows": "tbody[data-bind='foreach: CompleteReportList'] tr",
             },
             "reportList": {
-                "_comment": "列表同步只保存实验名和提交状态；其它列暂不入库。",
+                "_comment": "列表同步保存实验名、提交状态和成绩；成绩列有数字时展示为已评分。",
                 "columns": {
                     "experimentName": 0,
                     "status": 6,
+                    "score": 7,
                 },
                 "openReportButtonText": "完成报告",
             },
@@ -113,6 +114,12 @@ def default_automation_config() -> Dict[str, Any]:
             "autoLoadDetailForInternalUser": False,
             "listCacheTtlSeconds": 600,
             "syncCooldownSeconds": 1800,
+        },
+        "oneClick": {
+            "_comment": "一键批量提交前端策略。融合图片上传只负责 AI 辅助匹配图片槽，最终提交仍由后端 checkout 校验。",
+            "fusedImageUploadAiEnabled": False,
+            "fusedImageAutoConfirmEnabled": True,
+            "preprocessAutoComputeEnabled": False,
         },
         "retryPolicy": {
             "captchaMaxRetries": 3,
@@ -182,6 +189,14 @@ def validate_config_payload(config_json: Dict[str, Any]) -> None:
             raise HTTPException(status_code=422, detail=f"syncPolicy.{field} is required.")
         if not isinstance(sync_policy.get(field), bool):
             raise HTTPException(status_code=422, detail=f"syncPolicy.{field} must be boolean.")
+
+    one_click = config_json.get("oneClick") or {}
+    if "fusedImageUploadAiEnabled" in one_click and not isinstance(one_click.get("fusedImageUploadAiEnabled"), bool):
+        raise HTTPException(status_code=422, detail="oneClick.fusedImageUploadAiEnabled must be boolean.")
+    if "fusedImageAutoConfirmEnabled" in one_click and not isinstance(one_click.get("fusedImageAutoConfirmEnabled"), bool):
+        raise HTTPException(status_code=422, detail="oneClick.fusedImageAutoConfirmEnabled must be boolean.")
+    if "preprocessAutoComputeEnabled" in one_click and not isinstance(one_click.get("preprocessAutoComputeEnabled"), bool):
+        raise HTTPException(status_code=422, detail="oneClick.preprocessAutoComputeEnabled must be boolean.")
 
     runtime = config_json.get("runtime") or {}
     if "keepBrowserOpenAfterLogin" not in runtime:

@@ -76,6 +76,10 @@
 
 这里的 `slope` / `intercept` 是线性模型的通用参数名，不是页面专用字段；参数值通过 `{ "nodeId": "D7" }` 绑定到已计算节点，保证图例和页面中的 `k`、`b` 完全一致。
 
+曲线图坐标轴支持两种来源：`nodes` 表示从表单节点读取数据，`values` 表示配置内固定常量数组。图层支持 `scatter`、`polyline` 和带 `model.type=linear` 的 `line`；固定刻度来自 PPT 时优先写 `values`，不要为了画图把固定刻度交给 AI 识别。
+
+当学校要求“用 Excel 生成曲线截图”但系统最终只需上传图片时，可使用 `generator: "excel_style_chart"`。它仍由前端 Canvas 生成 PNG，但按 Excel 图表样式渲染：白底、浅灰主网格、黑色绘图区外框、右上图例、固定刻度和可配置阈值虚线。配置中用 `xAxis.ticks` / `yAxis.ticks` 控制显示刻度，用 `referenceLines` 声明 90%、10% 这类横向虚线。
+
 ### 2.3 动态数据表格 (`ui.dataTable`)
 用于生成底部实验处理区。必须按行 (`rows`)、列 (`cells`) 提供标准数据，前端解析器会自动处理跨行或 LaTeX 公式表头（如带有下标的 $I_x$）。表头、行名、固定刻度必须写入 `cell.text`，不要用空 `{}` 占位导致页面只剩输入框和节点标记。
 

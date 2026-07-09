@@ -317,6 +317,49 @@
     "DBGZ3": "format_fixed(-linear_intercept(reciprocal(v('DBGZ10-0', 'DBGZ10-1', 'DBGZ10-2', 'DBGZ10-3', 'DBGZ10-4', 'DBGZ10-5', 'DBGZ10-6', 'DBGZ10-7')), v(200, 400, 600, 800, 2000, 4000, 6000, 8000)), 1)",
     "DBGZ4": "format_sig(linear_r2(reciprocal(v('DBGZ10-0', 'DBGZ10-1', 'DBGZ10-2', 'DBGZ10-3', 'DBGZ10-4', 'DBGZ10-5', 'DBGZ10-6', 'DBGZ10-7')), v(200, 400, 600, 800, 2000, 4000, 6000, 8000)), 3)"
   },
+  "scoreCheck": {
+    "enabled": true,
+    "source": "assets/complete_saves_teacher/21_电表的改装.html",
+    "totalScore": 10,
+    "computableScore": 3,
+    "items": [
+      {
+        "id": "meter_fit_ek",
+        "title": "拟合参数 E/k",
+        "nodeId": "DBGZ2",
+        "type": "numeric_range",
+        "maxScore": 1,
+        "metricLabel": "E/k",
+        "ranges": [
+          { "min": 90000, "max": 110000, "score": 1 }
+        ]
+      },
+      {
+        "id": "meter_fit_rs",
+        "title": "拟合参数 Rs",
+        "nodeId": "DBGZ3",
+        "type": "numeric_range",
+        "maxScore": 1,
+        "metricLabel": "Rs",
+        "ranges": [
+          { "min": 950, "max": 1050, "score": 1 }
+        ]
+      },
+      {
+        "id": "meter_fit_r2",
+        "title": "拟合相关系数 R²",
+        "nodeId": "DBGZ4",
+        "type": "numeric_range",
+        "maxScore": 1,
+        "metricLabel": "R²",
+        "requiredSignificantDigits": 3,
+        "ranges": [
+          { "min": 0.99, "max": 1, "score": 0.5, "label": "0.990≤R²≤1.00" }
+        ]
+      }
+    ],
+    "notes": ["仅检查教师 HTML 中明确给出数值区间或有效数字要求的项目。"]
+  },
   "automation": {
     "submitLocator": "a:has-text('提交')",
     "mappings": [

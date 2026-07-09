@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Button, Input, Modal, Upload, message, Spin } from 'antd';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button, Input, Modal, Upload, message, Spin, Table, Popover, Tag, Space } from 'antd';
 import {
   ArrowLeftOutlined,
+  CheckCircleOutlined,
   CloudUploadOutlined,
   CrownOutlined,
+  QuestionCircleOutlined,
   SaveOutlined,
   SendOutlined,
   CalculatorOutlined,
@@ -11,7 +13,9 @@ import {
   ZoomOutOutlined,
   ReloadOutlined,
   CameraOutlined,
-  FormOutlined
+  FormOutlined,
+  FileZipOutlined,
+  UpOutlined
 } from '@ant-design/icons';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { buildExperimentConfig, initFixedValues } from '../../../services/experimentConfigStore.js';
@@ -28,19 +32,113 @@ import {
   getSchoolExperimentDetailLatest,
   getSchoolSubmissionExperimentDetailLatest,
   getSchoolSyncSettings,
+  startSchoolExperimentReportScreenshot,
   startSchoolExperimentDetailSync,
   startSchoolExperimentSubmit,
+  startSchoolSubmissionExperimentReportScreenshot,
   startSchoolSubmissionExperimentDetailSync,
 } from '../../../services/schoolSyncApi.js';
-import { getActiveAutomationJobs } from '../../../services/automationJobsApi.js';
+import { getActiveAutomationJobs, getAutomationJobScreenshotBlob } from '../../../services/automationJobsApi.js';
 import { ReviewerNodeHint } from '../../../components/experiment/ReviewerNodeHint.jsx';
 import { submitOneClickExperimentBatch } from '../../../utils/oneClickSubmitUtils.js';
 import { generateComputedImageAssets } from '../../../utils/computedAssetsUtils.js';
+import { getApiErrorMessage } from '../../../utils/apiErrorUtils.js';
+import { formatStudentTaskTitle, resolveStudentNo } from '../../../utils/studentDisplayUtils.js';
 import { useAsyncTaskRunner } from '../../../hooks/useAsyncTaskRunner.js';
+import { useWorkspaceAsyncTaskRunner } from '../../../hooks/AsyncTaskRunnerContext.jsx';
 import { ASYNC_TASK_PROGRESS_PROFILES, getAsyncTaskProgressStage } from '../../../hooks/asyncTaskProgressProfiles.js';
 import { useSubmissionDraftAutosave } from '../../../hooks/useSubmissionDraftAutosave.js';
+import { imageUrlToFile } from '../../../components/experiment/ExperimentImageUploader.jsx';
 
 // Extracted components are imported from components/experiment/index.js
+
+const OSCILLOSCOPE_EXPERIMENT_ID = 'exp_oscilloscope';
+const IMAGE_COMPRESSOR_EXPERIMENT_IDS = new Set([
+  OSCILLOSCOPE_EXPERIMENT_ID,
+  'exp_liquid_crystal_0625',
+]);
+const SCHOOL_REPORT_TARGET_BYTES = 18 * 1024 * 1024;
+const MIN_COMPRESSED_IMAGE_BYTES = 650 * 1024;
+const MAX_COMPRESSED_IMAGE_BYTES = 3 * 1024 * 1024;
+
+const normalizedPlan = (plan) => String(plan || 'free').trim().toLowerCase();
+const canUseImageRecognitionByPlan = (plan, isInternalUser) => (
+  isInternalUser || ['plus', 'pro'].includes(normalizedPlan(plan))
+);
+const canUseFormulaComputeByPlan = canUseImageRecognitionByPlan;
+const canUseFixedFillByPlan = (plan, isInternalUser) => (
+  isInternalUser || normalizedPlan(plan) === 'pro'
+);
+
+const canvasToBlob = (canvas, type, quality) => new Promise((resolve, reject) => {
+  canvas.toBlob((blob) => {
+    if (blob) resolve(blob);
+    else reject(new Error('图片压缩失败'));
+  }, type, quality);
+});
+
+const formatFileSize = (bytes) => {
+  const size = Number(bytes || 0);
+  if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)}MB`;
+  return `${Math.max(1, Math.round(size / 1024))}KB`;
+};
+
+async function compressImageFile(file, targetBytes) {
+  if (!(file instanceof Blob)) {
+    throw new Error('图片文件格式不可压缩，请重新上传该图片后再试');
+  }
+  if (file.size <= targetBytes * 0.92) return file;
+
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const sourceWidth = bitmap.width;
+  const sourceHeight = bitmap.height;
+  const maxSourceSide = Math.max(sourceWidth, sourceHeight);
+  let scale = Math.min(1, 2200 / maxSourceSide);
+  let quality = 0.86;
+  let blob = null;
+
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+    canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+    blob = await canvasToBlob(canvas, 'image/jpeg', quality);
+    if (blob.size <= targetBytes) break;
+
+    if (quality > 0.52) {
+      quality = Math.max(0.46, quality - 0.1);
+    } else {
+      scale = Math.max(0.35, scale * 0.82);
+    }
+  }
+
+  bitmap.close?.();
+
+  const baseName = file.name?.replace(/\.[^.]+$/, '') || 'image';
+  return new File([blob], `${baseName}-compressed.jpg`, { type: 'image/jpeg' });
+}
+
+async function resolveCompressSourceFile(item, fallbackName) {
+  const candidates = [
+    item?.originFileObj,
+    item?.originFileObj?.originFileObj,
+    item?.file,
+    item?.file?.originFileObj,
+  ];
+  const blob = candidates.find((candidate) => candidate instanceof Blob);
+  if (blob) {
+    return blob instanceof File
+      ? blob
+      : new File([blob], fallbackName, { type: blob.type || 'image/png' });
+  }
+  if (item?.url) {
+    return imageUrlToFile(item, fallbackName);
+  }
+  throw new Error('图片文件不可读取，请重新上传该图片后再压缩');
+}
 
 export default function StudentExperimentDetailPage() {
   const { experimentId } = useParams();
@@ -126,6 +224,36 @@ const unwrapSubmissionValues = (payload) => {
   return payload;
 };
 
+const splitCommaSeparatedImageSources = (value) => (
+  String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+);
+
+const parseSchoolImageSources = (rawValue) => {
+  if (Array.isArray(rawValue)) {
+    return rawValue.flatMap(parseSchoolImageSources);
+  }
+  if (rawValue && typeof rawValue === 'object') {
+    return parseSchoolImageSources(rawValue.url || rawValue.src || '');
+  }
+  const value = String(rawValue || '').trim();
+  if (!value) return [];
+
+  const dataImagePattern = /data:image\/[^,\s]+;base64,[A-Za-z0-9+/=]+/g;
+  const urls = [];
+  let lastIndex = 0;
+  let match;
+  while ((match = dataImagePattern.exec(value)) !== null) {
+    urls.push(...splitCommaSeparatedImageSources(value.slice(lastIndex, match.index)));
+    urls.push(match[0]);
+    lastIndex = match.index + match[0].length;
+  }
+  urls.push(...splitCommaSeparatedImageSources(value.slice(lastIndex)));
+  return urls;
+};
+
 const autosaveDisplayState = (status) => (status === 'idle' ? 'unsaved' : 'saved');
 
 export function ExperimentDetailView({ experiment, onBack, isReviewer = false, showNodeInspector = false, initialSubmission = null, initialImagePaths = [], initialImageSlots = {}, initialFormValues = null }) {
@@ -133,22 +261,34 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
   // 核心状态：所有的节点值都在这个 formValues 里
   const [formValues, setFormValues] = useState(() => initialFormValues || initFixedValues(experiment.inputs?.fields || []));
   const [isComputing, setIsComputing] = useState(false);
+  const [isScoreChecking, setIsScoreChecking] = useState(false);
+  const [scoreCheckResult, setScoreCheckResult] = useState(null);
+  const [isScoreCheckModalOpen, setIsScoreCheckModalOpen] = useState(false);
   const [isFilling, setIsFilling] = useState(false);
   const [isRecognizing, setIsRecognizing] = useState(false);
   const [isGeneratingAnswers, setIsGeneratingAnswers] = useState(false);
   const [currentPlan, setCurrentPlan] = useState('free');
   const [currentUserRole, setCurrentUserRole] = useState(isReviewer ? 'reviewer' : '');
+  const [currentUser, setCurrentUser] = useState(null);
   const [status, setStatus] = useState({ label: '待处理', tone: 'pending' });
   const [latestSubmission, setLatestSubmission] = useState(initialSubmission);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isSavingFinal, setIsSavingFinal] = useState(false);
+  const [isCompressingImages, setIsCompressingImages] = useState(false);
   const [automationJob, setAutomationJob] = useState(null);
   const [isAutomationModalOpen, setIsAutomationModalOpen] = useState(false);
   const [detailSyncJob, setDetailSyncJob] = useState(null);
   const [isDetailSyncModalOpen, setIsDetailSyncModalOpen] = useState(false);
   const [isStartingDetailSync, setIsStartingDetailSync] = useState(false);
+  const [schoolScreenshotJob, setSchoolScreenshotJob] = useState(null);
+  const [isSchoolScreenshotProgressOpen, setIsSchoolScreenshotProgressOpen] = useState(false);
+  const [isSchoolScreenshotModalOpen, setIsSchoolScreenshotModalOpen] = useState(false);
+  const [isStartingSchoolScreenshot, setIsStartingSchoolScreenshot] = useState(false);
+  const [schoolScreenshotUrl, setSchoolScreenshotUrl] = useState('');
+  const [loadedSchoolScreenshotJobId, setLoadedSchoolScreenshotJobId] = useState('');
   const [isFinalConfirmOpen, setIsFinalConfirmOpen] = useState(false);
   const [appliedDetailSyncJobId, setAppliedDetailSyncJobId] = useState(null);
+  const [backToTopBottom, setBackToTopBottom] = useState(82);
   const isInternalUser = isReviewer || ['admin', 'reviewer'].includes(currentUserRole);
   const {
     jobs: floatingJobs,
@@ -158,17 +298,107 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
     dismissJob,
     clearFinishedJobs,
     runCeleryTask,
+    runAutomationJob,
   } = useAsyncTaskRunner();
+  const workspaceTaskRunner = useWorkspaceAsyncTaskRunner();
+  const workspaceRunAutomationJob = workspaceTaskRunner?.runAutomationJob;
+
+  const submitAutomationSteps = useMemo(() => [
+    'school.submit.saving',
+    'school.submit.connecting',
+    'school.submit.opening',
+    'school.submit.filling',
+    'school.submit.verifying',
+    'school.submit.submitAction',
+    'school.submit.confirming',
+    'school.submit.readingStatus',
+    'school.submit.updatingPlatform',
+  ], []);
+
+  useEffect(() => {
+    const updateBackToTopPosition = () => {
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+
+      const floatingPanel = document.querySelector('.experiment-detail-page .async-job-floating-panel');
+      if (floatingPanel) {
+        const panelRect = floatingPanel.getBoundingClientRect();
+        const nextBottom = Math.max(74, Math.round(viewportHeight - panelRect.top + 12));
+        setBackToTopBottom(nextBottom);
+      } else {
+        setBackToTopBottom(82);
+      }
+    };
+
+    updateBackToTopPosition();
+    window.addEventListener('scroll', updateBackToTopPosition, { passive: true });
+    window.addEventListener('resize', updateBackToTopPosition);
+    const mutationObserver = new MutationObserver(updateBackToTopPosition);
+    mutationObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['class', 'style'],
+    });
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(updateBackToTopPosition)
+      : null;
+    resizeObserver?.observe(document.body);
+    return () => {
+      window.removeEventListener('scroll', updateBackToTopPosition);
+      window.removeEventListener('resize', updateBackToTopPosition);
+      mutationObserver.disconnect();
+      resizeObserver?.disconnect();
+    };
+  }, []);
+
+  const handleBackToTop = useCallback(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const trackSchoolSubmitJobInFloatingPanel = useCallback((job) => {
+    if (!job?.jobId) return;
+    const startAutomationJob = workspaceRunAutomationJob || runAutomationJob;
+    const studentNo = resolveStudentNo(
+      job,
+      latestSubmission,
+      initialSubmission,
+      currentUser,
+      job?.requestPayload,
+      job?.request_payload,
+    );
+    const title = formatStudentTaskTitle(studentNo, '提交', experiment.meta.name);
+    void startAutomationJob({
+      job,
+      jobKey: `school-submit-${job.jobId}`,
+      title,
+      description: job.action === 'final_submit' ? '正在后台执行正式提交' : '正在后台执行临时提交',
+      steps: submitAutomationSteps,
+      successMessage: job.action === 'final_submit' ? '正式提交完成，学校系统已更新。' : '临时提交完成，学校系统已更新。',
+      failureMessage: '学校系统提交失败。',
+      onSuccess: (finishedJob) => {
+        setStatus(finishedJob.action === 'final_submit'
+          ? { label: '正式提交完成', tone: 'green' }
+          : { label: '已临时提交', tone: 'blue' });
+      },
+      onFailure: () => {
+        setStatus({ label: '提交失败', tone: 'red' });
+      },
+    }).catch(() => null);
+  }, [currentUser, experiment.meta.name, initialSubmission, latestSubmission, runAutomationJob, submitAutomationSteps, workspaceRunAutomationJob]);
 
   const showDetailSyncJob = useCallback((job) => {
     if (['draft_submit', 'final_submit'].includes(job.action)) {
+      if (isInternalUser) {
+        trackSchoolSubmitJobInFloatingPanel(job);
+        return;
+      }
       setAutomationJob(job);
       setIsAutomationModalOpen(true);
     } else {
       setDetailSyncJob(job);
       setIsDetailSyncModalOpen(true);
     }
-  }, []);
+  }, [isInternalUser, trackSchoolSubmitJobInFloatingPanel]);
 
   const startDetailSyncJob = useCallback(async () => {
     if (isInternalUser && initialSubmission?.id) {
@@ -194,10 +424,69 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
     }
   }, [showDetailSyncJob, startDetailSyncJob]);
 
+  const startSchoolScreenshotJob = useCallback(async () => {
+    if (isInternalUser && initialSubmission?.id) {
+      return startSchoolSubmissionExperimentReportScreenshot(experiment.meta.id, initialSubmission.id);
+    }
+    return startSchoolExperimentReportScreenshot(experiment.meta.id);
+  }, [experiment.meta.id, initialSubmission?.id, isInternalUser]);
+
+  const showSchoolScreenshotJob = useCallback((job) => {
+    setSchoolScreenshotJob(job);
+    setIsSchoolScreenshotProgressOpen(true);
+  }, []);
+
+  const loadSchoolScreenshot = useCallback(async (job) => {
+    if (!job?.jobId || job.jobId === loadedSchoolScreenshotJobId) return;
+    try {
+      const blob = await getAutomationJobScreenshotBlob(job.jobId);
+      const objectUrl = URL.createObjectURL(blob);
+      setSchoolScreenshotUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return objectUrl;
+      });
+      setLoadedSchoolScreenshotJobId(job.jobId);
+      setIsSchoolScreenshotProgressOpen(false);
+      setIsSchoolScreenshotModalOpen(true);
+    } catch (err) {
+      message.error(err.response?.data?.detail || err.message || '系统提交情况截图加载失败');
+    }
+  }, [loadedSchoolScreenshotJobId]);
+
+  const handleViewSchoolScreenshot = useCallback(async () => {
+    setIsStartingSchoolScreenshot(true);
+    try {
+      const job = await startSchoolScreenshotJob();
+      showSchoolScreenshotJob(job);
+      if (job.status === 'succeeded') {
+        await loadSchoolScreenshot(job);
+      }
+    } catch (err) {
+      const activeJob = err.response?.data?.detail?.job;
+      if (err.response?.status === 409 && activeJob) {
+        if (activeJob.action === 'school_report_screenshot') {
+          showSchoolScreenshotJob(activeJob);
+        } else {
+          showDetailSyncJob(activeJob);
+          message.warning('已有学校系统任务正在执行，请等待当前任务完成后再查看截图。');
+        }
+      } else {
+        message.error(err.response?.data?.detail || '系统提交情况截图任务启动失败');
+      }
+    } finally {
+      setIsStartingSchoolScreenshot(false);
+    }
+  }, [loadSchoolScreenshot, showDetailSyncJob, showSchoolScreenshotJob, startSchoolScreenshotJob]);
+
+  useEffect(() => () => {
+    if (schoolScreenshotUrl) URL.revokeObjectURL(schoolScreenshotUrl);
+  }, [schoolScreenshotUrl]);
+
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
         const data = await getMe();
+        setCurrentUser(data);
         setCurrentUserRole(data.role || '');
         setCurrentPlan(data.role === 'student' ? (data.capabilities?.plan || 'free') : 'internal');
       } catch (err) {
@@ -322,6 +611,25 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
     }, 0);
   }, [computeMissingNodeIds]);
 
+  const jumpToScoreCheckNode = (record) => {
+    const targetNodeIds = record.missingNodeIds?.length
+      ? record.missingNodeIds
+      : (record.nodeIds || []);
+    if (!targetNodeIds.length) {
+      message.info('当前检查项没有可定位的节点');
+      return;
+    }
+    setComputeMissingNodeIds(new Set(targetNodeIds));
+    setIsScoreCheckModalOpen(false);
+    const firstNodeId = targetNodeIds[0];
+    const escapedNodeId = window.CSS?.escape ? window.CSS.escape(firstNodeId) : firstNodeId.replace(/["\\]/g, '\\$&');
+    window.setTimeout(() => {
+      const target = document.querySelector(`[data-node-id="${escapedNodeId}"]`);
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      target?.focus?.({ preventScroll: true });
+    }, 120);
+  };
+
   const handleFieldChange = (nodeId, value) => {
     setFormValues(prev => {
       const next = { ...prev, [nodeId]: value };
@@ -342,9 +650,27 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
       const latest = isInternalUser && initialSubmission?.id
         ? await getSchoolSubmissionExperimentDetailLatest(experiment.meta.id, initialSubmission.id)
         : await getSchoolExperimentDetailLatest(experiment.meta.id);
+      const schoolFormValues = latest.formValues || {};
       const nextValues = Object.fromEntries(
-        Object.entries(latest.formValues || {}).filter(([, value]) => value !== null && value !== undefined && String(value) !== ''),
+        Object.entries(schoolFormValues).filter(([, value]) => value !== null && value !== undefined && String(value) !== ''),
       );
+      const imageSlotDefs = experiment.inputs?.images || [];
+      const nextImageSlots = {};
+      imageSlotDefs.forEach((slotDef) => {
+        const targetNodeId = slotDef.targetNodeId;
+        if (!targetNodeId || !(targetNodeId in schoolFormValues)) return;
+        const rawValue = schoolFormValues[targetNodeId];
+        const urls = parseSchoolImageSources(rawValue);
+        nextValues[targetNodeId] = urls.join(',');
+        nextImageSlots[slotDef.id] = urls.map((url, index) => ({
+          uid: `school-sync-${targetNodeId}-${index}`,
+          name: `学校系统图片 ${index + 1}`,
+          url,
+        }));
+      });
+      if (Object.keys(nextImageSlots).length) {
+        setImageSlots((prev) => ({ ...prev, ...nextImageSlots }));
+      }
       if (Object.keys(nextValues).length === 0) {
         setAppliedDetailSyncJobId(job.jobId);
         return;
@@ -424,6 +750,89 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
     } catch (e) {
       message.error({ content: `旋转失败: ${e.message}`, key: 'rotate-image' });
       return false;
+    }
+  };
+
+  const handleCompressExperimentImages = async () => {
+    const replacementKey = (slotId, item, index) => `${slotId}::${item?.uid || item?.url || index}`;
+    const entries = Object.entries(imageSlots || {}).flatMap(([slotId, files = []]) => (
+      files.map((item, index) => ({ slotId, item, index }))
+    )).filter(({ item }) => item?.url || item?.originFileObj);
+
+    if (!entries.length) {
+      message.info('当前没有可压缩的图片');
+      return;
+    }
+
+    setIsCompressingImages(true);
+    message.loading({ content: '正在压缩图片...', key: 'compress-images', duration: 0 });
+
+    try {
+      const sourceFiles = [];
+      let originalBytes = 0;
+      for (const entry of entries) {
+        const sourceFile = await resolveCompressSourceFile(entry.item, entry.item.name || `experiment-${entry.index + 1}.png`);
+        sourceFiles.push({ ...entry, sourceFile });
+        originalBytes += sourceFile.size || 0;
+      }
+
+      const targetBytesPerImage = Math.max(
+        MIN_COMPRESSED_IMAGE_BYTES,
+        Math.min(MAX_COMPRESSED_IMAGE_BYTES, Math.floor(SCHOOL_REPORT_TARGET_BYTES / Math.max(sourceFiles.length, 1))),
+      );
+      const replacements = new Map();
+      let compressedBytes = 0;
+      let changedCount = 0;
+
+      for (const entry of sourceFiles) {
+        const compressedFile = await compressImageFile(entry.sourceFile, targetBytesPerImage);
+        compressedBytes += compressedFile.size || 0;
+        if (compressedFile === entry.sourceFile) continue;
+
+        const uploaded = await uploadFile(compressedFile);
+        replacements.set(replacementKey(entry.slotId, entry.item, entry.index), {
+          ...entry.item,
+          name: compressedFile.name,
+          url: uploaded.url,
+          originFileObj: compressedFile,
+          size: compressedFile.size,
+        });
+        changedCount += 1;
+      }
+
+      if (!changedCount) {
+        message.success({
+          content: `当前图片已满足压缩目标，总大小约 ${formatFileSize(originalBytes)}`,
+          key: 'compress-images',
+        });
+        return;
+      }
+
+      const nextSlots = {};
+      Object.entries(imageSlots || {}).forEach(([slotId, files = []]) => {
+        nextSlots[slotId] = files.map((item, index) => replacements.get(replacementKey(slotId, item, index)) || item);
+      });
+
+      const nextValues = { ...formValues };
+      (experiment.inputs?.images || []).forEach((slotDef) => {
+        if (!slotDef?.targetNodeId) return;
+        nextValues[slotDef.targetNodeId] = (nextSlots[slotDef.id] || [])
+          .map((item) => item.url)
+          .filter(Boolean)
+          .join(',');
+      });
+
+      setImageSlots(nextSlots);
+      setFormValues(nextValues);
+      scheduleDraftSave(nextValues, nextSlots);
+      message.success({
+        content: `已压缩 ${changedCount} 张图片：${formatFileSize(originalBytes)} -> ${formatFileSize(compressedBytes)}`,
+        key: 'compress-images',
+      });
+    } catch (error) {
+      message.error({ content: `压缩失败：${error.message}`, key: 'compress-images' });
+    } finally {
+      setIsCompressingImages(false);
     }
   };
 
@@ -567,6 +976,10 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
 
   // --- 后端计算通用接口 ---
   const handleCompute = async () => {
+    if (!canUseFormulaComputeByPlan(currentPlan, isInternalUser)) {
+      message.warning(`当前套餐 (${currentPlan}) 不支持一键计算数据，请升级至 Plus 或 Pro。`);
+      return;
+    }
     const jobId = `compute-${experiment.meta.id}`;
     const progressStage = getAsyncTaskProgressStage(ASYNC_TASK_PROGRESS_PROFILES.formulaCompute, 0);
     setIsComputing(true);
@@ -579,7 +992,13 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
     });
     try {
       const res = await experimentsApi.computeExperimentData(experiment.meta.id, formValues, latestSubmission?.id || null);
-      let nextValues = { ...formValues, ...res.computed_values };
+      const computedValues = res.computed_values || {};
+      const changedCount = Object.entries(computedValues).filter(([nodeId, value]) => {
+        const before = formValues[nodeId];
+        const normalize = (raw) => (raw === null || raw === undefined ? '' : String(raw));
+        return normalize(before) !== normalize(value);
+      }).length;
+      let nextValues = { ...formValues, ...computedValues };
       let nextSlots = imageSlots;
       const generatedAssets = await generateComputedImageAssets({ experiment, values: nextValues });
       for (const asset of generatedAssets) {
@@ -609,11 +1028,13 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
         return next;
       });
       setIsComputing(false);
-      const changedCount = Object.keys(res.computed_values || {}).length;
+      const resultParts = [];
+      if (changedCount > 0) resultParts.push(`已回填 ${changedCount} 项结果`);
+      if (generatedAssets.length > 0) resultParts.push(`已生成 ${generatedAssets.length} 张图片`);
       finishJob(jobId, {
-        message: generatedAssets.length
-          ? `数据计算完成，已回填 ${changedCount} 项结果并生成 ${generatedAssets.length} 张图片，请核对。`
-          : `数据计算完成，已回填 ${changedCount} 项结果，请核对。`,
+        message: resultParts.length
+          ? `数据计算完成，${resultParts.join('并')}，请核对。`
+          : '数据计算完成，未发现需要回填的结果。',
       });
       message.success({ content: '数据计算完成！', key: 'compute' });
     } catch (e) {
@@ -636,9 +1057,31 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
     }
   };
 
+  const handleScoreCheck = async () => {
+    setIsScoreChecking(true);
+    try {
+      const res = await experimentsApi.scoreCheckExperimentData(
+        experiment.meta.id,
+        formValues,
+        latestSubmission?.id || null
+      );
+      setScoreCheckResult(res);
+      setIsScoreCheckModalOpen(true);
+      if (!res.enabled || !res.itemCount) {
+        message.info('当前实验暂无可自动检查的数据规则');
+      } else {
+        message.success('数据合理性检查完成');
+      }
+    } catch (e) {
+      message.error(getApiErrorMessage(e, '数据合理性检查失败'));
+    } finally {
+      setIsScoreChecking(false);
+    }
+  };
+
   // --- 后端自动填空接口 ---
   const handleAssistedFill = async () => {
-    if (!isInternalUser && ['free', 'plus'].includes(currentPlan)) {
+    if (!canUseFixedFillByPlan(currentPlan, isInternalUser)) {
       message.warning(`当前套餐 (${currentPlan}) 不支持一键填空，请升级至 Pro。`);
       return;
     }
@@ -672,15 +1115,31 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
 
   // --- AI 图像识别 ---
   const handleRecognize = async () => {
-    const targetSlot = experiment.ai?.recognition?.imageRef || 'IMG_RAW';
-    const currentFiles = imageSlots[targetSlot] || [];
-    if (!currentFiles || currentFiles.length === 0) {
-      message.warning('请先在相应的区域上传图片');
+    if (!canUseImageRecognitionByPlan(currentPlan, isInternalUser)) {
+      message.warning(`当前套餐 (${currentPlan}) 不支持 AI 图像识别，请升级至 Plus 或 Pro。`);
       return;
     }
-
-    const imagePaths = currentFiles.map(f => f.url).filter(Boolean);
-    if (imagePaths.length === 0) {
+    const recognitionGroups = Array.isArray(experiment.ai?.recognition?.groups) && experiment.ai.recognition.groups.length
+      ? experiment.ai.recognition.groups
+      : [{ imageRef: experiment.ai?.recognition?.imageRef || 'IMG_RAW' }];
+    const runnableGroups = recognitionGroups.map((group) => {
+      const imageRef = group.imageRef;
+      const currentFiles = imageSlots[imageRef] || [];
+      return {
+        ...group,
+        imageRef,
+        imagePaths: currentFiles.map(f => f.url).filter(Boolean),
+      };
+    });
+    const missingGroups = runnableGroups
+      .filter(group => group.required !== false && group.imagePaths.length === 0)
+      .map(group => group.imageRef);
+    if (missingGroups.length) {
+      message.warning(`请先上传识别图片：${missingGroups.join('、')}`);
+      return;
+    }
+    const groupsToRun = runnableGroups.filter(group => group.imagePaths.length > 0);
+    if (!groupsToRun.length) {
       message.warning('图片未上传成功，请重新上传');
       return;
     }
@@ -688,26 +1147,33 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
     setIsRecognizing(true);
     const jobId = `recognize-${experiment.meta.id}`;
     try {
-      await runCeleryTask({
-        jobId,
-        title: '一键识别数据',
-        description: `正在识别 ${imagePaths.length} 张实验图片。`,
-        progressProfile: ASYNC_TASK_PROGRESS_PROFILES.imageRecognition,
-        request: () => recognizeDirect(experiment.meta.id, imagePaths, latestSubmission?.id || null),
-        onSuccess: (result) => {
-          setFormValues(prev => {
-            const next = {
-              ...prev,
-              ...result
+      let mergedResult = {};
+      for (const [index, group] of groupsToRun.entries()) {
+        await runCeleryTask({
+          jobId: `${jobId}-${group.imageRef || index}`,
+          title: groupsToRun.length > 1 ? `一键识别数据 ${index + 1}/${groupsToRun.length}` : '一键识别数据',
+          description: `正在识别 ${group.imagePaths.length} 张实验图片。`,
+          progressProfile: ASYNC_TASK_PROGRESS_PROFILES.imageRecognition,
+          request: () => recognizeDirect(experiment.meta.id, group.imagePaths, latestSubmission?.id || null, group.imageRef),
+          onSuccess: (result) => {
+            mergedResult = {
+              ...mergedResult,
+              ...(result || {}),
             };
-            scheduleDraftSave(next, imageSlots);
-            return next;
-          });
-          message.success({ content: '识别完成！已自动填写数据，请核对！', key: 'recognize' });
-        },
-        successMessage: (result) => `识别完成，已回填 ${Object.keys(result || {}).length} 项数据，请核对。`,
-        failureMessage: 'AI 识别失败。',
+          },
+          successMessage: (result) => `识别完成，已回填 ${Object.keys(result || {}).length} 项数据，请核对。`,
+          failureMessage: 'AI 识别失败。',
+        });
+      }
+      setFormValues(prev => {
+        const next = {
+          ...prev,
+          ...mergedResult
+        };
+        scheduleDraftSave(next, imageSlots);
+        return next;
       });
+      message.success({ content: '识别完成！已自动填写数据，请核对！', key: 'recognize' });
     } catch (e) {
       message.error({ content: e.response?.data?.detail || e.message, key: 'recognize' });
     } finally {
@@ -766,10 +1232,6 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
   };
 
   const handleOneClickSubmit = () => {
-    if (!isInternalUser && ['free', 'plus'].includes(currentPlan)) {
-      message.warning(`当前套餐 (${currentPlan}) 不支持一键提交，请升级至 Pro 或购买单次提交。`);
-      return;
-    }
     setSubmitTargets([{ ...experiment, id: experiment.meta.id, name: experiment.meta.name }]);
     setIsSubmitModalOpen(true);
   };
@@ -845,11 +1307,15 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
         submissionId: saved.id,
         mode: isFinal ? 'final' : 'draft',
       });
-      setAutomationJob(job);
-      setIsAutomationModalOpen(true);
+      if (isInternalUser) {
+        trackSchoolSubmitJobInFloatingPanel(job);
+      } else {
+        setAutomationJob(job);
+        setIsAutomationModalOpen(true);
+      }
       message.success({ content: isFinal ? '已开始正式提交到学校系统。' : '已开始临时提交到学校系统。', key: 'save-correction' });
     } catch (e) {
-      message.error({ content: `保存失败: ${e.response?.data?.detail || e.message}`, key: 'save-correction' });
+      message.error({ content: `保存失败: ${getApiErrorMessage(e)}`, key: 'save-correction' });
     } finally {
       setSaving(false);
     }
@@ -860,11 +1326,11 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
     handleSaveCorrection('final');
   };
 
-  const handleModalSubmit = async (batchImages, targetStudent, isHungup = false, planName = 'pay_per_use') => {
+  const handleModalSubmit = async (batchImages, targetStudent, isHungup = false, planName = 'pay_per_use', resolvedTargets = null, submitOptions = {}) => {
     try {
       const pageImagePaths = Object.values(imageSlots).flat().map(img => img.url).filter(Boolean);
       const { submittedCount } = await submitOneClickExperimentBatch({
-        targets: submitTargets,
+        targets: resolvedTargets || submitTargets,
         batchImages,
         targetStudent,
         isHungup,
@@ -872,6 +1338,7 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
         fallbackImagePaths: {
           [experiment.meta.id]: pageImagePaths,
         },
+        ...submitOptions,
       });
       if (submittedCount === 0) {
         message.warning('请至少上传一个实验的图片');
@@ -881,7 +1348,7 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
       setTimeout(() => navigate('/workspace/student'), 1500);
     } catch (e) {
       if (e.response?.status !== 403 && e.status !== 403) {
-        const msg = e.response?.data?.detail || e.message;
+        const msg = getApiErrorMessage(e);
         message.error(`提交失败: ${msg}`);
       }
       throw e;
@@ -893,6 +1360,182 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
   const recognitionImageRef = experiment.ai?.recognition?.imageRef;
   const recognitionImageSlots = (experiment.inputs?.images || [])
     .filter(slot => slot.id === recognitionImageRef || (slot.purpose !== 'answer_image' && !slot.targetNodeId));
+  const showImageCompressor = IMAGE_COMPRESSOR_EXPERIMENT_IDS.has(experiment.meta?.id);
+  const displayStudentNo = resolveStudentNo(latestSubmission, initialSubmission, currentUser);
+  const renderNodeIdsPopover = (record) => {
+    const nodeIds = record.nodeIds || [];
+    const missingNodeIds = record.missingNodeIds || [];
+    if (!nodeIds.length && !missingNodeIds.length) return '—';
+    const visibleIds = nodeIds.length ? nodeIds : missingNodeIds;
+    const content = (
+      <div style={{ maxWidth: 320 }}>
+        {nodeIds.length > 0 && (
+          <div>
+            <strong>检测节点：</strong>
+            <div style={{ marginTop: 6 }}>
+              <Space size={[4, 4]} wrap>
+                {nodeIds.map((nodeId) => <Tag key={nodeId}>{nodeId}</Tag>)}
+              </Space>
+            </div>
+          </div>
+        )}
+        {missingNodeIds.length > 0 && (
+          <div style={{ marginTop: nodeIds.length ? 10 : 0 }}>
+            <strong>缺失节点：</strong>
+            <div style={{ marginTop: 6 }}>
+              <Space size={[4, 4]} wrap>
+                {missingNodeIds.map((nodeId) => <Tag color="orange" key={nodeId}>{nodeId}</Tag>)}
+              </Space>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+    return (
+      <Popover content={content} trigger="hover" placement="top">
+        <span style={{ display: 'inline-flex', gap: 4, maxWidth: 150, overflow: 'hidden', verticalAlign: 'middle' }}>
+          <Tag style={{ margin: 0 }}>{visibleIds[0]}</Tag>
+          {visibleIds.length > 1 ? <Tag style={{ margin: 0 }}>+{visibleIds.length - 1}</Tag> : null}
+        </span>
+      </Popover>
+    );
+  };
+  const renderReasonWithRulePopover = (value, record) => {
+    const reasonText = value || '无说明';
+    const descriptions = record.ruleDescriptions || [];
+    if (!descriptions.length) return reasonText;
+    return (
+      <span>
+        {reasonText}
+        <Popover
+          placement="top"
+          trigger="hover"
+          content={(
+            <div style={{ maxWidth: 360 }}>
+              <strong>评分规则</strong>
+              <div style={{ marginTop: 8 }}>
+                {descriptions.map((item, idx) => (
+                  <div key={`${record.id}-rule-${idx}`} style={{ lineHeight: 1.8 }}>{item}</div>
+                ))}
+              </div>
+            </div>
+          )}
+        >
+          <QuestionCircleOutlined style={{ marginLeft: 6, color: '#8c8c8c', cursor: 'help' }} />
+        </Popover>
+      </span>
+    );
+  };
+  const scoreCheckColumns = [
+    {
+      title: '检查项',
+      dataIndex: 'title',
+      key: 'title',
+      render: (value, record) => value || record.id,
+    },
+    {
+      title: '结果',
+      dataIndex: 'status',
+      key: 'status',
+      width: 110,
+      align: 'center',
+      render: (status) => {
+        if (status === 'full') return <StatusBadge tone="completed">满分</StatusBadge>;
+        if (status === 'missing') return <StatusBadge tone="warning">缺数据</StatusBadge>;
+        if (status === 'unsupported') return <StatusBadge tone="default">暂不支持</StatusBadge>;
+        if (status === 'partial') return <StatusBadge tone="warning">未满分</StatusBadge>;
+        return <StatusBadge tone="failed">未得分</StatusBadge>;
+      },
+    },
+    {
+      title: '得分',
+      key: 'score',
+      width: 120,
+      align: 'center',
+      render: (_, record) => `${Number(record.score || 0).toFixed(2)} / ${Number(record.maxScore || 0).toFixed(2)}`,
+    },
+    {
+      title: '检测节点',
+      key: 'nodeIds',
+      width: 130,
+      render: (_, record) => renderNodeIdsPopover(record),
+    },
+    {
+      title: '说明',
+      dataIndex: 'reason',
+      key: 'reason',
+      render: (value, record) => renderReasonWithRulePopover(value, record),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 90,
+      align: 'center',
+      render: (_, record) => (
+        <Button size="small" type="link" onClick={() => jumpToScoreCheckNode(record)}>
+          去更改
+        </Button>
+      ),
+    },
+  ];
+  const referenceCheckColumns = [
+    {
+      title: '检查项',
+      dataIndex: 'title',
+      key: 'title',
+      render: (value, record) => value || record.id,
+    },
+    {
+      title: '偏差程度',
+      dataIndex: 'level',
+      key: 'level',
+      width: 120,
+      align: 'center',
+      render: (level) => {
+        if (level === 'good') return <StatusBadge tone="completed">正常</StatusBadge>;
+        if (level === 'warning') return <StatusBadge tone="warning">偏差大</StatusBadge>;
+        if (level === 'danger') return <StatusBadge tone="failed">异常</StatusBadge>;
+        if (level === 'missing') return <StatusBadge tone="warning">缺数据</StatusBadge>;
+        return <StatusBadge tone="pending">未判断</StatusBadge>;
+      },
+    },
+    ...(currentUserRole === 'admin' ? [{
+      title: '典型参考值',
+      key: 'referenceValue',
+      width: 150,
+      render: (_, record) => (
+        record.referenceValue === undefined || record.referenceValue === null
+          ? '—'
+          : `${record.referenceValue}${record.referenceUnit ? ` ${record.referenceUnit}` : ''}`
+      ),
+    }] : []),
+    {
+      title: '检测节点',
+      key: 'nodeIds',
+      width: 130,
+      render: (_, record) => renderNodeIdsPopover(record),
+    },
+    {
+      title: '说明',
+      dataIndex: 'reason',
+      key: 'reason',
+      render: (value, record) => {
+        const source = currentUserRole === 'admin' && record.referenceSource ? `；${record.referenceSource}` : '';
+        return `${value || '无说明'}${source}`;
+      },
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 90,
+      align: 'center',
+      render: (_, record) => (
+        <Button size="small" type="link" onClick={() => jumpToScoreCheckNode(record)}>
+          去更改
+        </Button>
+      ),
+    },
+  ];
 
   return (
     <section className="experiment-detail-page">
@@ -910,6 +1553,24 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
           </div>
         </div>
         <div className="experiment-detail-actions">
+          {showImageCompressor && (
+            <Button
+              icon={<FileZipOutlined />}
+              style={{ background: '#fff' }}
+              loading={isCompressingImages}
+              onClick={handleCompressExperimentImages}
+            >
+              压缩图片
+            </Button>
+          )}
+          <Button
+            icon={<CameraOutlined />}
+            style={{ background: '#fff' }}
+            loading={isStartingSchoolScreenshot}
+            onClick={handleViewSchoolScreenshot}
+          >
+            查看系统提交截图
+          </Button>
           <Button
             icon={<ReloadOutlined />}
             style={{ background: '#fff' }}
@@ -918,6 +1579,16 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
           >
             加载学校数据
           </Button>
+          {isInternalUser && (
+            <Button
+              icon={<CheckCircleOutlined />}
+              style={{ background: '#fff' }}
+              loading={isScoreChecking}
+              onClick={handleScoreCheck}
+            >
+              检查数据合理性
+            </Button>
+          )}
           <Button icon={<SaveOutlined />} style={{ background: '#fff' }} loading={isSavingDraft} onClick={() => handleSaveCorrection('draft')}>临时提交</Button>
           <Button type="primary" icon={<SendOutlined />} loading={isSavingFinal} onClick={() => setIsFinalConfirmOpen(true)}>正式提交</Button>
           <GoldButton onClick={handleOneClickSubmit} icon={<CrownOutlined />}>
@@ -950,64 +1621,66 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
         </SectionShell>
 
         {/* 区域 2：数据表格与图片 */}
-        <SectionShell index="2." title="实验处理">
-          <div className="experiment-data-grid">
-            {/* 左侧：动态表格 */}
-            <div className="experiment-data-wrapper">
-              {(experiment.ui.dataTables?.length || experiment.ui.dataTable) ? (
-                (experiment.ui.dataTables || [experiment.ui.dataTable]).map((table, idx) => (
-                  <ExperimentDataTable
-                    key={idx}
-                    dataTable={table}
-                    formValues={formValues}
-                    onFieldChange={handleFieldChange}
-                    metaInfo={experiment.metaInfo}
-                    showNodeHints={showNodeInspector}
-                    highlightedNodeIds={computeMissingNodeIds}
-                  />
-                ))
-              ) : (
-                <div style={{ color: '#696969' }}>此实验无需填写表格。</div>
-              )}
-            </div>
-
-            {/* 右侧：图片插槽与 AI */}
-            <ExperimentImageUploader
-              images={recognitionImageSlots}
-              imageSlots={imageSlots}
-              onImageUpload={handleImageUpload}
-              onImageReplace={replaceImageInSlot}
-              onRecognize={handleRecognize}
-              isRecognizing={isRecognizing}
-              canUseRecognition={true}
-              recognitionDef={experiment.ai?.recognition}
-              onRemoveImage={(slotId, uid) => removeImageFromSlot(slotId, uid)}
-            />
-          </div>
-
-          {/* 底部附加的计算或推导板块 */}
-          {experiment.ui.postDataSections?.length > 0 && (
-            <div className="experiment-post-data-sections" style={{ borderTop: '1px solid #e1e7f0' }}>
-              <div className="fixed-sections-grid">
-                {experiment.ui.postDataSections.map((section, idx) => (
-                  <div key={idx}>
-                    {section.title && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                        <h3 style={{ margin: 0, fontSize: '15px', color: '#141413' }}>{section.title}</h3>
-                        <Button className="recognize-primary-button" type="primary" icon={<CalculatorOutlined />} onClick={handleCompute} loading={isComputing}>
-                          一键计算数据
-                        </Button>
-                      </div>
-                    )}
-                    <div className="fixed-section-content">
-                      {section.segments.map((seg, sIdx) => renderFixedSegment(seg, sIdx, '80px'))}
-                    </div>
-                  </div>
-                ))}
+        <div>
+          <SectionShell index="2." title="实验处理">
+            <div className="experiment-data-grid">
+              {/* 左侧：动态表格 */}
+              <div className="experiment-data-wrapper">
+                {(experiment.ui.dataTables?.length || experiment.ui.dataTable) ? (
+                  (experiment.ui.dataTables || [experiment.ui.dataTable]).map((table, idx) => (
+                    <ExperimentDataTable
+                      key={idx}
+                      dataTable={table}
+                      formValues={formValues}
+                      onFieldChange={handleFieldChange}
+                      metaInfo={experiment.metaInfo}
+                      showNodeHints={showNodeInspector}
+                      highlightedNodeIds={computeMissingNodeIds}
+                    />
+                  ))
+                ) : (
+                  <div style={{ color: '#696969' }}>此实验无需填写表格。</div>
+                )}
               </div>
+
+              {/* 右侧：图片插槽与 AI */}
+              <ExperimentImageUploader
+                images={recognitionImageSlots}
+                imageSlots={imageSlots}
+                onImageUpload={handleImageUpload}
+                onImageReplace={replaceImageInSlot}
+                onRecognize={handleRecognize}
+                isRecognizing={isRecognizing}
+                canUseRecognition={canUseImageRecognitionByPlan(currentPlan, isInternalUser)}
+                recognitionDef={experiment.ai?.recognition}
+                onRemoveImage={(slotId, uid) => removeImageFromSlot(slotId, uid)}
+              />
             </div>
-          )}
-        </SectionShell>
+
+            {/* 底部附加的计算或推导板块 */}
+            {experiment.ui.postDataSections?.length > 0 && (
+              <div className="experiment-post-data-sections" style={{ borderTop: '1px solid #e1e7f0' }}>
+                <div className="fixed-sections-grid">
+                  {experiment.ui.postDataSections.map((section, idx) => (
+                    <div key={idx}>
+                      {section.title && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                          <h3 style={{ margin: 0, fontSize: '15px', color: '#141413' }}>{section.title}</h3>
+                          <Button className="recognize-primary-button" type="primary" icon={<CalculatorOutlined />} onClick={handleCompute} loading={isComputing}>
+                            一键计算数据
+                          </Button>
+                        </div>
+                      )}
+                      <div className="fixed-section-content">
+                        {section.segments.map((seg, sIdx) => renderFixedSegment(seg, sIdx, '80px'))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </SectionShell>
+        </div>
 
         {/* 区域 3：实验问题 */}
         <SectionShell
@@ -1074,7 +1747,7 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
       <AutomationProgressModal
         open={isDetailSyncModalOpen}
         initialJob={detailSyncJob}
-        title="学校系统实验同步"
+        title={formatStudentTaskTitle(displayStudentNo, experiment.meta.name, '学校系统实验同步')}
         steps={[
           'school.detail.connecting',
           'school.detail.opening',
@@ -1098,6 +1771,109 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
           setIsDetailSyncModalOpen(false);
         }}
       />
+      <AutomationProgressModal
+        open={isSchoolScreenshotProgressOpen}
+        initialJob={schoolScreenshotJob}
+        title={formatStudentTaskTitle(displayStudentNo, experiment.meta.name, '系统提交截图')}
+        steps={[
+          'school.screenshot.connecting',
+          'school.screenshot.opening',
+          'school.screenshot.capturing',
+        ]}
+        stepAliases={{
+          'school.screenshot.syncing': 'school.screenshot.connecting',
+        }}
+        defaultMessageCode="school.screenshot.syncing"
+        failureMessageCode="school.screenshot.failed"
+        onJobUpdate={(job) => {
+          if (job.status === 'succeeded') {
+            loadSchoolScreenshot(job);
+          }
+        }}
+        onClose={(job) => {
+          setIsSchoolScreenshotProgressOpen(false);
+          if (job?.status === 'succeeded') {
+            loadSchoolScreenshot(job);
+          }
+        }}
+      />
+      <Modal
+        title="系统提交情况"
+        open={isSchoolScreenshotModalOpen}
+        footer={null}
+        width="min(1120px, 94vw)"
+        onCancel={() => setIsSchoolScreenshotModalOpen(false)}
+        destroyOnHidden
+      >
+        {schoolScreenshotUrl ? (
+          <div style={{ maxHeight: '78vh', overflow: 'auto', background: '#f5f7fb', border: '1px solid #e1e7f0', borderRadius: '8px', padding: '12px' }}>
+            <img
+              src={schoolScreenshotUrl}
+              alt="学校系统提交情况长截图"
+              style={{ display: 'block', width: '100%', height: 'auto', background: '#fff' }}
+            />
+          </div>
+        ) : (
+          <div style={{ minHeight: '220px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Spin />
+          </div>
+        )}
+      </Modal>
+      <Modal
+        title="数据合理性检查"
+        open={isScoreCheckModalOpen}
+        onCancel={() => setIsScoreCheckModalOpen(false)}
+        footer={null}
+        width={760}
+        destroyOnClose
+      >
+        {scoreCheckResult ? (
+          <div>
+            <div style={{ marginBottom: 12, color: '#4f5b67' }}>
+              可检查得分：
+              <strong style={{ marginLeft: 4, color: '#141413' }}>
+                {Number(scoreCheckResult.score || 0).toFixed(2)} / {Number(scoreCheckResult.computableScore || 0).toFixed(2)}
+              </strong>
+              {scoreCheckResult.totalScore ? (
+                <span style={{ marginLeft: 12 }}>实验总分：{Number(scoreCheckResult.totalScore).toFixed(2)}</span>
+              ) : null}
+            </div>
+            {(scoreCheckResult.notes || []).length > 0 && (
+              <div style={{ marginBottom: 12, color: '#8a6d3b', background: '#fff8e6', border: '1px solid #f3dfad', padding: '8px 10px', borderRadius: 6 }}>
+                {scoreCheckResult.notes.join('；')}
+              </div>
+            )}
+            <Table
+              columns={scoreCheckColumns}
+              dataSource={scoreCheckResult.items || []}
+              rowKey="id"
+              pagination={false}
+              size="small"
+              locale={{ emptyText: '当前实验暂未配置可自动检查的评分规则。' }}
+            />
+            {scoreCheckResult.referenceChecks?.enabled ? (
+              <div style={{ marginTop: 18 }}>
+                <div style={{ marginBottom: 8, color: '#4f5b67' }}>
+                  {scoreCheckResult.referenceChecks.label || '按典型参考值检查'}
+                </div>
+                {(scoreCheckResult.referenceChecks.notes || []).length > 0 && (
+                  <div style={{ marginBottom: 12, color: '#8a6d3b', background: '#fff8e6', border: '1px solid #f3dfad', padding: '8px 10px', borderRadius: 6 }}>
+                    {scoreCheckResult.referenceChecks.notes.join('；')}
+                  </div>
+                )}
+                <Table
+                  columns={referenceCheckColumns}
+                  dataSource={scoreCheckResult.referenceChecks.items || []}
+                  rowKey="id"
+                  pagination={false}
+                  size="small"
+                  locale={{ emptyText: '当前实验暂未配置典型值检查。' }}
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </Modal>
       {/* Pro 一键提交流程弹窗 */}
       <ProSubmitModal
         open={isSubmitModalOpen}
@@ -1142,6 +1918,16 @@ export function ExperimentDetailView({ experiment, onBack, isReviewer = false, s
           }
         }}
       />
+      <button
+        type="button"
+        className="experiment-detail-back-to-top"
+        aria-label="返回页面顶部"
+        title="返回页面顶部"
+        style={{ bottom: backToTopBottom }}
+        onClick={handleBackToTop}
+      >
+        <UpOutlined />
+      </button>
       <AsyncJobFloatingPanel
         jobs={floatingJobs}
         onDismiss={dismissJob}

@@ -17,35 +17,43 @@
     "fields": [
       {
         "id": "SYMD_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "A"
       },
       {
         "id": "SYYL_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "A"
       },
       {
         "id": "SYBZ_Fill_0",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "B"
       },
       {
         "id": "SYBZ_Fill_1",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "A"
       },
       {
         "id": "SYBZ_Fill_2",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "B"
       },
       {
         "id": "SYBZ_Fill_3",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "B"
       },
       {
         "id": "SYBZ_Fill_4",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "B"
       },
       {
         "id": "SYBZ_Fill_5",
-        "type": "fixed"
+        "type": "fixed",
+        "value": "A"
       },
       {
         "id": "YSSJDrawingAreaArea",
@@ -433,7 +441,7 @@
     ],
     "dataTables": [
       {
-        "caption": "表1：标定压力传感器",
+        "caption": "1.表1：标定压力传感器",
         "rows": [
           {
             "isHeader": true,
@@ -496,7 +504,7 @@
         ]
       },
       {
-        "caption": "表2：计算空气比热容比",
+        "caption": "3.表2：计算空气比热容比",
         "rows": [
           {
             "isHeader": true,
@@ -776,9 +784,61 @@
   "ai": {
     "recognition": {
       "imageRef": "IMG_RAW_DATA"
+    },
+    "generation": {
+      "targetRef": "skt0Area",
+      "dataNodes": [
+        "K2",
+        "K4",
+        "K5"
+      ]
     }
   },
-  "formulas": {},
+  "formulas": {
+    "K2": "format_fixed(linear_slope(v(2, 3, 4, 5, 6, 7, 8), v('K10-0', 'K10-1', 'K10-2', 'K10-3', 'K10-4', 'K10-5', 'K10-6')), 2)",
+    "K4": "format_fixed(mean(v('K37-0', 'K37-1', 'K37-2', 'K37-3', 'K37-4', 'K37-5')), 3)",
+    "K5": "format_fixed(relative_std_error_percent(v('K37-0', 'K37-1', 'K37-2', 'K37-3', 'K37-4', 'K37-5')), 2)"
+  },
+  "archivedFormulas": {
+    "K35-0": "format_fixed(v('K34-0') + v('K30-0') / v('K2'), 3)",
+    "K35-1": "format_fixed(v('K34-1') + v('K30-1') / v('K2'), 3)",
+    "K35-2": "format_fixed(v('K34-2') + v('K30-2') / v('K2'), 3)",
+    "K35-3": "format_fixed(v('K34-3') + v('K30-3') / v('K2'), 3)",
+    "K35-4": "format_fixed(v('K34-4') + v('K30-4') / v('K2'), 3)",
+    "K35-5": "format_fixed(v('K34-5') + v('K30-5') / v('K2'), 3)",
+    "K36-0": "format_fixed(v('K34-0') + v('K32-0') / v('K2'), 3)",
+    "K36-1": "format_fixed(v('K34-1') + v('K32-1') / v('K2'), 3)",
+    "K36-2": "format_fixed(v('K34-2') + v('K32-2') / v('K2'), 3)",
+    "K36-3": "format_fixed(v('K34-3') + v('K32-3') / v('K2'), 3)",
+    "K36-4": "format_fixed(v('K34-4') + v('K32-4') / v('K2'), 3)",
+    "K36-5": "format_fixed(v('K34-5') + v('K32-5') / v('K2'), 3)",
+    "K37-0": "format_fixed(ln(v('K35-0') / v('K34-0')) / ln(v('K35-0') / v('K36-0')), 3)",
+    "K37-1": "format_fixed(ln(v('K35-1') / v('K34-1')) / ln(v('K35-1') / v('K36-1')), 3)",
+    "K37-2": "format_fixed(ln(v('K35-2') / v('K34-2')) / ln(v('K35-2') / v('K36-2')), 3)",
+    "K37-3": "format_fixed(ln(v('K35-3') / v('K34-3')) / ln(v('K35-3') / v('K36-3')), 3)",
+    "K37-4": "format_fixed(ln(v('K35-4') / v('K34-4')) / ln(v('K35-4') / v('K36-4')), 3)",
+    "K37-5": "format_fixed(ln(v('K35-5') / v('K34-5')) / ln(v('K35-5') / v('K36-5')), 3)"
+  },
+  "scoreCheck": {
+    "enabled": true,
+    "source": "assets/complete_saves_teacher/22_空气比热容比的测定.html",
+    "totalScore": 10,
+    "computableScore": 1,
+    "items": [
+      {
+        "id": "air_heat_pressure_sensor_slope",
+        "title": "压力传感器灵敏度 k",
+        "nodeId": "K2",
+        "type": "numeric_range",
+        "maxScore": 1,
+        "metricLabel": "k",
+        "ranges": [
+          { "min": 14, "minInclusive": false, "max": 30, "maxInclusive": false, "score": 1 }
+        ]
+      }
+    ],
+    "notes": ["仅检查教师 HTML 中明确给出 14＜k＜30 的项目；未明确参考值的偏差项不纳入自动检查。"]
+  },
   "automation": {
     "mappings": [
       {

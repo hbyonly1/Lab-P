@@ -30,19 +30,22 @@ def run_tests():
     assert res.status_code == 200
     admin_token = res.json()["access_token"]
     
-    print("[Test 4] 🚀 Student creates a 'Pro' order (which costs money)...")
-    res = client.post("/api/v1/orders/", json={"experiment_id": "exp_001", "plan": "pro"}, headers={"Authorization": f"Bearer {student_token}"})
+    print("[Test 4] 🚀 Student creates a 'Pro' checkout order (which costs money)...")
+    res = client.post(
+        "/api/v1/checkout/submit",
+        json={"plan": "pro", "is_hungup": True, "experiments": []},
+        headers={"Authorization": f"Bearer {student_token}"},
+    )
     assert res.status_code == 200
-    order_data = res.json()
+    order_data = res.json()["order"]
     order_id = order_data["id"]
     assert order_data["status"] == "pending_payment"
     
-    print("[Test 5] 🚀 Verifying Student's submission is locked (pending_payment)...")
+    print("[Test 5] 🚀 Verifying plan checkout does not create a submission...")
     res = client.get("/api/v1/submissions/my", headers={"Authorization": f"Bearer {student_token}"})
     assert res.status_code == 200
     submissions = res.json()
-    assert len(submissions) == 1
-    assert submissions[0]["status"] == "pending_payment"
+    assert len(submissions) == 0
     
     print("[Test 6] 🚀 Student maliciously tries to view Review Pool (Should be Blocked!)...")
     res = client.get("/api/v1/submissions/review-pool", headers={"Authorization": f"Bearer {student_token}"})
@@ -53,11 +56,10 @@ def run_tests():
     res = client.post(f"/api/v1/orders/{order_id}/verify", json={"action": "verify"}, headers={"Authorization": f"Bearer {admin_token}"})
     assert res.status_code == 200
     
-    print("[Test 8] 🚀 Verifying Student's submission is now UNLOCKED (not_started)...")
-    res = client.get("/api/v1/submissions/my", headers={"Authorization": f"Bearer {student_token}"})
-    submissions = res.json()
-    assert submissions[0]["status"] == "not_started"
-    print("      ✅ Success: Submission dynamically unlocked!")
+    print("[Test 8] 🚀 Verifying student's plan is now upgraded...")
+    res = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {student_token}"})
+    assert res.json()["capabilities"]["plan"] == "pro"
+    print("      ✅ Success: Plan dynamically upgraded!")
 
     print("\n🎉 ALL TESTS PASSED! The state machine and RBAC are watertight.")
 

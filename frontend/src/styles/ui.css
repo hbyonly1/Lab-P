@@ -403,14 +403,29 @@ textarea.ant-input {
 }
 
 .ui-status-badge-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 7px;
   height: 7px;
   background: currentColor;
   border-radius: 50%;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.ui-status-badge-dot.is-warning {
+  width: 14px;
+  height: 14px;
+  color: #fff;
+  background: #9a6500;
 }
 
 .ui-status-badge.is-submit,
-.ui-status-badge.is-pending {
+.ui-status-badge.is-pending,
+.ui-status-badge.is-warning {
   color: #9a6500;
   background: rgba(246, 166, 9, 0.12);
   border-color: rgba(246, 166, 9, 0.24);

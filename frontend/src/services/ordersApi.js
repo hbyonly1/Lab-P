@@ -1,12 +1,7 @@
 import { apiClient } from './apiClient.js';
 
-export async function createOrder(payload) {
-  const response = await apiClient.post('/api/v1/orders/', payload);
-  return response.data;
-}
-
-export async function getOrders() {
-  const response = await apiClient.get('/api/v1/orders/');
+export async function getOrders(params = {}) {
+  const response = await apiClient.get('/api/v1/orders/', { params });
   return response.data;
 }
 

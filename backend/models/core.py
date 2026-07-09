@@ -35,11 +35,28 @@ class Order(SQLModel, table=True):
     id: str = Field(primary_key=True) # e.g. ORD-12345
     student_id: int = Field(foreign_key="users.id")
     experiment_id: Optional[str] = Field(default=None, foreign_key="experiments.id")
+    order_type: str = Field(default="one_click_batch") # plan_upgrade, one_click_batch
     plan: str # free, pay_per_use, plus, pro
     amount: float
     status: str = Field(default="pending_payment") # pending_payment, paid, rejected
+    submission_batch_id: Optional[str] = Field(default=None, index=True)
+    client_request_id: Optional[str] = Field(default=None, index=True)
+    pricing_snapshot: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
     created_at: datetime = Field(default_factory=get_utc_now)
     updated_at: datetime = Field(default_factory=get_utc_now)
+
+class OrderItem(SQLModel, table=True):
+    __tablename__ = "order_items"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    order_id: str = Field(foreign_key="orders.id", index=True)
+    submission_id: Optional[str] = Field(default=None, foreign_key="submissions.id", index=True)
+    experiment_id: Optional[str] = Field(default=None, foreign_key="experiments.id")
+    item_type: str = Field(default="experiment_one_click") # plan_upgrade, experiment_one_click, batch_submission
+    unit_amount: float
+    quantity: int = Field(default=1)
+    total_amount: float
+    pricing_snapshot: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
+    created_at: datetime = Field(default_factory=get_utc_now)
 
 class Submission(SQLModel, table=True):
     __tablename__ = "submissions"
@@ -124,6 +141,17 @@ class SubmissionDraft(SQLModel, table=True):
     created_at: datetime = Field(default_factory=get_utc_now)
     updated_at: datetime = Field(default_factory=get_utc_now)
 
+class UploadedFile(SQLModel, table=True):
+    __tablename__ = "uploaded_files"
+    id: str = Field(primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True)
+    url: str = Field(index=True, unique=True)
+    storage_path: str
+    original_filename: Optional[str] = Field(default=None)
+    content_type: Optional[str] = Field(default=None)
+    size_bytes: int = Field(default=0)
+    created_at: datetime = Field(default_factory=get_utc_now)
+
 class SchoolSyncSnapshot(SQLModel, table=True):
     __tablename__ = "school_sync_snapshots"
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -201,7 +229,6 @@ class AiConfig(SQLModel, table=True):
     auto_recognize: bool = Field(default=False)
     image_recognition_model: str = Field(default="gpt-4o")
     image_recognition_retry_enabled: bool = Field(default=False)
-    image_recognition_retry_model: Optional[str] = None
     image_recognition_timeout_seconds: int = Field(default=60)
     image_recognition_temperature: float = Field(default=0)
     image_recognition_max_images_per_task: int = Field(default=8)
@@ -212,6 +239,7 @@ class AiConfig(SQLModel, table=True):
     captcha_timeout_seconds: int = Field(default=30)
     captcha_temperature: float = Field(default=0)
     captcha_prompt: str = Field(default="OCR this captcha. Return exactly one token: the 4-character uppercase code.")
+    task_overrides_json: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
     updated_at: datetime = Field(default_factory=get_utc_now)
     updated_by: Optional[int] = Field(default=None, foreign_key="users.id")
 
